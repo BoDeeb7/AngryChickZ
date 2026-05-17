@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from 'next/link';
@@ -32,9 +31,12 @@ export function Navbar() {
     <>
       <nav className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${isScrolled ? 'glass py-3' : 'bg-transparent py-5'}`}>
         <div className="container mx-auto px-6 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 group">
+          <Link href="/" className="flex flex-col items-start group">
             <span className="text-2xl font-headline font-bold text-gradient group-hover:glow-fuchsia transition-all duration-300">
               VELOZI
+            </span>
+            <span className="text-[8px] uppercase tracking-widest text-muted-foreground -mt-1 opacity-70 group-hover:opacity-100 transition-opacity">
+              Powered By Hassan Deeb - Deeb Data
             </span>
           </Link>
 
