@@ -10,7 +10,7 @@ import { Loader2 } from 'lucide-react';
 
 export function ProductGrid() {
   const db = useFirestore();
-  const [activeCategory, setActiveCategory] = useState<string>('الكل');
+  const [activeCategory, setActiveCategory] = useState<string>('All');
 
   // Firebase references with ordering by newest first
   const productsRef = useMemo(() => {
@@ -24,25 +24,25 @@ export function ProductGrid() {
   const { data: products = [], loading: productsLoading } = useCollection<Product>(productsRef);
   const { data: categories = [] } = useCollection<Category>(categoriesRef);
 
-  const filteredProducts = activeCategory === 'الكل' 
+  const filteredProducts = activeCategory === 'All' 
     ? products 
     : products.filter(p => p.category === activeCategory);
 
   return (
     <section className="py-20 container mx-auto px-6" id="shop">
-      <div className="flex flex-col md:flex-row justify-between items-center mb-12 gap-8 text-right" dir="rtl">
+      <div className="flex flex-col md:flex-row justify-between items-center mb-12 gap-8">
         <div>
-          <h2 className="text-4xl font-headline font-bold mb-2">اكتشف <span className="text-gradient">خزنتنا</span></h2>
-          <p className="text-muted-foreground">منتجات متميزة منسقة للعصر الحديث.</p>
+          <h2 className="text-4xl font-headline font-bold mb-2">Explore Our <span className="text-gradient">Vault</span></h2>
+          <p className="text-muted-foreground">Premium products curated for the modern era.</p>
         </div>
 
         <div className="flex flex-wrap gap-2 glass p-1 rounded-full border-white/5 overflow-x-auto max-w-full">
           <Button
             variant="ghost"
-            className={`rounded-full px-6 transition-all duration-300 ${activeCategory === 'الكل' ? 'bg-fuchsia-600 text-white glow-fuchsia' : 'hover:bg-white/5'}`}
-            onClick={() => setActiveCategory('الكل')}
+            className={`rounded-full px-6 transition-all duration-300 ${activeCategory === 'All' ? 'bg-fuchsia-600 text-white glow-fuchsia' : 'hover:bg-white/5'}`}
+            onClick={() => setActiveCategory('All')}
           >
-            الكل
+            All
           </Button>
           {categories.map(cat => (
             <Button
@@ -70,7 +70,7 @@ export function ProductGrid() {
           ))}
           {filteredProducts.length === 0 && (
             <div className="col-span-full text-center py-24 glass rounded-3xl border-white/5">
-              <p className="text-muted-foreground">لا توجد منتجات متوفرة حالياً في هذا القسم.</p>
+              <p className="text-muted-foreground">No products available in this category.</p>
             </div>
           )}
         </div>

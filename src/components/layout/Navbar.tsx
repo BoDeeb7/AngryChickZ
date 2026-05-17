@@ -35,7 +35,7 @@ export function Navbar() {
             <span className="text-2xl font-headline font-bold text-gradient group-hover:glow-fuchsia transition-all duration-300">
               DAKKAK SHOP
             </span>
-            <span className="text-xs uppercase tracking-widest text-fuchsia-500 -mt-1 font-bold opacity-100">
+            <span className="text-sm uppercase tracking-widest text-fuchsia-500 -mt-1 font-bold opacity-100">
               Powered By Hassan Deeb - Deeb Data
             </span>
           </Link>
@@ -44,15 +44,15 @@ export function Navbar() {
             <div className="relative w-full group">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-fuchsia-500 transition-colors" />
               <Input 
-                className="w-full pl-10 bg-white/5 border-white/10 rounded-full focus-visible:ring-fuchsia-500 transition-all duration-300 text-right" 
-                placeholder="ابحث عن منتج..."
+                className="w-full pl-10 bg-white/5 border-white/10 rounded-full focus-visible:ring-fuchsia-500 transition-all duration-300" 
+                placeholder="Search products..."
               />
             </div>
           </div>
 
           <div className="flex items-center gap-4">
             <Link href="/admin" className="hidden sm:block">
-              <Button variant="ghost" className="text-sm text-muted-foreground hover:text-fuchsia-400">الإدارة</Button>
+              <Button variant="ghost" className="text-sm text-muted-foreground hover:text-fuchsia-400">Admin</Button>
             </Link>
 
             <DropdownMenu>
@@ -62,12 +62,12 @@ export function Navbar() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56 glass border-white/10">
-                <DropdownMenuLabel className="text-right">حسابي</DropdownMenuLabel>
+                <DropdownMenuLabel>My Account</DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-white/10" />
-                <DropdownMenuItem className="cursor-pointer text-right justify-end">الملف الشخصي</DropdownMenuItem>
-                <DropdownMenuItem className="cursor-pointer text-right justify-end">الطلبات</DropdownMenuItem>
+                <DropdownMenuItem className="cursor-pointer">Profile</DropdownMenuItem>
+                <DropdownMenuItem className="cursor-pointer">Orders</DropdownMenuItem>
                 <DropdownMenuSeparator className="bg-white/10" />
-                <DropdownMenuItem className="cursor-pointer text-fuchsia-500 text-right justify-end">تسجيل الخروج</DropdownMenuItem>
+                <DropdownMenuItem className="cursor-pointer text-fuchsia-500">Logout</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
