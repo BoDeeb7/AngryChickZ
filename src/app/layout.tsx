@@ -8,7 +8,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase';
 
 export const metadata: Metadata = {
-  title: 'Velozi | Premium Multi-Category E-Commerce',
+  title: 'Dakkak Shop | Premium Multi-Category E-Commerce',
   description: 'Ultra-modern, cinematic e-commerce platform for high-end products.',
 };
 
@@ -18,7 +18,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="ar" dir="rtl" className="dark">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from 'next/link';
-import { ShoppingCart, Search, User, Menu, X } from 'lucide-react';
+import { ShoppingCart, Search, User } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useCart } from '@/context/CartContext';
 import { CartDrawer } from '@/components/shop/CartDrawer';
@@ -33,9 +33,9 @@ export function Navbar() {
         <div className="container mx-auto px-6 flex items-center justify-between">
           <Link href="/" className="flex flex-col items-start group">
             <span className="text-2xl font-headline font-bold text-gradient group-hover:glow-fuchsia transition-all duration-300">
-              VELOZI
+              DAKKAK SHOP
             </span>
-            <span className="text-[8px] uppercase tracking-widest text-muted-foreground -mt-1 opacity-70 group-hover:opacity-100 transition-opacity">
+            <span className="text-xs uppercase tracking-widest text-fuchsia-500 -mt-1 font-bold opacity-100">
               Powered By Hassan Deeb - Deeb Data
             </span>
           </Link>
@@ -44,15 +44,15 @@ export function Navbar() {
             <div className="relative w-full group">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-fuchsia-500 transition-colors" />
               <Input 
-                className="w-full pl-10 bg-white/5 border-white/10 rounded-full focus-visible:ring-fuchsia-500 transition-all duration-300" 
-                placeholder="Search products..."
+                className="w-full pl-10 bg-white/5 border-white/10 rounded-full focus-visible:ring-fuchsia-500 transition-all duration-300 text-right" 
+                placeholder="ابحث عن منتج..."
               />
             </div>
           </div>
 
           <div className="flex items-center gap-4">
             <Link href="/admin" className="hidden sm:block">
-              <Button variant="ghost" className="text-sm text-muted-foreground hover:text-fuchsia-400">Admin</Button>
+              <Button variant="ghost" className="text-sm text-muted-foreground hover:text-fuchsia-400">الإدارة</Button>
             </Link>
 
             <DropdownMenu>
@@ -62,13 +62,12 @@ export function Navbar() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56 glass border-white/10">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuLabel className="text-right">حسابي</DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-white/10" />
-                <DropdownMenuItem className="cursor-pointer">Profile</DropdownMenuItem>
-                <DropdownMenuItem className="cursor-pointer">Orders</DropdownMenuItem>
-                <DropdownMenuItem className="cursor-pointer">Wishlist</DropdownMenuItem>
+                <DropdownMenuItem className="cursor-pointer text-right justify-end">الملف الشخصي</DropdownMenuItem>
+                <DropdownMenuItem className="cursor-pointer text-right justify-end">الطلبات</DropdownMenuItem>
                 <DropdownMenuSeparator className="bg-white/10" />
-                <DropdownMenuItem className="cursor-pointer text-fuchsia-500">Log out</DropdownMenuItem>
+                <DropdownMenuItem className="cursor-pointer text-fuchsia-500 text-right justify-end">تسجيل الخروج</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 

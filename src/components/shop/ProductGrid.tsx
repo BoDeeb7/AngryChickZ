@@ -1,9 +1,8 @@
-
 "use client";
 
 import { useState, useMemo } from 'react';
 import { useFirestore, useCollection } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, query, orderBy } from 'firebase/firestore';
 import { Product, Category } from '@/types/shop';
 import { ProductCard } from './ProductCard';
 import { Button } from '@/components/ui/button';
@@ -11,35 +10,39 @@ import { Loader2 } from 'lucide-react';
 
 export function ProductGrid() {
   const db = useFirestore();
-  const [activeCategory, setActiveCategory] = useState<string>('All');
+  const [activeCategory, setActiveCategory] = useState<string>('الكل');
 
-  // Firebase references
-  const productsRef = useMemo(() => db ? collection(db, 'products') : null, [db]);
+  // Firebase references with ordering by newest first
+  const productsRef = useMemo(() => {
+    if (!db) return null;
+    return query(collection(db, 'products'), orderBy('createdAt', 'desc'));
+  }, [db]);
+
   const categoriesRef = useMemo(() => db ? collection(db, 'categories') : null, [db]);
 
   // Data hooks
   const { data: products = [], loading: productsLoading } = useCollection<Product>(productsRef);
   const { data: categories = [] } = useCollection<Category>(categoriesRef);
 
-  const filteredProducts = activeCategory === 'All' 
+  const filteredProducts = activeCategory === 'الكل' 
     ? products 
     : products.filter(p => p.category === activeCategory);
 
   return (
     <section className="py-20 container mx-auto px-6" id="shop">
-      <div className="flex flex-col md:flex-row justify-between items-center mb-12 gap-8">
+      <div className="flex flex-col md:flex-row justify-between items-center mb-12 gap-8 text-right" dir="rtl">
         <div>
-          <h2 className="text-4xl font-headline font-bold mb-2">Discover Our <span className="text-gradient">Vault</span></h2>
-          <p className="text-muted-foreground">Premium products curated for the modern era.</p>
+          <h2 className="text-4xl font-headline font-bold mb-2">اكتشف <span className="text-gradient">خزنتنا</span></h2>
+          <p className="text-muted-foreground">منتجات متميزة منسقة للعصر الحديث.</p>
         </div>
 
         <div className="flex flex-wrap gap-2 glass p-1 rounded-full border-white/5 overflow-x-auto max-w-full">
           <Button
             variant="ghost"
-            className={`rounded-full px-6 transition-all duration-300 ${activeCategory === 'All' ? 'bg-fuchsia-600 text-white glow-fuchsia' : 'hover:bg-white/5'}`}
-            onClick={() => setActiveCategory('All')}
+            className={`rounded-full px-6 transition-all duration-300 ${activeCategory === 'الكل' ? 'bg-fuchsia-600 text-white glow-fuchsia' : 'hover:bg-white/5'}`}
+            onClick={() => setActiveCategory('الكل')}
           >
-            All
+            الكل
           </Button>
           {categories.map(cat => (
             <Button
@@ -67,7 +70,7 @@ export function ProductGrid() {
           ))}
           {filteredProducts.length === 0 && (
             <div className="col-span-full text-center py-24 glass rounded-3xl border-white/5">
-              <p className="text-muted-foreground">No products found in this section yet.</p>
+              <p className="text-muted-foreground">لا توجد منتجات متوفرة حالياً في هذا القسم.</p>
             </div>
           )}
         </div>
