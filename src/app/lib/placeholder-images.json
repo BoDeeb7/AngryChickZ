@@ -1,0 +1,59 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "tech-1",
+      "description": "Premium Wireless Headphones",
+      "imageUrl": "https://picsum.photos/seed/tech1/600/400",
+      "imageHint": "headphones tech"
+    },
+    {
+      "id": "tech-2",
+      "description": "Smart Watch Pro",
+      "imageUrl": "https://picsum.photos/seed/tech2/600/400",
+      "imageHint": "smartwatch tech"
+    },
+    {
+      "id": "fashion-1",
+      "description": "Cyberpunk Streetwear Jacket",
+      "imageUrl": "https://picsum.photos/seed/fashion1/600/400",
+      "imageHint": "jacket fashion"
+    },
+    {
+      "id": "fashion-2",
+      "description": "Neon Running Sneakers",
+      "imageUrl": "https://picsum.photos/seed/fashion2/600/400",
+      "imageHint": "sneakers fashion"
+    },
+    {
+      "id": "lifestyle-1",
+      "description": "Minimalist Hydro Flask",
+      "imageUrl": "https://picsum.photos/seed/life1/600/400",
+      "imageHint": "bottle lifestyle"
+    },
+    {
+      "id": "lifestyle-2",
+      "description": "Eco-Friendly Yoga Mat",
+      "imageUrl": "https://picsum.photos/seed/life2/600/400",
+      "imageHint": "yoga lifestyle"
+    },
+    {
+      "id": "acc-1",
+      "description": "Carbon Fiber Wallet",
+      "imageUrl": "https://picsum.photos/seed/acc1/600/400",
+      "imageHint": "wallet accessory"
+    },
+    {
+      "id": "acc-2",
+      "description": "Aviator Sunglasses",
+      "imageUrl": "https://picsum.photos/seed/acc2/600/400",
+      "imageHint": "sunglasses accessory"
+    },
+    {
+      "id": "hero-1",
+      "description": "Velozi Hero Image",
+      "imageUrl": "https://picsum.photos/seed/velozihero/1200/800",
+      "imageHint": "luxury fashion"
+    }
+  ]
+}
