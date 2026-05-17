@@ -21,20 +21,21 @@ export function ProductCard({ product }: { product: Product }) {
     });
   };
 
+  const mainImage = product.images?.[0] || 'https://picsum.photos/seed/placeholder/600/400';
+
   return (
     <div className="group relative flex flex-col glass rounded-2xl overflow-hidden border border-white/5 hover:border-fuchsia-500/30 transition-all duration-500 hover:shadow-[0_0_30px_-10px_rgba(217,70,239,0.2)]">
-      <div className="relative aspect-[4/5] overflow-hidden">
+      <div className="relative aspect-[4/5] overflow-hidden bg-white/5">
         {product.badge && (
           <Badge className="absolute top-4 left-4 z-10 bg-fuchsia-600 border-none px-3 py-1 font-headline">
             {product.badge}
           </Badge>
         )}
         <Image 
-          src={product.imageUrl} 
+          src={mainImage} 
           alt={product.name} 
           fill 
           className="object-cover transition-transform duration-700 group-hover:scale-110"
-          data-ai-hint={product.tags.join(' ')}
         />
         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center p-6">
           <Button 
