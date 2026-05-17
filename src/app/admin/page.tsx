@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useRef } from 'react';
@@ -5,6 +6,8 @@ import { useFirestore, useStorage } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Trash2, Edit, Save, X, Image as ImageIcon, Package, Layers, Upload, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Edit, Save, X, Image as ImageIcon, Package, Layers, Upload, Loader2, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Product, Category } from '@/types/shop';
 import Image from 'next/image';
@@ -57,6 +60,7 @@ export default function AdminPage() {
     setExistingImages([]);
     setNewFiles([]);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    setIsUploading(false);
   };
 
   const handleEdit = (p: Product) => {
@@ -88,17 +92,21 @@ export default function AdminPage() {
   };
 
   const handleSaveProduct = async () => {
-    if (!db || !storage) return;
+    if (!db || !storage) {
+      toast({ title: "خطأ في الاتصال", description: "لم يتم تهيئة قاعدة البيانات بشكل صحيح.", variant: "destructive" });
+      return;
+    }
+
     if (!pName || !pPrice || !pCategory) {
-      toast({ title: "خطأ في التحقق", description: "الاسم والسعر والقسم مطلوبة.", variant: "destructive" });
+      toast({ title: "حقول ناقصة", description: "يرجى ملء الاسم، السعر، والقسم.", variant: "destructive" });
       return;
     }
 
     setIsUploading(true);
 
     try {
-      // 1. Upload new files
-      const uploadedUrls = [];
+      // 1. Upload new files to Firebase Storage
+      const uploadedUrls: string[] = [];
       for (const file of newFiles) {
         const storagePath = `products/${Date.now()}-${file.name}`;
         const storageRef = ref(storage, storagePath);
@@ -107,11 +115,11 @@ export default function AdminPage() {
         uploadedUrls.push(url);
       }
 
-      // 2. Combine with existing
+      // 2. Prepare combined images list
       const allImages = [...existingImages, ...uploadedUrls];
 
       if (allImages.length === 0) {
-        toast({ title: "تنبيه", description: "يجب إضافة صورة واحدة على الأقل.", variant: "destructive" });
+        toast({ title: "لا توجد صور", description: "يجب إرفاق صورة واحدة على الأقل للمنتج.", variant: "destructive" });
         setIsUploading(false);
         return;
       }
@@ -119,61 +127,107 @@ export default function AdminPage() {
       const productData = {
         name: pName,
         description: pDesc,
-        price: parseFloat(pPrice),
+        price: parseFloat(pPrice) || 0,
         category: pCategory,
         status: pStatus,
         images: allImages,
-        stock: parseInt(pStock),
+        stock: parseInt(pStock) || 0,
         updatedAt: serverTimestamp(),
       };
 
+      // 3. Save metadata to Firestore (Non-blocking pattern)
       if (editingId) {
-        await updateDoc(doc(db, 'products', editingId), productData);
-        toast({ title: "تم التحديث", description: "تم حفظ تعديلات المنتج بنجاح." });
+        const docRef = doc(db, 'products', editingId);
+        updateDoc(docRef, productData)
+          .then(() => {
+            toast({ title: "تم التحديث", description: "تم حفظ تعديلات المنتج بنجاح." });
+            resetForm();
+          })
+          .catch(async (error) => {
+            const permissionError = new FirestorePermissionError({
+              path: docRef.path,
+              operation: 'update',
+              requestResourceData: productData,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+            setIsUploading(false);
+          });
       } else {
-        await addDoc(collection(db, 'products'), { ...productData, createdAt: serverTimestamp() });
-        toast({ title: "تمت الإضافة", description: "تم إطلاق المنتج الجديد بنجاح." });
+        const collectionRef = collection(db, 'products');
+        addDoc(collectionRef, { ...productData, createdAt: serverTimestamp() })
+          .then(() => {
+            toast({ title: "تمت الإضافة", description: "تم إطلاق المنتج الجديد بنجاح." });
+            resetForm();
+          })
+          .catch(async (error) => {
+            const permissionError = new FirestorePermissionError({
+              path: collectionRef.path,
+              operation: 'create',
+              requestResourceData: { ...productData, createdAt: 'SERVER_TIMESTAMP' },
+            });
+            errorEmitter.emit('permission-error', permissionError);
+            setIsUploading(false);
+          });
       }
-      resetForm();
     } catch (err: any) {
-      toast({ title: "خطأ", description: err.message, variant: "destructive" });
-    } finally {
       setIsUploading(false);
+      toast({ title: "فشل الرفع", description: err.message || "حدث خطأ أثناء رفع الصور.", variant: "destructive" });
     }
   };
 
   const handleDeleteProduct = async (id: string) => {
-    if (!db || !confirm('هل أنت متأكد من حذف هذا المنتج؟')) return;
-    try {
-      await deleteDoc(doc(db, 'products', id));
-      toast({ title: "تم الحذف", description: "تمت إزالة المنتج من المخزن." });
-    } catch (err: any) {
-      toast({ title: "خطأ", description: err.message, variant: "destructive" });
-    }
+    if (!db || !confirm('هل أنت متأكد من حذف هذا المنتج نهائياً؟')) return;
+    const docRef = doc(db, 'products', id);
+    deleteDoc(docRef)
+      .then(() => {
+        toast({ title: "تم الحذف", description: "تمت إزالة المنتج من المخزن بنجاح." });
+      })
+      .catch(async (error) => {
+        const permissionError = new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      });
   };
 
   const handleAddSection = async () => {
     if (!db || !newSection) return;
-    try {
-      await addDoc(collection(db, 'categories'), { 
-        name: newSection, 
-        slug: newSection.toLowerCase().replace(/\s+/g, '-') 
+    const collectionRef = collection(db, 'categories');
+    const categoryData = { 
+      name: newSection, 
+      slug: newSection.toLowerCase().replace(/\s+/g, '-') 
+    };
+    
+    addDoc(collectionRef, categoryData)
+      .then(() => {
+        setNewSection('');
+        toast({ title: "تم إضافة القسم", description: `القسم الجديد "${newSection}" متوفر الآن.` });
+      })
+      .catch(async (error) => {
+        const permissionError = new FirestorePermissionError({
+          path: collectionRef.path,
+          operation: 'create',
+          requestResourceData: categoryData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
       });
-      setNewSection('');
-      toast({ title: "تمت إضافة قسم", description: `القسم الجديد ${newSection} متاح الآن.` });
-    } catch (err: any) {
-      toast({ title: "خطأ", description: err.message, variant: "destructive" });
-    }
   };
 
   const handleDeleteSection = async (id: string) => {
-    if (!db || !confirm('حذف هذا القسم؟')) return;
-    try {
-      await deleteDoc(doc(db, 'categories', id));
-      toast({ title: "تم حذف القسم" });
-    } catch (err: any) {
-      toast({ title: "خطأ", description: err.message, variant: "destructive" });
-    }
+    if (!db || !confirm('حذف هذا القسم بالكامل؟')) return;
+    const docRef = doc(db, 'categories', id);
+    deleteDoc(docRef)
+      .then(() => {
+        toast({ title: "تم حذف القسم" });
+      })
+      .catch(async (error) => {
+        const permissionError = new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      });
   };
 
   return (
@@ -194,7 +248,7 @@ export default function AdminPage() {
               <CardHeader className="border-b border-white/5 bg-white/[0.02]">
                 <CardTitle className="flex items-center gap-2">
                   <Package className="h-5 w-5 text-fuchsia-500" />
-                  {editingId ? 'تعديل المنتج' : 'إضافة منتج جديد'}
+                  {editingId ? 'تعديل المنتج الحالي' : 'تنزيل منتج جديد'}
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 space-y-6">
@@ -289,7 +343,7 @@ export default function AdminPage() {
                         >
                           <X className="h-3 w-3 text-white" />
                         </button>
-                        <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                           <Badge variant="secondary" className="bg-fuchsia-500 text-[8px]">جديد</Badge>
                         </div>
                       </div>
@@ -312,7 +366,7 @@ export default function AdminPage() {
                     disabled={isUploading}
                   >
                     {isUploading ? (
-                      <><Loader2 className="ml-2 h-4 w-4 animate-spin" /> جاري الرفع...</>
+                      <><Loader2 className="ml-2 h-4 w-4 animate-spin" /> جاري الرفع والحفظ...</>
                     ) : (
                       editingId ? <><Save className="ml-2 h-4 w-4" /> تحديث المنتج</> : <><Plus className="ml-2 h-4 w-4" /> إطلاق المنتج</>
                     )}
