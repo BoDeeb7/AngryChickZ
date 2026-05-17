@@ -9,6 +9,13 @@ import { ArrowRight, Sparkles } from 'lucide-react';
 export function Hero() {
   const heroImage = PlaceHolderImages.find(img => img.id === 'hero-1')?.imageUrl || '';
 
+  const scrollToShop = () => {
+    const shopSection = document.getElementById('shop');
+    if (shopSection) {
+      shopSection.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <section className="relative min-h-[90vh] flex items-center overflow-hidden">
       {/* Background Decor */}
@@ -27,10 +34,19 @@ export function Hero() {
             Discover a curated collection of ultra-modern tech, fashion, and accessories designed for those who live on the edge of tomorrow.
           </p>
           <div className="flex flex-wrap gap-4">
-            <Button size="lg" className="rounded-full bg-fuchsia-600 hover:bg-fuchsia-700 glow-fuchsia group">
+            <Button 
+              size="lg" 
+              className="rounded-full bg-fuchsia-600 hover:bg-fuchsia-700 glow-fuchsia group"
+              onClick={scrollToShop}
+            >
               Shop Now <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </Button>
-            <Button size="lg" variant="outline" className="rounded-full border-white/10 hover:bg-white/5">
+            <Button 
+              size="lg" 
+              variant="outline" 
+              className="rounded-full border-white/10 hover:bg-white/5"
+              onClick={scrollToShop}
+            >
               View Lookbook
             </Button>
           </div>

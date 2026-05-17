@@ -53,34 +53,6 @@ export default function Home() {
       </section>
 
       <ProductGrid />
-
-      {/* Modern Newsletter Section */}
-      <section className="py-24 container mx-auto px-6">
-        <div className="relative glass p-12 md:p-20 rounded-[3rem] border-white/10 overflow-hidden text-center max-w-5xl mx-auto">
-          <div className="absolute -top-24 -left-24 w-64 h-64 bg-fuchsia-600/20 blur-[100px] rounded-full" />
-          <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-violet-600/20 blur-[100px] rounded-full" />
-          
-          <div className="relative z-10 space-y-6">
-            <h2 className="text-4xl md:text-5xl font-headline font-bold">Join the <span className="text-gradient">Inner Circle</span></h2>
-            <p className="text-muted-foreground max-w-xl mx-auto text-lg leading-relaxed">
-              Unlock exclusive access to early product drops, limited edition designs, and VIP events.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto pt-6">
-              <input 
-                type="email" 
-                placeholder="Enter your email" 
-                className="flex-grow h-14 bg-white/5 border border-white/10 rounded-full px-6 focus:outline-none focus:border-fuchsia-500 transition-colors"
-              />
-              <button className="h-14 px-8 bg-fuchsia-600 hover:bg-fuchsia-700 glow-fuchsia rounded-full font-bold transition-all">
-                Subscribe
-              </button>
-            </div>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-widest pt-4 opacity-50">
-              NO SPAM &bull; UNSUBSCRIBE ANYTIME &bull; PRIVACY PROTECTED
-            </p>
-          </div>
-        </div>
-      </section>
     </div>
   );
 }
