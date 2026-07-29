@@ -39,7 +39,7 @@
   }
 
   [data-theme='red-black'] {
-    --background: 222 47% 6%; /* #111827 Onyx-ish */
+    --background: 222 47% 6%; /* #111827 */
     --foreground: 48 100% 98%;
     --card: 222 47% 8%;
     --card-foreground: 48 100% 98%;
@@ -62,7 +62,7 @@
 
   [data-theme='black-orange'] {
     --background: 240 10% 3%; /* Midnight Black #09090B */
-    --foreground: 38 92% 50%; /* Amber highlights */
+    --foreground: 38 92% 50%;
     --card: 240 10% 5%;
     --card-foreground: 48 100% 98%;
     --primary: 25 95% 53%; /* Electric Orange #F97316 */
@@ -73,7 +73,7 @@
 
   [data-theme='green-orange'] {
     --background: 161 88% 20%; /* Emerald #065F46 */
-    --foreground: 160 30% 96%; /* Mint White */
+    --foreground: 160 30% 96%;
     --card: 161 88% 15%;
     --card-foreground: 160 30% 96%;
     --primary: 28 95% 61%; /* Zesty Orange #FB923C */
@@ -89,41 +89,52 @@
   }
   body {
     @apply bg-background text-foreground antialiased font-body transition-colors duration-500;
+    background-attachment: fixed;
   }
 }
 
 .glass-header {
-  @apply backdrop-blur-xl bg-background/70 border-b border-primary/10;
+  @apply backdrop-blur-xl bg-background/60 border-b border-primary/5;
 }
 
 .glass-card {
-  @apply backdrop-blur-xl bg-card/80 border border-primary/10 shadow-xl transition-all duration-300;
+  @apply backdrop-blur-2xl bg-card/40 border border-primary/5 shadow-2xl transition-all duration-500;
 }
 
-.bg-warm-glow {
-  background: radial-gradient(circle at 0% 0%, hsl(var(--primary) / 0.08) 0%, transparent 50%),
-              radial-gradient(circle at 100% 100%, hsl(var(--secondary) / 0.08) 0%, transparent 50%);
+.ambient-glow {
+  background: radial-gradient(circle at 20% 30%, hsl(var(--primary) / 0.15) 0%, transparent 40%),
+              radial-gradient(circle at 80% 70%, hsl(var(--secondary) / 0.15) 0%, transparent 40%);
 }
 
-.text-gradient-crimson {
-  @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary;
+.mesh-transition {
+  @apply relative;
 }
 
-@keyframes slow-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+.mesh-transition::after {
+  content: "";
+  @apply absolute bottom-0 left-0 w-full h-64 pointer-events-none;
+  background: linear-gradient(to bottom, transparent, hsl(var(--background)));
 }
 
-.animate-slow-spin {
-  animation: slow-spin 20s linear infinite;
+.mesh-transition-top::before {
+  content: "";
+  @apply absolute top-0 left-0 w-full h-64 pointer-events-none z-0;
+  background: linear-gradient(to top, transparent, hsl(var(--background)));
 }
 
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
+@keyframes slow-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.15; }
+  50% { transform: scale(1.1); opacity: 0.25; }
 }
-.custom-scrollbar::-webkit-scrollbar-track {
-  @apply bg-transparent;
+
+.animate-glow-slow {
+  animation: slow-pulse 10s infinite ease-in-out;
 }
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  @apply bg-primary/20 rounded-full;
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

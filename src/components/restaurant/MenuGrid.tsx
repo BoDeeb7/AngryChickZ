@@ -20,7 +20,7 @@ export function MenuGrid() {
   const { data: dbCategories = [] } = useCollection<Category>(categoriesRef);
 
   const categories = useMemo(() => {
-    const base = [{ id: 'all', name: 'All', slug: 'all' }];
+    const base = [{ id: 'all', name: 'All Dishes', slug: 'all' }];
     return [...base, ...dbCategories];
   }, [dbCategories]);
 
@@ -31,29 +31,33 @@ export function MenuGrid() {
   }, [dbProducts, activeCategory]);
 
   return (
-    <section id="menu" className="py-32 relative bg-white/50">
-      <div className="container mx-auto px-6">
-        <div className="flex flex-col items-center text-center mb-20 gap-8">
-          <div className="space-y-4">
-            <span className="text-primary font-black uppercase tracking-[0.4em] text-[11px]">Hand-Crafted Goodness</span>
-            <h2 className="text-5xl lg:text-7xl font-black text-foreground tracking-tighter uppercase italic">Signature Selection</h2>
+    <section id="menu" className="py-40 relative mesh-transition-top">
+      {/* Background ambient orbs */}
+      <div className="absolute top-[20%] right-[-5%] w-[40%] h-[40%] bg-secondary/5 blur-[120px] rounded-full" />
+      <div className="absolute bottom-[20%] left-[-5%] w-[40%] h-[40%] bg-primary/5 blur-[120px] rounded-full" />
+
+      <div className="container mx-auto px-6 relative z-10">
+        <div className="flex flex-col items-center text-center mb-32 gap-12">
+          <div className="space-y-6">
+            <span className="text-primary font-black uppercase tracking-[0.5em] text-[12px] block">Premium Sector Selection</span>
+            <h2 className="text-6xl lg:text-[120px] font-black text-foreground tracking-tighter uppercase italic leading-[0.9]">Masterful Menu</h2>
           </div>
 
-          <div className="flex flex-row overflow-x-auto no-scrollbar gap-10 justify-center py-4 w-full border-b border-amber-500/10">
+          <div className="flex flex-row overflow-x-auto no-scrollbar gap-12 justify-center py-6 w-full max-w-4xl border-b border-primary/5">
             {categories.map(cat => (
               <button
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.slug)}
                 className={cn(
-                  "relative text-[11px] font-black uppercase tracking-[0.3em] transition-all duration-300 pb-4 whitespace-nowrap",
+                  "relative text-[12px] font-black uppercase tracking-[0.4em] transition-all duration-500 pb-6 whitespace-nowrap",
                   activeCategory === cat.slug 
                     ? "text-primary scale-110" 
-                    : "text-foreground/30 hover:text-foreground/60"
+                    : "text-foreground/20 hover:text-foreground/40"
                 )}
               >
                 {cat.name}
                 {activeCategory === cat.slug && (
-                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-primary rounded-full animate-in fade-in slide-in-from-bottom-2 duration-500" />
+                  <span className="absolute bottom-[-1px] left-0 w-full h-[3px] bg-primary rounded-full animate-in fade-in slide-in-from-bottom-2 duration-700 shadow-[0_0_10px_rgba(225,29,72,0.4)]" />
                 )}
               </button>
             ))}
@@ -61,21 +65,21 @@ export function MenuGrid() {
         </div>
 
         {productsLoading && dbProducts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-32 opacity-20">
-            <Loader2 className="h-12 w-12 animate-spin mb-4" />
-            <p className="text-sm font-black uppercase tracking-widest">Preparing the menu...</p>
+          <div className="flex flex-col items-center justify-center py-40 opacity-30">
+            <Loader2 className="h-16 w-16 animate-spin mb-6 text-primary" />
+            <p className="text-xs font-black uppercase tracking-widest">Hydrating Menu Items...</p>
           </div>
         ) : displayProducts.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-12">
             {displayProducts.map(product => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
         ) : (
-          <div className="text-center py-32 glass-card rounded-[3rem] border-dashed border-amber-500/20">
-            <Utensils className="h-16 w-16 mx-auto mb-6 text-foreground/10" />
-            <h3 className="text-2xl font-black text-foreground mb-2 uppercase italic">No Items Found</h3>
-            <p className="text-muted-foreground font-medium">We are currently updating this section.</p>
+          <div className="text-center py-40 glass-card rounded-[4rem] border-dashed border-primary/10">
+            <Utensils className="h-20 w-20 mx-auto mb-8 text-foreground/5" />
+            <h3 className="text-3xl font-black text-foreground mb-3 uppercase italic">Sector Empty</h3>
+            <p className="text-foreground/40 font-bold uppercase tracking-widest text-[10px]">Updating inventory for this category.</p>
           </div>
         )}
       </div>
