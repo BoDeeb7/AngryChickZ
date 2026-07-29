@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Plus, 
@@ -19,7 +20,8 @@ import {
   ImageIcon, 
   Globe, 
   X,
-  Palette
+  Palette,
+  Save
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -31,67 +33,33 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Product, Category, Review, StoreSettings } from '@/types/restaurant';
+import { useFirestore, useCollection, useDoc } from '@/firebase';
+import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [storeSettings, setStoreSettings] = useState<StoreSettings>({
-    phone: '',
-    address: '',
-    instagram: '',
-    facebook: '',
-    tiktok: '',
-    whatsappNumber: '',
-    openingHours: ''
-  });
-  const [heroSettings, setHeroSettings] = useState({
-    bgImage: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1600&auto=format&fit=crop',
-    bannerImage: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1600&auto=format&fit=crop',
-    bannerHeadline: 'LEVEL 5 HEAT',
-    bannerText: 'Elite Signature Release'
-  });
-  const [adminLogo, setAdminLogo] = useState<string | null>(null);
+  const db = useFirestore();
 
-  useEffect(() => {
-    return () => {
-      setIsAuthenticated(false);
-    };
-  }, []);
+  // Firestore Data Hooks
+  const productsRef = useMemo(() => db ? collection(db, 'products') : null, [db]);
+  const categoriesRef = useMemo(() => db ? collection(db, 'categories') : null, [db]);
+  const reviewsRef = useMemo(() => db ? collection(db, 'reviews') : null, [db]);
+  const storeRef = useMemo(() => db ? doc(db, 'settings', 'store') : null, [db]);
+  const heroRef = useMemo(() => db ? doc(db, 'settings', 'hero') : null, [db]);
 
-  useEffect(() => {
-    const savedProducts = localStorage.getItem('angry_chickz_products');
-    const savedCats = localStorage.getItem('angry_chickz_categories');
-    const savedReviews = localStorage.getItem('angry_chickz_reviews');
-    const savedStore = localStorage.getItem('angry_chickz_store_settings');
-    const savedHero = localStorage.getItem('angry_chickz_hero_settings');
-    const savedLogo = localStorage.getItem('angry_chickz_logo');
-
-    if (savedProducts) setProducts(JSON.parse(savedProducts));
-    if (savedCats) setCategories(JSON.parse(savedCats));
-    if (savedReviews) setReviews(JSON.parse(savedReviews));
-    if (savedStore) setStoreSettings(JSON.parse(savedStore));
-    if (savedHero) setHeroSettings(JSON.parse(savedHero));
-    if (savedLogo) setAdminLogo(savedLogo);
-  }, []);
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      localStorage.setItem('angry_chickz_products', JSON.stringify(products));
-      localStorage.setItem('angry_chickz_categories', JSON.stringify(categories));
-      localStorage.setItem('angry_chickz_reviews', JSON.stringify(reviews));
-      localStorage.setItem('angry_chickz_store_settings', JSON.stringify(storeSettings));
-      localStorage.setItem('angry_chickz_hero_settings', JSON.stringify(heroSettings));
-      if (adminLogo) localStorage.setItem('angry_chickz_logo', adminLogo);
-    }
-  }, [products, categories, reviews, storeSettings, heroSettings, adminLogo, isAuthenticated]);
+  const { data: products = [] } = useCollection<Product>(productsRef);
+  const { data: categories = [] } = useCollection<Category>(categoriesRef);
+  const { data: reviews = [] } = useCollection<Review>(reviewsRef);
+  const { data: storeSettings } = useDoc<StoreSettings>(storeRef);
+  const { data: heroSettings } = useDoc<any>(heroRef);
 
   const [isEditing, setIsEditing] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -101,7 +69,7 @@ export default function AdminPage() {
     badges: [] as string[],
   });
 
-  const [newCategory, setNewCategory] = useState({ name: '', slug: '' });
+  const [newCategory, setNewCategory] = useState({ name: '' });
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,49 +85,60 @@ export default function AdminPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setIsUploading(true);
+    setIsSubmitting(true);
     const reader = new FileReader();
     reader.onloadend = () => {
       const base64 = reader.result as string;
       if (target === 'product') {
         setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, base64] }));
-      } else if (target === 'heroBg') {
-        setHeroSettings(prev => ({ ...prev, bgImage: base64 }));
-      } else if (target === 'heroBanner') {
-        setHeroSettings(prev => ({ ...prev, bannerImage: base64 }));
-      } else if (target === 'logo') {
-        setAdminLogo(base64);
+      } else if (target === 'heroBg' && db) {
+        setDoc(doc(db, 'settings', 'hero'), { ...heroSettings, bgImage: base64 }, { merge: true });
+      } else if (target === 'heroBanner' && db) {
+        setDoc(doc(db, 'settings', 'hero'), { ...heroSettings, bannerImage: base64 }, { merge: true });
+      } else if (target === 'logo' && db) {
+        setDoc(doc(db, 'settings', 'store'), { ...storeSettings, logo: base64 }, { merge: true });
       }
-      setIsUploading(false);
+      setIsSubmitting(false);
       toast({ title: "Upload Success" });
     };
     reader.readAsDataURL(file);
   };
 
   const handleSaveProduct = () => {
-    if (!formData.name || !formData.price || !formData.category) {
+    if (!formData.name || !formData.price || !formData.category || !db) {
       toast({ variant: "destructive", title: "Required", description: "Missing essential info." });
       return;
     }
 
-    const newProduct: Product = {
-      id: isEditing || Date.now().toString(),
+    setIsSubmitting(true);
+    const productData = {
       name: formData.name,
       description: formData.description,
       price: parseFloat(formData.price),
       category: formData.category,
       imageUrls: formData.imageUrls,
       badges: formData.badges,
-      createdAt: new Date().toISOString()
+      createdAt: serverTimestamp()
     };
 
-    if (isEditing) {
-      setProducts(prev => prev.map(p => p.id === isEditing ? newProduct : p));
-    } else {
-      setProducts(prev => [newProduct, ...prev]);
-    }
-    resetForm();
-    toast({ title: "Saved" });
+    const mutationPromise = isEditing 
+      ? setDoc(doc(db, 'products', isEditing), productData, { merge: true })
+      : addDoc(collection(db, 'products'), productData);
+
+    mutationPromise
+      .then(() => {
+        setIsSubmitting(false);
+        resetForm();
+        toast({ title: "Product Saved" });
+      })
+      .catch(err => {
+        setIsSubmitting(false);
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: isEditing ? `/products/${isEditing}` : '/products',
+          operation: isEditing ? 'update' : 'create',
+          requestResourceData: productData
+        }));
+      });
   };
 
   const resetForm = () => {
@@ -180,22 +159,36 @@ export default function AdminPage() {
   };
 
   const deleteProduct = (id: string) => {
-    if (confirm('Delete permanently?')) {
-      setProducts(prev => prev.filter(p => p.id !== id));
-    }
+    if (!db || !confirm('Delete permanently?')) return;
+    deleteDoc(doc(db, 'products', id))
+      .catch(err => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: `/products/${id}`,
+          operation: 'delete'
+        }));
+      });
   };
 
   const addCategory = () => {
-    if (!newCategory.name) return;
+    if (!newCategory.name || !db) return;
+    setIsSubmitting(true);
     const slug = newCategory.name.toLowerCase().replace(/\s+/g, '-');
-    setCategories(prev => [...prev, { id: Date.now().toString(), name: newCategory.name, slug }]);
-    setNewCategory({ name: '', slug: '' });
+    addDoc(collection(db, 'categories'), { name: newCategory.name, slug })
+      .then(() => {
+        setIsSubmitting(false);
+        setNewCategory({ name: '' });
+      })
+      .catch(() => setIsSubmitting(false));
   };
 
   const deleteCategory = (id: string) => {
-    if (confirm('Delete category?')) {
-      setCategories(prev => prev.filter(c => c.id !== id));
-    }
+    if (!db || !confirm('Delete category?')) return;
+    deleteDoc(doc(db, 'categories', id));
+  };
+
+  const updateSettings = (field: keyof StoreSettings, value: string) => {
+    if (!db) return;
+    setDoc(doc(db, 'settings', 'store'), { [field]: value }, { merge: true });
   };
 
   if (!isAuthenticated) {
@@ -293,7 +286,7 @@ export default function AdminPage() {
                   <Input 
                     value={formData.name} 
                     onChange={e => setFormData(f => ({ ...f, name: e.target.value }))} 
-                    className="bg-zinc-800 border-zinc-700 rounded-xl text-white focus:ring-amber-500/50"
+                    className="bg-zinc-800 border-zinc-700 rounded-xl text-white"
                   />
                 </div>
                 <div className="space-y-2">
@@ -301,7 +294,7 @@ export default function AdminPage() {
                   <Textarea 
                     value={formData.description} 
                     onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} 
-                    className="bg-zinc-800 border-zinc-700 rounded-xl min-h-[80px] text-white"
+                    className="bg-zinc-800 border-zinc-700 rounded-xl min-h-[80px]"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -311,7 +304,7 @@ export default function AdminPage() {
                       type="number" 
                       value={formData.price} 
                       onChange={e => setFormData(f => ({ ...f, price: e.target.value }))} 
-                      className="bg-zinc-800 border-zinc-700 rounded-xl text-white"
+                      className="bg-zinc-800 border-zinc-700 rounded-xl"
                     />
                   </div>
                   <div className="space-y-2">
@@ -335,15 +328,16 @@ export default function AdminPage() {
                         <button onClick={() => setFormData(f => ({ ...f, imageUrls: f.imageUrls.filter((_, idx) => idx !== i) }))} className="absolute inset-0 bg-red-500/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4" /></button>
                       </div>
                     ))}
-                    <label className="h-16 w-16 flex flex-col items-center justify-center bg-zinc-800 border-2 border-dashed border-zinc-700 rounded-lg cursor-pointer hover:border-amber-500 transition-all">
-                      {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5 text-zinc-500" />}
+                    <label className="h-16 w-16 flex flex-col items-center justify-center bg-zinc-800 border-2 border-dashed border-zinc-700 rounded-lg cursor-pointer hover:border-amber-500">
+                      {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5 text-zinc-500" />}
                       <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'product')} />
                     </label>
                   </div>
                 </div>
                 <div className="flex gap-2 pt-4">
-                  <Button onClick={handleSaveProduct} className="flex-grow bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold rounded-xl uppercase tracking-widest text-xs h-11 transition-all">
-                    Save Item
+                  <Button disabled={isSubmitting} onClick={handleSaveProduct} className="flex-grow bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold rounded-xl uppercase tracking-widest text-xs h-11">
+                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    {isEditing ? 'Update Item' : 'Save Item'}
                   </Button>
                   {isEditing && (
                     <Button variant="ghost" onClick={resetForm} className="bg-zinc-800 hover:bg-zinc-700 rounded-xl h-11 w-11 p-0">
@@ -363,7 +357,7 @@ export default function AdminPage() {
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 {products.map(product => (
-                  <div key={product.id} className="bg-zinc-900 border border-zinc-800 p-4 rounded-2xl flex gap-4 items-center hover:border-amber-500/50 transition-all group">
+                  <div key={product.id} className="bg-zinc-900 border border-zinc-800 p-4 rounded-2xl flex gap-4 items-center group">
                     <div className="relative h-16 w-16 rounded-xl overflow-hidden flex-shrink-0 bg-zinc-800">
                       <Image src={product.imageUrls[0] || 'https://picsum.photos/seed/food/200/200'} alt={product.name} fill className="object-cover" />
                     </div>
@@ -372,8 +366,8 @@ export default function AdminPage() {
                       <div className="flex items-center justify-between mt-1">
                         <span className="font-bold text-amber-500 text-xs">${product.price.toFixed(2)}</span>
                         <div className="flex gap-1">
-                          <button onClick={() => startEdit(product)} className="p-2 text-zinc-500 hover:text-white transition-colors"><Edit2 className="h-4 w-4" /></button>
-                          <button onClick={() => deleteProduct(product.id)} className="p-2 text-zinc-500 hover:text-red-500 transition-colors"><Trash2 className="h-4 w-4" /></button>
+                          <button onClick={() => startEdit(product)} className="p-2 text-zinc-500 hover:text-white"><Edit2 className="h-4 w-4" /></button>
+                          <button onClick={() => deleteProduct(product.id)} className="p-2 text-zinc-500 hover:text-red-500"><Trash2 className="h-4 w-4" /></button>
                         </div>
                       </div>
                     </div>
@@ -383,29 +377,28 @@ export default function AdminPage() {
             </div>
           </TabsContent>
 
-          <TabsContent value="categories" className="max-w-xl mx-auto space-y-6 outline-none animate-in slide-in-from-bottom-4 duration-500">
+          <TabsContent value="categories" className="max-w-xl mx-auto space-y-6">
             <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
               <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4">
                 <CardTitle className="text-lg font-bold text-amber-500">Menu Categories</CardTitle>
-                <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Add sections like Burgers, Drinks, etc.</p>
               </CardHeader>
               <div className="space-y-6">
                 <div className="flex gap-3">
                   <Input 
                     placeholder="New Category Name..." 
                     value={newCategory.name} 
-                    onChange={e => setNewCategory(c => ({ ...c, name: e.target.value }))}
-                    className="bg-zinc-800 border-zinc-700 text-white rounded-xl focus:ring-amber-500/50"
+                    onChange={e => setNewCategory({ name: e.target.value })}
+                    className="bg-zinc-800 border-zinc-700"
                   />
-                  <Button onClick={addCategory} className="bg-amber-500 hover:bg-amber-600 text-zinc-950 rounded-xl font-bold px-6">
+                  <Button disabled={isSubmitting} onClick={addCategory} className="bg-amber-500 hover:bg-amber-600 text-zinc-950 rounded-xl font-bold">
                     Add
                   </Button>
                 </div>
                 <div className="grid gap-2">
                   {categories.map(cat => (
-                    <div key={cat.id} className="flex items-center justify-between p-4 bg-zinc-800/50 border border-zinc-800 rounded-xl group hover:border-amber-500/30 transition-all">
+                    <div key={cat.id} className="flex items-center justify-between p-4 bg-zinc-800/50 border border-zinc-800 rounded-xl">
                       <span className="font-bold text-sm">{cat.name}</span>
-                      <button onClick={() => deleteCategory(cat.id)} className="text-zinc-500 hover:text-red-500 transition-colors"><Trash2 className="h-4 w-4" /></button>
+                      <button onClick={() => deleteCategory(cat.id)} className="text-zinc-500 hover:text-red-500"><Trash2 className="h-4 w-4" /></button>
                     </div>
                   ))}
                 </div>
@@ -413,98 +406,103 @@ export default function AdminPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="visuals" className="max-w-4xl mx-auto space-y-6 outline-none animate-in fade-in duration-500">
+          <TabsContent value="visuals" className="max-w-4xl mx-auto space-y-6">
             <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
               <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4">
-                <CardTitle className="text-lg font-bold text-amber-500">Store Visuals</CardTitle>
+                <CardTitle className="text-lg font-bold text-amber-500">Hero Section Content</CardTitle>
               </CardHeader>
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <Label className="text-[10px] font-bold text-zinc-500 uppercase">Hero Background</Label>
-                  <div className="relative h-48 rounded-xl overflow-hidden border-2 border-dashed border-zinc-800 group transition-all hover:border-amber-500/50">
-                    <Image src={heroSettings.bgImage} alt="hero" fill className="object-cover" />
-                    <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
-                      <Upload className="h-6 w-6 text-white" />
-                      <input type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'heroBg')} />
-                    </label>
+              <div className="space-y-6">
+                 <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <Label className="text-[10px] font-bold text-zinc-500 uppercase">Headline</Label>
+                      <Input value={heroSettings?.bannerHeadline || ''} onChange={e => setDoc(heroRef!, { bannerHeadline: e.target.value }, { merge: true })} className="bg-zinc-800 border-zinc-700" />
+                    </div>
+                    <div className="space-y-4">
+                      <Label className="text-[10px] font-bold text-zinc-500 uppercase">Banner Text</Label>
+                      <Input value={heroSettings?.bannerText || ''} onChange={e => setDoc(heroRef!, { bannerText: e.target.value }, { merge: true })} className="bg-zinc-800 border-zinc-700" />
+                    </div>
+                 </div>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Background Image</Label>
+                    <div className="relative h-48 rounded-xl overflow-hidden border-2 border-dashed border-zinc-800 group">
+                      <Image src={heroSettings?.bgImage || 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1600&auto=format&fit=crop'} alt="hero" fill className="object-cover" />
+                      <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer">
+                        <Upload className="h-6 w-6 text-white" />
+                        <input type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'heroBg')} />
+                      </label>
+                    </div>
                   </div>
-                </div>
-                <div className="space-y-4">
-                  <Label className="text-[10px] font-bold text-zinc-500 uppercase">Promo Banner</Label>
-                  <div className="relative h-48 rounded-xl overflow-hidden border-2 border-dashed border-zinc-800 group transition-all hover:border-amber-500/50">
-                    <Image src={heroSettings.bannerImage} alt="banner" fill className="object-cover" />
-                    <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
-                      <Upload className="h-6 w-6 text-white" />
-                      <input type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'heroBanner')} />
-                    </label>
+                  <div className="space-y-4">
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Promo Image</Label>
+                    <div className="relative h-48 rounded-xl overflow-hidden border-2 border-dashed border-zinc-800 group">
+                      <Image src={heroSettings?.bannerImage || 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1600&auto=format&fit=crop'} alt="banner" fill className="object-cover" />
+                      <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer">
+                        <Upload className="h-6 w-6 text-white" />
+                        <input type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'heroBanner')} />
+                      </label>
+                    </div>
                   </div>
                 </div>
               </div>
             </Card>
           </TabsContent>
 
-          <TabsContent value="assets" className="max-w-xl mx-auto outline-none animate-in fade-in duration-500">
+          <TabsContent value="assets" className="max-w-xl mx-auto">
              <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
                 <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4">
-                  <CardTitle className="text-lg font-bold text-amber-500">Brand Assets</CardTitle>
-                  <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Manage your official logo.</p>
+                  <CardTitle className="text-lg font-bold text-amber-500">Official Logo</CardTitle>
                 </CardHeader>
-                <div className="space-y-6">
-                  <Label className="text-[10px] font-bold text-zinc-500 uppercase">Official Logo</Label>
-                  <div className="flex flex-col items-center gap-6">
-                    <div className="relative h-32 w-32 rounded-2xl bg-zinc-800 border-2 border-dashed border-zinc-700 flex items-center justify-center overflow-hidden group hover:border-amber-500/50 transition-all">
-                      {adminLogo ? (
-                        <img src={adminLogo} alt="Logo Preview" className="h-full w-full object-contain p-4" />
+                <div className="flex flex-col items-center gap-6 py-6">
+                    <div className="relative h-32 w-32 rounded-2xl bg-zinc-800 border-2 border-dashed border-zinc-700 flex items-center justify-center overflow-hidden group">
+                      {storeSettings?.logo ? (
+                        <img src={storeSettings.logo} alt="Logo" className="h-full w-full object-contain p-4" />
                       ) : (
                         <ImageIcon className="h-8 w-8 text-zinc-600" />
                       )}
-                      <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
+                      <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer">
                         <Upload className="h-6 w-6 text-white" />
                         <input type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'logo')} />
                       </label>
                     </div>
-                    <p className="text-[10px] text-zinc-500 font-bold uppercase text-center max-w-xs leading-relaxed">
-                      Upload your high-res logo. It will be displayed in the site header and PWA splash screen.
-                    </p>
-                  </div>
                 </div>
              </Card>
           </TabsContent>
           
-          <TabsContent value="storeinfo" className="max-w-2xl mx-auto outline-none animate-in fade-in duration-500">
+          <TabsContent value="storeinfo" className="max-w-2xl mx-auto">
              <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
                 <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4">
-                  <CardTitle className="text-lg font-bold text-amber-500">Store Settings</CardTitle>
+                  <CardTitle className="text-lg font-bold text-amber-500">Contact Settings</CardTitle>
                 </CardHeader>
                 <div className="grid md:grid-cols-2 gap-6 pt-4">
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">WhatsApp Number</Label>
-                    <Input value={storeSettings.whatsappNumber} onChange={e => setStoreSettings(s => ({ ...s, whatsappNumber: e.target.value }))} className="bg-zinc-800 border-zinc-700 rounded-xl" />
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">WhatsApp</Label>
+                    <Input value={storeSettings?.whatsappNumber || ''} onChange={e => updateSettings('whatsappNumber', e.target.value)} className="bg-zinc-800 border-zinc-700" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Contact Phone</Label>
-                    <Input value={storeSettings.phone} onChange={e => setStoreSettings(s => ({ ...s, phone: e.target.value }))} className="bg-zinc-800 border-zinc-700 rounded-xl" />
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Phone</Label>
+                    <Input value={storeSettings?.phone || ''} onChange={e => updateSettings('phone', e.target.value)} className="bg-zinc-800 border-zinc-700" />
                   </div>
                   <div className="md:col-span-2 space-y-2">
                     <Label className="text-[10px] font-bold text-zinc-500 uppercase">Address</Label>
-                    <Input value={storeSettings.address} onChange={e => setStoreSettings(s => ({ ...s, address: e.target.value }))} className="bg-zinc-800 border-zinc-700 rounded-xl" />
+                    <Input value={storeSettings?.address || ''} onChange={e => updateSettings('address', e.target.value)} className="bg-zinc-800 border-zinc-700" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Instagram Link</Label>
-                    <Input value={storeSettings.instagram} onChange={e => setStoreSettings(s => ({ ...s, instagram: e.target.value }))} className="bg-zinc-800 border-zinc-700 rounded-xl" />
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Instagram</Label>
+                    <Input value={storeSettings?.instagram || ''} onChange={e => updateSettings('instagram', e.target.value)} className="bg-zinc-800 border-zinc-700" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Facebook Link</Label>
-                    <Input value={storeSettings.facebook} onChange={e => setStoreSettings(s => ({ ...s, facebook: e.target.value }))} className="bg-zinc-800 border-zinc-700 rounded-xl" />
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">TikTok</Label>
+                    <Input value={storeSettings?.tiktok || ''} onChange={e => updateSettings('tiktok', e.target.value)} className="bg-zinc-800 border-zinc-700" />
                   </div>
                 </div>
              </Card>
           </TabsContent>
 
-          <TabsContent value="reviews" className="outline-none animate-in fade-in duration-500">
+          <TabsContent value="reviews">
              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {reviews.map((r, i) => (
-                  <Card key={i} className="bg-zinc-900 border-zinc-800 p-6 rounded-2xl shadow-lg hover:border-amber-500/30 transition-all">
+                  <Card key={i} className="bg-zinc-900 border-zinc-800 p-6 rounded-2xl shadow-lg">
                     <div className="flex justify-between items-start mb-4">
                       <h5 className="font-bold text-sm text-white">{r.customerName}</h5>
                       <div className="flex">
@@ -512,16 +510,8 @@ export default function AdminPage() {
                       </div>
                     </div>
                     <p className="text-xs text-zinc-400 leading-relaxed italic">&quot;{r.comment}&quot;</p>
-                    <div className="mt-4 pt-4 border-t border-zinc-800">
-                       <p className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest">{new Date(r.createdAt).toLocaleDateString()}</p>
-                    </div>
                   </Card>
                 ))}
-                {reviews.length === 0 && (
-                  <div className="col-span-full py-20 text-center border-2 border-dashed border-zinc-800 rounded-2xl text-zinc-500">
-                    No customer sentiment logged yet.
-                  </div>
-                )}
              </div>
           </TabsContent>
         </Tabs>

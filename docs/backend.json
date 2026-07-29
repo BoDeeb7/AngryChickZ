@@ -25,6 +25,42 @@
         "slug": { "type": "string", "description": "URL-friendly name" }
       },
       "required": ["name", "slug"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "Customer feedback",
+      "type": "object",
+      "properties": {
+        "customerName": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "StoreSettings": {
+      "title": "Store Settings",
+      "description": "Global store contact and branding information",
+      "type": "object",
+      "properties": {
+        "logo": { "type": "string" },
+        "phone": { "type": "string" },
+        "whatsappNumber": { "type": "string" },
+        "address": { "type": "string" },
+        "instagram": { "type": "string" },
+        "facebook": { "type": "string" },
+        "tiktok": { "type": "string" }
+      }
+    },
+    "HeroSettings": {
+      "title": "Hero Settings",
+      "description": "Hero section media and text content",
+      "type": "object",
+      "properties": {
+        "bgImage": { "type": "string" },
+        "bannerImage": { "type": "string" },
+        "bannerHeadline": { "type": "string" },
+        "bannerText": { "type": "string" }
+      }
     }
   },
   "auth": {
@@ -38,6 +74,18 @@
     "/categories/{categoryId}": {
       "schema": "Category",
       "description": "Collection of menu categories"
+    },
+    "/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Customer feedback"
+    },
+    "/settings/store": {
+      "schema": "StoreSettings",
+      "description": "Global store settings"
+    },
+    "/settings/hero": {
+      "schema": "HeroSettings",
+      "description": "Hero section content"
     }
   }
 }

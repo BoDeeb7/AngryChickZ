@@ -1,46 +1,46 @@
+
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useFirestore, useCollection } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, query, orderBy } from 'firebase/firestore';
 import { Product, Category } from '@/types/restaurant';
 import { ProductCard } from './ProductCard';
-import { Utensils } from 'lucide-react';
+import { Utensils, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function MenuGrid() {
   const db = useFirestore();
   const [activeCategory, setActiveCategory] = useState('all');
   
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const productsRef = useMemo(() => {
+    if (!db) return null;
+    return query(collection(db, 'products'), orderBy('createdAt', 'desc'));
+  }, [db]);
 
-  const productsRef = useMemo(() => db ? collection(db, 'products') : null, [db]);
   const categoriesRef = useMemo(() => db ? collection(db, 'categories') : null, [db]);
 
-  const { data: dbProducts = [] } = useCollection<Product>(productsRef);
-  const { data: dbCategories = [] } = useCollection<Category>(categoriesRef);
-
-  useEffect(() => {
-    const savedProducts = localStorage.getItem('angry_chickz_products');
-    const savedCats = localStorage.getItem('angry_chickz_categories');
-    
-    if (savedProducts) setProducts(JSON.parse(savedProducts));
-    if (savedCats) setCategories(JSON.parse(savedCats));
-  }, []);
-
-  const currentProducts = dbProducts.length > 0 ? dbProducts : products;
-  const currentCategories = dbCategories.length > 0 ? dbCategories : categories;
+  const { data: products = [], loading: productsLoading } = useCollection<Product>(productsRef);
+  const { data: categories = [] } = useCollection<Category>(categoriesRef);
 
   const displayCategories = useMemo(() => {
     const base = [{ id: 'all', name: 'All Dishes', slug: 'all' }];
-    return [...base, ...currentCategories];
-  }, [currentCategories]);
+    return [...base, ...categories];
+  }, [categories]);
 
   const filteredProducts = useMemo(() => {
-    if (activeCategory === 'all') return currentProducts;
-    return currentProducts.filter(p => p.category === activeCategory);
-  }, [currentProducts, activeCategory]);
+    if (activeCategory === 'all') return products;
+    return products.filter(p => p.category === activeCategory);
+  }, [products, activeCategory]);
+
+  if (productsLoading && products.length === 0) {
+    return (
+      <div className="py-32 flex flex-col items-center justify-center gap-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Loading Gourmet Menu...</p>
+      </div>
+    );
+  }
 
   return (
     <section id="menu" className="py-16 md:py-32 relative w-full overflow-hidden">
@@ -75,7 +75,7 @@ export function MenuGrid() {
         </div>
 
         {filteredProducts.length > 0 ? (
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-8">
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-8 animate-in fade-in duration-700">
             {filteredProducts.map(product => (
               <ProductCard key={product.id} product={product} />
             ))}
@@ -83,8 +83,8 @@ export function MenuGrid() {
         ) : (
           <div className="text-center py-24 bg-zinc-900/50 rounded-3xl border border-dashed border-zinc-800">
             <Utensils className="h-16 w-16 mx-auto mb-6 text-zinc-800" />
-            <h3 className="text-xl font-bold text-foreground uppercase italic mb-2">Catalog Empty</h3>
-            <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Refresh your catalog in the admin panel.</p>
+            <h3 className="text-xl font-bold text-foreground uppercase italic mb-2">Menu Coming Soon</h3>
+            <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">We are hand-brilling something special.</p>
           </div>
         )}
       </div>
