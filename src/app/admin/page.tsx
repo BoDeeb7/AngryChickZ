@@ -2,16 +2,16 @@
 
 import { useState, useMemo } from 'react';
 import { useFirestore, useCollection } from '@/firebase';
-import { collection, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, orderBy, query } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { Product, Category } from '@/types/restaurant';
+import { Product, Category, Review } from '@/types/restaurant';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Trash2, Edit2, Upload, Loader2, LayoutGrid, List, Utensils, ShieldCheck, ArrowLeft, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Edit2, Upload, Loader2, LayoutGrid, List, Utensils, ShieldCheck, ArrowLeft, Star, MessageSquare, Lock } from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -19,15 +19,23 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import Link from 'next/link';
 
 export default function AdminPage() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  
   const db = useFirestore();
   const storage = getStorage();
   const { toast } = useToast();
   
   const productsRef = useMemo(() => db ? collection(db, 'products') : null, [db]);
   const categoriesRef = useMemo(() => db ? collection(db, 'categories') : null, [db]);
+  const reviewsRef = useMemo(() => {
+    if (!db) return null;
+    return query(collection(db, 'reviews'), orderBy('createdAt', 'desc'));
+  }, [db]);
 
   const { data: products = [] } = useCollection<Product>(productsRef);
   const { data: categories = [] } = useCollection<Category>(categoriesRef);
+  const { data: reviews = [] } = useCollection<Review>(reviewsRef);
 
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -42,6 +50,16 @@ export default function AdminPage() {
 
   const [newCategory, setNewCategory] = useState({ name: '', slug: '' });
 
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loginForm.username === 'admin' && loginForm.password === 'admin123') {
+      setIsAuthenticated(true);
+      toast({ title: "Access Granted", description: "Welcome to the Command Center." });
+    } else {
+      toast({ variant: "destructive", title: "Access Denied", description: "Invalid credentials." });
+    }
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.length) return;
     setIsUploading(true);
@@ -55,7 +73,7 @@ export default function AdminPage() {
       }));
       
       setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, ...newUrls] }));
-      toast({ title: "Visual Assets Secured", description: "Images uploaded successfully." });
+      toast({ title: "Asset Uploaded", description: "Visual data synchronized." });
     } catch (error) {
       toast({ variant: "destructive", title: "Upload Failed" });
     } finally {
@@ -66,7 +84,7 @@ export default function AdminPage() {
   const handleSaveProduct = async () => {
     if (!productsRef) return;
     if (!formData.name || !formData.price || !formData.category) {
-      toast({ variant: "destructive", title: "Missing Detail", description: "Name, price, and category are mandatory." });
+      toast({ variant: "destructive", title: "Incomplete Data", description: "Required fields missing." });
       return;
     }
     
@@ -79,10 +97,10 @@ export default function AdminPage() {
     try {
       if (isEditing) {
         await updateDoc(doc(db, 'products', isEditing), data);
-        toast({ title: "Inventory Updated" });
+        toast({ title: "Item Updated" });
       } else {
         await addDoc(productsRef, data);
-        toast({ title: "New Item Initialized" });
+        toast({ title: "New Item Deployed" });
       }
       resetForm();
     } catch (e: any) {
@@ -97,10 +115,10 @@ export default function AdminPage() {
 
   const handleDeleteProduct = async (id: string) => {
     if (!db) return;
-    if (!confirm('Permanently decommission this item?')) return;
+    if (!confirm('Confirm permanent deletion?')) return;
     try {
       await deleteDoc(doc(db, 'products', id));
-      toast({ title: "Item Removed" });
+      toast({ title: "Item Deleted" });
     } catch (e) { console.error(e); }
   };
 
@@ -110,7 +128,7 @@ export default function AdminPage() {
       const slug = newCategory.slug || newCategory.name.toLowerCase().replace(/\s+/g, '-');
       await addDoc(categoriesRef, { name: newCategory.name, slug });
       setNewCategory({ name: '', slug: '' });
-      toast({ title: "Category Deployed" });
+      toast({ title: "Category Created" });
     } catch (e) { console.error(e); }
   };
 
@@ -132,6 +150,49 @@ export default function AdminPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[#FFFBEB] flex items-center justify-center p-6">
+        <Card className="w-full max-w-md rounded-[3rem] shadow-2xl border-amber-500/20 glass-card">
+          <CardHeader className="text-center pt-10">
+            <div className="h-20 w-20 bg-primary rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-xl">
+              <Lock className="h-10 w-10 text-white" />
+            </div>
+            <CardTitle className="text-3xl font-black uppercase italic tracking-tighter">Admin Portal</CardTitle>
+            <p className="text-xs font-bold text-foreground/40 uppercase tracking-[0.3em] mt-2">Restricted Access</p>
+          </CardHeader>
+          <CardContent className="p-10">
+            <form onSubmit={handleLogin} className="space-y-6">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-foreground/40">Username</Label>
+                <Input 
+                  type="text" 
+                  value={loginForm.username} 
+                  onChange={e => setLoginForm(p => ({ ...p, username: e.target.value }))}
+                  className="h-14 rounded-2xl border-amber-500/10 font-bold bg-white"
+                  placeholder="admin"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-foreground/40">Password</Label>
+                <Input 
+                  type="password" 
+                  value={loginForm.password} 
+                  onChange={e => setLoginForm(p => ({ ...p, password: e.target.value }))}
+                  className="h-14 rounded-2xl border-amber-500/10 font-bold bg-white"
+                  placeholder="••••••••"
+                />
+              </div>
+              <Button type="submit" className="w-full h-16 rounded-2xl bg-primary hover:bg-primary/90 font-black uppercase italic text-lg shadow-lg mt-4">
+                Verify Credentials
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#FFFBEB] p-8 md:p-16">
       <div className="container mx-auto max-w-7xl">
@@ -141,11 +202,8 @@ export default function AdminPage() {
               <ShieldCheck className="h-8 w-8 text-white" />
             </div>
             <div>
-              <h1 className="text-4xl font-black tracking-tighter uppercase italic leading-none text-foreground">Menu Command Center</h1>
-              <div className="flex items-center gap-2 mt-2">
-                <Sparkles className="h-3 w-3 text-amber-500" />
-                <p className="text-primary font-bold text-[10px] uppercase tracking-[0.4em]">Elite Management Portal</p>
-              </div>
+              <h1 className="text-4xl font-black tracking-tighter uppercase italic text-foreground leading-none">Command Center</h1>
+              <p className="text-primary font-bold text-[10px] uppercase tracking-[0.4em] mt-2">Elite Management Portal</p>
             </div>
           </div>
           <Link href="/">
@@ -158,35 +216,38 @@ export default function AdminPage() {
         <Tabs defaultValue="products" className="space-y-12">
           <TabsList className="bg-amber-500/5 p-2 rounded-[2rem] h-20 gap-2 border border-amber-500/10">
             <TabsTrigger value="products" className="px-10 rounded-full h-full font-black uppercase italic tracking-widest data-[state=active]:bg-primary data-[state=active]:text-white text-xs">
-              <Utensils className="h-4 w-4 mr-3" /> Inventory
+              <Utensils className="h-4 w-4 mr-3" /> Menu
             </TabsTrigger>
             <TabsTrigger value="categories" className="px-10 rounded-full h-full font-black uppercase italic tracking-widest data-[state=active]:bg-primary data-[state=active]:text-white text-xs">
-              <List className="h-4 w-4 mr-3" /> Category Bar
+              <List className="h-4 w-4 mr-3" /> Sectors
+            </TabsTrigger>
+            <TabsTrigger value="reviews" className="px-10 rounded-full h-full font-black uppercase italic tracking-widest data-[state=active]:bg-primary data-[state=active]:text-white text-xs">
+              <MessageSquare className="h-4 w-4 mr-3" /> Feedback
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="products" className="grid lg:grid-cols-12 gap-16">
-            <Card className="lg:col-span-5 glass-card rounded-[3rem] p-4 overflow-hidden border-amber-500/10">
-              <CardHeader className="p-8 border-b border-amber-500/10">
+            <Card className="lg:col-span-5 glass-card rounded-[3.5rem] p-4 border-amber-500/10 bg-white/40">
+              <CardHeader className="p-8 border-b border-amber-500/5">
                 <CardTitle className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-4 text-primary">
                   {isEditing ? <Edit2 className="h-6 w-6" /> : <Plus className="h-6 w-6" />}
-                  {isEditing ? 'Modify Dish' : 'Initialize Dish'}
+                  {isEditing ? 'Modify Item' : 'Create Item'}
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-8 space-y-8">
                 <div className="space-y-3">
-                  <Label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Dish Designation</Label>
-                  <Input value={formData.name} onChange={e => setFormData(f => ({ ...f, name: e.target.value }))} className="bg-white border-amber-500/10 rounded-2xl h-14 font-bold" placeholder="Item Name" />
+                  <Label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Name</Label>
+                  <Input value={formData.name} onChange={e => setFormData(f => ({ ...f, name: e.target.value }))} className="bg-white border-amber-500/10 rounded-2xl h-14 font-bold" />
                 </div>
                 <div className="space-y-3">
-                  <Label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Flavor Profile</Label>
-                  <Textarea value={formData.description} onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} className="bg-white border-amber-500/10 rounded-2xl min-h-[120px] font-bold" placeholder="Taste description..." />
+                  <Label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Description</Label>
+                  <Textarea value={formData.description} onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} className="bg-white border-amber-500/10 rounded-2xl min-h-[120px] font-bold" />
                 </div>
                 
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-3">
-                    <Label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Valuation ($)</Label>
-                    <Input type="number" value={formData.price} onChange={e => setFormData(f => ({ ...f, price: e.target.value }))} className="bg-white border-amber-500/10 rounded-2xl h-14 font-bold" placeholder="0.00" />
+                    <Label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Price ($)</Label>
+                    <Input type="number" value={formData.price} onChange={e => setFormData(f => ({ ...f, price: e.target.value }))} className="bg-white border-amber-500/10 rounded-2xl h-14 font-bold" />
                   </div>
                   <div className="space-y-3">
                     <Label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Sector</Label>
@@ -237,7 +298,7 @@ export default function AdminPage() {
 
             <div className="lg:col-span-7 space-y-10">
               <h2 className="text-3xl font-black uppercase italic tracking-tighter flex items-center gap-4 text-foreground">
-                <LayoutGrid className="h-8 w-8 text-primary" /> Global Inventory
+                <LayoutGrid className="h-8 w-8 text-primary" /> Current Inventory
               </h2>
               <div className="grid sm:grid-cols-2 gap-6">
                 {products.map(product => (
@@ -269,14 +330,14 @@ export default function AdminPage() {
           </TabsContent>
 
           <TabsContent value="categories" className="max-w-2xl">
-            <Card className="glass-card rounded-[3rem] p-4 border-amber-500/10">
+            <Card className="glass-card rounded-[3rem] p-4 border-amber-500/10 bg-white/40">
               <CardHeader className="p-8">
                 <CardTitle className="text-2xl font-black uppercase italic tracking-tighter">Kitchen Categories</CardTitle>
               </CardHeader>
               <CardContent className="p-8 space-y-8">
                 <div className="flex gap-4">
                   <Input 
-                    placeholder="New Sector Name" 
+                    placeholder="New Category Name" 
                     value={newCategory.name} 
                     onChange={e => setNewCategory(c => ({ ...c, name: e.target.value }))}
                     className="h-14 bg-white border-amber-500/10 rounded-2xl font-bold"
@@ -290,7 +351,7 @@ export default function AdminPage() {
                     <div key={cat.id} className="flex items-center justify-between p-5 bg-white border border-amber-500/10 rounded-2xl group hover:border-primary/30 transition-all">
                       <span className="font-black uppercase tracking-widest text-xs text-foreground/60">{cat.name}</span>
                       <Button variant="ghost" size="icon" className="h-10 w-10 text-primary hover:bg-primary/5" onClick={() => {
-                        if(confirm('Decommission category?')) deleteDoc(doc(db, 'categories', cat.id));
+                        if(confirm('Delete category?')) deleteDoc(doc(db, 'categories', cat.id));
                       }}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -299,6 +360,40 @@ export default function AdminPage() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="reviews" className="space-y-8">
+            <h2 className="text-3xl font-black uppercase italic tracking-tighter flex items-center gap-4 text-foreground">
+              <MessageSquare className="h-8 w-8 text-primary" /> Customer Sentiment
+            </h2>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {reviews.map(review => (
+                <Card key={review.id} className="rounded-[2.5rem] border-amber-500/10 bg-white/40 glass-card p-8">
+                  <div className="flex justify-between items-start mb-6">
+                    <div>
+                      <h4 className="font-black uppercase italic tracking-tighter text-lg">{review.customerName}</h4>
+                      <p className="text-[10px] font-bold text-foreground/40 mt-1">
+                        {review.createdAt?.toDate ? review.createdAt.toDate().toLocaleDateString() : 'Recent'}
+                      </p>
+                    </div>
+                    <div className="flex gap-0.5">
+                      {[1,2,3,4,5].map(i => (
+                        <Star key={i} className={`h-4 w-4 ${i <= review.rating ? 'fill-secondary text-secondary' : 'text-foreground/10'}`} />
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-sm font-medium text-foreground/70 leading-relaxed italic">"{review.comment}"</p>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="absolute top-4 right-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => { if(confirm('Remove review?')) deleteDoc(doc(db, 'reviews', review.id!)); }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </Card>
+              ))}
+            </div>
           </TabsContent>
         </Tabs>
       </div>

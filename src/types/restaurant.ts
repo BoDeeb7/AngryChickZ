@@ -26,3 +26,11 @@ export interface OrderDetails {
   address: string;
   paymentMethod: 'Cash on Delivery' | 'Wish Money';
 }
+
+export interface Review {
+  id?: string;
+  customerName: string;
+  rating: number;
+  comment: string;
+  createdAt: any;
+}
