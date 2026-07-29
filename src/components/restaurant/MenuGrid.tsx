@@ -38,8 +38,8 @@ export function MenuGrid() {
 
       <div className="container mx-auto px-4 md:px-6 relative z-10 w-full max-w-full">
         <div className="flex flex-col items-center text-center mb-10 md:mb-32 gap-6 md:gap-12">
-          <div className="space-y-2 md:space-y-6">
-            <span className="text-primary font-black uppercase tracking-[0.3em] md:tracking-[0.5em] text-[9px] md:text-[12px] block">Premium Sector Selection</span>
+          <div className="space-y-2 md:space-y-4">
+            <span className="text-primary font-black uppercase tracking-[0.3em] md:tracking-[0.5em] text-[9px] md:text-[12px] block">Premium Catalog Selection</span>
             <h2 className="text-3xl md:text-6xl lg:text-[120px] font-black text-foreground tracking-tighter uppercase italic leading-[1] md:leading-[0.9]">Masterful Menu</h2>
           </div>
 
@@ -51,7 +51,7 @@ export function MenuGrid() {
                   key={cat.id}
                   onClick={() => setActiveCategory(cat.slug)}
                   className={cn(
-                    "relative text-[10px] md:text-[13px] font-black uppercase tracking-[0.2em] md:tracking-[0.4em] transition-all duration-500 pb-2 whitespace-nowrap outline-none flex flex-col items-center",
+                    "relative text-[10px] md:text-[13px] font-bold uppercase tracking-[0.2em] md:tracking-[0.4em] transition-all duration-500 pb-2 whitespace-nowrap outline-none flex flex-col items-center",
                     activeCategory === cat.slug 
                       ? "text-primary scale-105" 
                       : "text-foreground/20 hover:text-foreground/40"
@@ -81,7 +81,7 @@ export function MenuGrid() {
         ) : (
           <div className="text-center py-20 md:py-40 glass-card rounded-[2rem] md:rounded-[4rem] border-dashed border-primary/10">
             <Utensils className="h-12 w-12 md:h-20 md:w-20 mx-auto mb-4 md:mb-8 text-foreground/5" />
-            <h3 className="text-xl md:text-3xl font-black text-foreground mb-2 uppercase italic">Sector Empty</h3>
+            <h3 className="text-xl md:text-3xl font-black text-foreground mb-2 uppercase italic">Catalog Empty</h3>
             <p className="text-foreground/40 font-bold uppercase tracking-widest text-[8px] md:text-[10px]">Updating inventory for this category.</p>
           </div>
         )}
