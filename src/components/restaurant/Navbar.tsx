@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ShoppingBag, Palette, UtensilsCrossed } from 'lucide-react';
+import { ShoppingBag, UtensilsCrossed } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -14,34 +14,34 @@ export function Navbar() {
   const [isCartOpen, setIsCartOpen] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 30);
+    const handleScroll = () => setIsScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   return (
     <>
-      <nav className={`fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-5xl transition-all duration-700 ${isScrolled ? 'top-4' : 'top-6'}`}>
-        <div className={`rounded-[2.5rem] px-8 py-4 flex items-center justify-between shadow-2xl transition-all duration-700 ${isScrolled ? 'glass-header py-3' : 'bg-transparent'}`}>
-          <Link href="/" className="flex items-center gap-4 group">
-            <div className="bg-primary p-2.5 rounded-2xl shadow-xl group-hover:rotate-12 transition-transform duration-500">
-              <UtensilsCrossed className="text-white h-5 w-5" />
+      <nav className={`fixed top-0 left-0 right-0 z-50 w-full transition-all duration-500 ${isScrolled ? 'py-2 px-4' : 'py-6 px-4 md:px-8'}`}>
+        <div className={`container mx-auto max-w-5xl rounded-[2.5rem] px-6 md:px-10 py-3 md:py-4 flex items-center justify-between shadow-2xl transition-all duration-500 ${isScrolled ? 'glass-header' : 'bg-transparent'}`}>
+          <Link href="/" className="flex items-center gap-3 md:gap-4 group">
+            <div className="bg-primary p-2 md:p-2.5 rounded-xl md:rounded-2xl shadow-xl group-hover:rotate-12 transition-transform duration-500">
+              <UtensilsCrossed className="text-white h-4 w-4 md:h-5 md:w-5" />
             </div>
-            <span className="text-xl font-black tracking-tighter text-foreground leading-none uppercase italic">
+            <span className="text-lg md:text-xl font-black tracking-tighter text-foreground leading-none uppercase italic">
               ANGRY <span className="text-primary">CHICKZ</span>
             </span>
           </Link>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
             <ThemeSwitcher />
             
             <Button 
-              className="relative h-14 w-14 rounded-full bg-primary hover:bg-primary/90 text-white shadow-xl group"
+              className="relative h-12 w-12 md:h-14 md:w-14 rounded-full bg-primary hover:bg-primary/90 text-white shadow-xl group"
               onClick={() => setIsCartOpen(true)}
             >
-              <ShoppingBag className="h-5 w-5 group-hover:scale-110 transition-transform" />
+              <ShoppingBag className="h-4 w-4 md:h-5 md:w-5 group-hover:scale-110 transition-transform" />
               {itemCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-secondary text-background text-[10px] font-black h-6 w-6 rounded-full flex items-center justify-center border-4 border-background animate-in zoom-in">
+                <span className="absolute -top-1 -right-1 bg-secondary text-background text-[10px] font-black h-5 w-5 md:h-6 md:w-6 rounded-full flex items-center justify-center border-2 md:border-4 border-background animate-in zoom-in">
                   {itemCount}
                 </span>
               )}

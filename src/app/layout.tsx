@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { FirebaseClientProvider } from '@/firebase';
 import { CartProvider } from '@/context/CartContext';
@@ -10,14 +10,21 @@ export const metadata: Metadata = {
   description: 'The spiciest, crunchiest chicken in town. Order now!',
 };
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className="antialiased min-h-screen flex flex-col">
+    <html lang="en" suppressHydrationWarning className="overflow-x-hidden selection:bg-primary selection:text-white">
+      <body className="antialiased min-h-screen flex flex-col overflow-x-hidden w-full max-w-full">
         <FirebaseClientProvider>
           <ThemeProvider>
             <CartProvider>
