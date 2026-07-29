@@ -1,18 +1,24 @@
+
 'use client';
 
 import Link from 'next/link';
 import { ShoppingBag, Shield } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { CartDrawer } from './CartDrawer';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import Image from 'next/image';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 export function Navbar() {
   const { itemCount } = useCart();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
+
+  const logoImage = useMemo(() => 
+    PlaceHolderImages.find(img => img.id === 'logo-main')?.imageUrl || 'https://picsum.photos/seed/angrylogo/500/500'
+  , []);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -25,16 +31,17 @@ export function Navbar() {
       <nav className={`fixed top-0 left-0 right-0 z-50 w-full transition-all duration-500 ${isScrolled ? 'py-2 px-4' : 'py-6 px-4 md:px-8'}`}>
         <div className={`container mx-auto max-w-5xl rounded-[2.5rem] px-6 md:px-10 py-3 md:py-4 flex items-center justify-between shadow-2xl transition-all duration-500 ${isScrolled ? 'glass-header' : 'bg-transparent'}`}>
           <Link href="/" className="flex items-center gap-3 md:gap-4 group">
-            <div className="relative h-10 w-10 md:h-12 md:w-12 transition-transform duration-500 group-hover:rotate-6">
+            <div className="relative h-12 w-12 md:h-14 md:w-14 transition-transform duration-500 group-hover:rotate-6 group-hover:scale-110">
               <Image 
-                src="https://picsum.photos/seed/angrylogo/500/500" 
+                src={logoImage} 
                 alt="Angry ChickZ" 
                 fill 
                 className="object-contain"
-                data-ai-hint="angry chicken logo"
+                data-ai-hint="angry chicken mascot logo"
+                priority
               />
             </div>
-            <span className="text-lg md:text-xl font-black tracking-tighter text-foreground leading-none uppercase italic hidden sm:block">
+            <span className="text-xl md:text-2xl font-black tracking-tighter text-foreground leading-none uppercase italic hidden sm:block">
               ANGRY <span className="text-primary">CHICKZ</span>
             </span>
           </Link>

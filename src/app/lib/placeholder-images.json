@@ -1,10 +1,11 @@
+
 {
   "placeholderImages": [
     {
       "id": "logo-main",
-      "description": "Angry ChickZ Premium Logo",
-      "imageUrl": "https://picsum.photos/seed/angrylogo/500/500",
-      "imageHint": "angry chicken mascot logo"
+      "description": "Angry ChickZ Premium Mascot Logo",
+      "imageUrl": "https://picsum.photos/seed/angry-chickz-mascot/500/500",
+      "imageHint": "angry chicken mascot logo fire"
     },
     {
       "id": "hero-burger",
