@@ -1,6 +1,6 @@
 'use client';
 
-import { Instagram, Facebook, Twitter, Phone, MapPin, Clock, ArrowUp, UtensilsCrossed, Sparkles } from 'lucide-react';
+import { Instagram, Facebook, Twitter, Phone, MapPin, ArrowUp, UtensilsCrossed, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
@@ -33,21 +33,21 @@ export function Footer() {
           </div>
 
           <div>
-            <h4 className="text-xs font-black uppercase tracking-[0.4em] mb-10 text-primary">Explore</h4>
+            <h4 className="text-xs font-black uppercase tracking-[0.4em] mb-10 text-primary">Menu Sectors</h4>
             <ul className="space-y-6 text-white/40 font-black text-[11px] uppercase tracking-[0.2em]">
-              <li><Link href="#menu" className="hover:text-primary transition-colors">Burgers</Link></li>
-              <li><Link href="#menu" className="hover:text-primary transition-colors">Tenders</Link></li>
-              <li><Link href="#menu" className="hover:text-primary transition-colors">Specials</Link></li>
-              <li><Link href="#menu" className="hover:text-primary transition-colors">Sides</Link></li>
+              <li><Link href="#menu" className="hover:text-primary transition-colors">Signature Burgers</Link></li>
+              <li><Link href="#menu" className="hover:text-primary transition-colors">Crispy Tenders</Link></li>
+              <li><Link href="#menu" className="hover:text-primary transition-colors">Chef Specials</Link></li>
+              <li><Link href="#menu" className="hover:text-primary transition-colors">Gourmet Sides</Link></li>
             </ul>
           </div>
 
           <div>
-            <h4 className="text-xs font-black uppercase tracking-[0.4em] mb-10 text-primary">Locations</h4>
+            <h4 className="text-xs font-black uppercase tracking-[0.4em] mb-10 text-primary">Contact</h4>
             <ul className="space-y-8 text-white/40">
               <li className="flex gap-4">
                 <MapPin className="h-5 w-5 text-primary shrink-0" /> 
-                <span className="text-[11px] uppercase tracking-widest font-bold leading-relaxed">Lebanon Head Office <br />District 1, Fire City</span>
+                <span className="text-[11px] uppercase tracking-widest font-bold leading-relaxed">Central Kitchen <br />Downtown District</span>
               </li>
               <li className="flex items-center gap-4">
                 <Phone className="h-5 w-5 text-primary shrink-0" /> 
@@ -57,8 +57,8 @@ export function Footer() {
           </div>
 
           <div className="bg-white/5 p-10 rounded-[2.5rem] border border-white/5">
-            <h4 className="text-xs font-black uppercase tracking-[0.4em] mb-6 text-primary">Join The Elite</h4>
-            <p className="text-[11px] text-white/30 mb-8 font-bold uppercase tracking-widest leading-relaxed">Subscribe for exclusive seasonal drops.</p>
+            <h4 className="text-xs font-black uppercase tracking-[0.4em] mb-6 text-primary">Insider Access</h4>
+            <p className="text-[11px] text-white/30 mb-8 font-bold uppercase tracking-widest leading-relaxed">Join the elite circle for limited seasonal drops.</p>
             <div className="space-y-4">
               <input type="email" placeholder="EMAIL ADDRESS" className="w-full h-14 bg-white/5 border border-white/5 rounded-2xl px-6 text-white text-[11px] outline-none focus:border-primary" />
               <Button className="w-full h-14 bg-primary hover:bg-primary/90 text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em]">Subscribe</Button>
@@ -80,9 +80,11 @@ export function Footer() {
                <Sparkles className="h-4 w-4 text-amber-500 animate-pulse" />
                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Signature Release</span>
             </div>
-            <span className="text-2xl font-black italic tracking-tighter text-white">
-              Hassan Deeb - <span className="text-primary">Deeb Data</span>
-            </span>
+            <div className="glass-card px-6 py-3 rounded-2xl border-white/5 bg-white/[0.02] shadow-[0_0_20px_rgba(225,29,72,0.1)]">
+              <span className="text-2xl font-black italic tracking-tighter text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
+                Powered by <span className="text-gradient-crimson">Hassan Deeb</span>
+              </span>
+            </div>
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useFirestore, useCollection } from '@/firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Trash2, Edit2, Upload, Loader2, LayoutGrid, List, Utensils, ShieldCheck, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, Edit2, Upload, Loader2, LayoutGrid, List, Utensils, ShieldCheck, ArrowLeft, Sparkles } from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -55,7 +55,7 @@ export default function AdminPage() {
       }));
       
       setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, ...newUrls] }));
-      toast({ title: "Images Uploaded", description: "Visual assets secured." });
+      toast({ title: "Visual Assets Secured", description: "Images uploaded successfully." });
     } catch (error) {
       toast({ variant: "destructive", title: "Upload Failed" });
     } finally {
@@ -66,7 +66,7 @@ export default function AdminPage() {
   const handleSaveProduct = async () => {
     if (!productsRef) return;
     if (!formData.name || !formData.price || !formData.category) {
-      toast({ variant: "destructive", title: "Missing Fields", description: "Please complete the recipe." });
+      toast({ variant: "destructive", title: "Missing Detail", description: "Name, price, and category are mandatory." });
       return;
     }
     
@@ -79,10 +79,10 @@ export default function AdminPage() {
     try {
       if (isEditing) {
         await updateDoc(doc(db, 'products', isEditing), data);
-        toast({ title: "Menu Item Updated" });
+        toast({ title: "Inventory Updated" });
       } else {
         await addDoc(productsRef, data);
-        toast({ title: "New Item Created" });
+        toast({ title: "New Item Initialized" });
       }
       resetForm();
     } catch (e: any) {
@@ -97,7 +97,7 @@ export default function AdminPage() {
 
   const handleDeleteProduct = async (id: string) => {
     if (!db) return;
-    if (!confirm('Permanently remove this item?')) return;
+    if (!confirm('Permanently decommission this item?')) return;
     try {
       await deleteDoc(doc(db, 'products', id));
       toast({ title: "Item Removed" });
@@ -107,12 +107,10 @@ export default function AdminPage() {
   const handleAddCategory = async () => {
     if (!categoriesRef || !newCategory.name) return;
     try {
-      await addDoc(categoriesRef, { 
-        ...newCategory, 
-        slug: newCategory.slug || newCategory.name.toLowerCase().replace(/\s+/g, '-') 
-      });
+      const slug = newCategory.slug || newCategory.name.toLowerCase().replace(/\s+/g, '-');
+      await addDoc(categoriesRef, { name: newCategory.name, slug });
       setNewCategory({ name: '', slug: '' });
-      toast({ title: "Category Added" });
+      toast({ title: "Category Deployed" });
     } catch (e) { console.error(e); }
   };
 
@@ -127,7 +125,7 @@ export default function AdminPage() {
       description: product.description,
       price: product.price.toString(),
       category: product.category,
-      imageUrls: product.imageUrls,
+      imageUrls: product.imageUrls || [],
       badges: product.badges || [],
     });
     setIsEditing(product.id);
@@ -143,13 +141,16 @@ export default function AdminPage() {
               <ShieldCheck className="h-8 w-8 text-white" />
             </div>
             <div>
-              <h1 className="text-4xl font-black tracking-tighter uppercase italic leading-none text-foreground">Menu Dashboard</h1>
-              <p className="text-primary font-bold text-[10px] uppercase tracking-[0.4em] mt-2">Executive Management Portal</p>
+              <h1 className="text-4xl font-black tracking-tighter uppercase italic leading-none text-foreground">Menu Command Center</h1>
+              <div className="flex items-center gap-2 mt-2">
+                <Sparkles className="h-3 w-3 text-amber-500" />
+                <p className="text-primary font-bold text-[10px] uppercase tracking-[0.4em]">Elite Management Portal</p>
+              </div>
             </div>
           </div>
           <Link href="/">
             <Button variant="outline" className="h-16 px-10 rounded-[1.5rem] border-amber-500/20 hover:bg-white text-[11px] font-black uppercase tracking-widest gap-3 shadow-sm">
-              <ArrowLeft className="h-4 w-4" /> Storefront
+              <ArrowLeft className="h-4 w-4" /> Live Site
             </Button>
           </Link>
         </header>
@@ -160,16 +161,16 @@ export default function AdminPage() {
               <Utensils className="h-4 w-4 mr-3" /> Inventory
             </TabsTrigger>
             <TabsTrigger value="categories" className="px-10 rounded-full h-full font-black uppercase italic tracking-widest data-[state=active]:bg-primary data-[state=active]:text-white text-xs">
-              <List className="h-4 w-4 mr-3" /> Categories
+              <List className="h-4 w-4 mr-3" /> Category Bar
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="products" className="grid lg:grid-cols-12 gap-16">
-            <Card className="lg:col-span-5 glass-card rounded-[3rem] p-4 overflow-hidden">
+            <Card className="lg:col-span-5 glass-card rounded-[3rem] p-4 overflow-hidden border-amber-500/10">
               <CardHeader className="p-8 border-b border-amber-500/10">
                 <CardTitle className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-4 text-primary">
                   {isEditing ? <Edit2 className="h-6 w-6" /> : <Plus className="h-6 w-6" />}
-                  {isEditing ? 'Modify Item' : 'New Dish Entry'}
+                  {isEditing ? 'Modify Dish' : 'Initialize Dish'}
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-8 space-y-8">
@@ -184,18 +185,17 @@ export default function AdminPage() {
                 
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-3">
-                    <Label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Price ($)</Label>
+                    <Label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Valuation ($)</Label>
                     <Input type="number" value={formData.price} onChange={e => setFormData(f => ({ ...f, price: e.target.value }))} className="bg-white border-amber-500/10 rounded-2xl h-14 font-bold" placeholder="0.00" />
                   </div>
                   <div className="space-y-3">
-                    <Label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Section</Label>
+                    <Label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Sector</Label>
                     <select 
                       className="w-full h-14 px-4 bg-white border border-amber-500/10 rounded-2xl outline-none font-bold text-sm"
                       value={formData.category}
                       onChange={e => setFormData(f => ({ ...f, category: e.target.value }))}
                     >
-                      <option value="">Select...</option>
-                      {['burgers', 'crispy-tenders', 'sides', 'drinks'].map(s => <option key={s} value={s}>{s}</option>)}
+                      <option value="">Select Sector...</option>
                       {categories.map(c => <option key={c.id} value={c.slug}>{c.name}</option>)}
                     </select>
                   </div>
@@ -224,7 +224,7 @@ export default function AdminPage() {
 
                 <div className="flex gap-4 pt-4">
                   <Button onClick={handleSaveProduct} className="flex-grow h-16 bg-primary hover:bg-primary/90 rounded-2xl font-black uppercase italic shadow-lg">
-                    {isEditing ? 'Save Changes' : 'Initialize Dish'}
+                    {isEditing ? 'Sync Changes' : 'Initialize Dish'}
                   </Button>
                   {isEditing && (
                     <Button variant="ghost" onClick={resetForm} className="h-16 rounded-2xl border border-amber-500/10 px-6">
@@ -237,11 +237,11 @@ export default function AdminPage() {
 
             <div className="lg:col-span-7 space-y-10">
               <h2 className="text-3xl font-black uppercase italic tracking-tighter flex items-center gap-4 text-foreground">
-                <LayoutGrid className="h-8 w-8 text-primary" /> Active Inventory
+                <LayoutGrid className="h-8 w-8 text-primary" /> Global Inventory
               </h2>
               <div className="grid sm:grid-cols-2 gap-6">
                 {products.map(product => (
-                  <div key={product.id} className="glass-card p-5 rounded-[2.5rem] flex gap-6 items-center group">
+                  <div key={product.id} className="glass-card p-5 rounded-[2.5rem] flex gap-6 items-center group border-amber-500/10 bg-white/40">
                     <div className="relative h-28 w-28 rounded-[2rem] overflow-hidden flex-shrink-0 shadow-lg">
                       <Image src={product.imageUrls[0] || 'https://picsum.photos/seed/food/200/200'} alt={product.name} fill className="object-cover" />
                     </div>
@@ -269,14 +269,14 @@ export default function AdminPage() {
           </TabsContent>
 
           <TabsContent value="categories" className="max-w-2xl">
-            <Card className="glass-card rounded-[3rem] p-4">
+            <Card className="glass-card rounded-[3rem] p-4 border-amber-500/10">
               <CardHeader className="p-8">
                 <CardTitle className="text-2xl font-black uppercase italic tracking-tighter">Kitchen Categories</CardTitle>
               </CardHeader>
               <CardContent className="p-8 space-y-8">
                 <div className="flex gap-4">
                   <Input 
-                    placeholder="New Category Name" 
+                    placeholder="New Sector Name" 
                     value={newCategory.name} 
                     onChange={e => setNewCategory(c => ({ ...c, name: e.target.value }))}
                     className="h-14 bg-white border-amber-500/10 rounded-2xl font-bold"
@@ -290,7 +290,7 @@ export default function AdminPage() {
                     <div key={cat.id} className="flex items-center justify-between p-5 bg-white border border-amber-500/10 rounded-2xl group hover:border-primary/30 transition-all">
                       <span className="font-black uppercase tracking-widest text-xs text-foreground/60">{cat.name}</span>
                       <Button variant="ghost" size="icon" className="h-10 w-10 text-primary hover:bg-primary/5" onClick={() => {
-                        if(confirm('Remove category?')) deleteDoc(doc(db, 'categories', cat.id));
+                        if(confirm('Decommission category?')) deleteDoc(doc(db, 'categories', cat.id));
                       }}>
                         <Trash2 className="h-4 w-4" />
                       </Button>

@@ -5,24 +5,24 @@ import { useFirestore, useCollection } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { Product, Category } from '@/types/restaurant';
 import { ProductCard } from './ProductCard';
-import { Button } from '@/components/ui/button';
 import { Loader2, Utensils } from 'lucide-react';
 import { MOCK_DATA } from '@/lib/mock-data';
-
-const CATEGORIES = [
-  { name: 'All', slug: 'all' },
-  { name: 'Burgers', slug: 'burgers' },
-  { name: 'Crispy Tenders', slug: 'crispy-tenders' },
-  { name: 'Sides', slug: 'sides' },
-  { name: 'Drinks', slug: 'drinks' },
-];
+import { cn } from '@/lib/utils';
 
 export function MenuGrid() {
   const db = useFirestore();
   const [activeCategory, setActiveCategory] = useState('all');
 
   const productsRef = useMemo(() => db ? collection(db, 'products') : null, [db]);
+  const categoriesRef = useMemo(() => db ? collection(db, 'categories') : null, [db]);
+
   const { data: dbProducts = [], loading: productsLoading } = useCollection<Product>(productsRef);
+  const { data: dbCategories = [] } = useCollection<Category>(categoriesRef);
+
+  const categories = useMemo(() => {
+    const base = [{ id: 'all', name: 'All', slug: 'all' }];
+    return [...base, ...dbCategories];
+  }, [dbCategories]);
 
   const displayProducts = useMemo(() => {
     const combined = dbProducts.length > 0 ? dbProducts : (MOCK_DATA as unknown as Product[]);
@@ -33,26 +33,29 @@ export function MenuGrid() {
   return (
     <section id="menu" className="py-32 relative bg-white/50">
       <div className="container mx-auto px-6">
-        <div className="flex flex-col items-center text-center mb-20 gap-6">
+        <div className="flex flex-col items-center text-center mb-20 gap-8">
           <div className="space-y-4">
             <span className="text-primary font-black uppercase tracking-[0.4em] text-[11px]">Hand-Crafted Goodness</span>
-            <h2 className="text-5xl lg:text-7xl font-black text-foreground tracking-tighter uppercase italic">Our Signature Menu</h2>
+            <h2 className="text-5xl lg:text-7xl font-black text-foreground tracking-tighter uppercase italic">Signature Selection</h2>
           </div>
 
-          <div className="flex flex-wrap justify-center gap-3 p-2 bg-amber-500/5 rounded-[2.5rem] border border-amber-500/10">
-            {CATEGORIES.map(cat => (
-              <Button
-                key={cat.slug}
-                variant={activeCategory === cat.slug ? 'default' : 'ghost'}
-                className={`rounded-full px-8 h-12 font-black uppercase text-[11px] tracking-widest transition-all ${
-                  activeCategory === cat.slug 
-                    ? 'bg-primary text-white shadow-lg' 
-                    : 'text-foreground/40 hover:text-primary'
-                }`}
+          <div className="flex flex-row overflow-x-auto no-scrollbar gap-10 justify-center py-4 w-full border-b border-amber-500/10">
+            {categories.map(cat => (
+              <button
+                key={cat.id}
                 onClick={() => setActiveCategory(cat.slug)}
+                className={cn(
+                  "relative text-[11px] font-black uppercase tracking-[0.3em] transition-all duration-300 pb-4 whitespace-nowrap",
+                  activeCategory === cat.slug 
+                    ? "text-primary scale-110" 
+                    : "text-foreground/30 hover:text-foreground/60"
+                )}
               >
                 {cat.name}
-              </Button>
+                {activeCategory === cat.slug && (
+                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-primary rounded-full animate-in fade-in slide-in-from-bottom-2 duration-500" />
+                )}
+              </button>
             ))}
           </div>
         </div>
