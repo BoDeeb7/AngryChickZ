@@ -34,3 +34,13 @@ export interface Review {
   comment: string;
   createdAt: any;
 }
+
+export interface StoreSettings {
+  phone: string;
+  address: string;
+  instagram: string;
+  facebook: string;
+  tiktok: string;
+  whatsappNumber: string;
+  openingHours: string;
+}

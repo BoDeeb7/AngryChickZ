@@ -1,20 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Instagram, Facebook, Twitter, Phone, MapPin, ArrowUp, UtensilsCrossed, Sparkles, Star } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { useFirestore } from '@/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useFirestore, useDoc } from '@/firebase';
+import { collection, addDoc, serverTimestamp, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { StoreSettings } from '@/types/restaurant';
 
 export function Footer() {
   const db = useFirestore();
   const { toast } = useToast();
   const [review, setReview] = useState({ name: '', comment: '', rating: 5 });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const storeSettingsRef = useMemo(() => db ? doc(db, 'settings', 'store') : null, [db]);
+  const { data: storeSettings } = useDoc<StoreSettings>(storeSettingsRef);
 
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
@@ -39,6 +43,9 @@ export function Footer() {
     }
   };
 
+  const phone = storeSettings?.phone || '+961 70 105 152';
+  const address = storeSettings?.address || 'Elite Kitchen, Central District';
+
   return (
     <footer className="bg-background border-t border-foreground/5 text-foreground pt-40 pb-20 overflow-hidden relative mesh-transition-top">
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] h-64 bg-primary/5 blur-[100px] rounded-full pointer-events-none" />
@@ -58,9 +65,13 @@ export function Footer() {
               Gourmet fried chicken obsession. Established 2024. Level 5 heat.
             </p>
             <div className="flex gap-4">
-              {[Instagram, Facebook, Twitter].map((Icon, idx) => (
-                <Link key={idx} href="#" className="h-12 w-12 rounded-2xl bg-foreground/5 border border-foreground/5 flex items-center justify-center hover:bg-primary transition-all duration-500 group">
-                  <Icon className="h-5 w-5 text-foreground/40 group-hover:text-primary-foreground" />
+              {[
+                { Icon: Instagram, url: storeSettings?.instagram },
+                { Icon: Facebook, url: storeSettings?.facebook },
+                { Icon: Twitter, url: storeSettings?.tiktok }
+              ].map((social, idx) => (
+                <Link key={idx} href={social.url || '#'} className="h-12 w-12 rounded-2xl bg-foreground/5 border border-foreground/5 flex items-center justify-center hover:bg-primary transition-all duration-500 group">
+                  <social.Icon className="h-5 w-5 text-foreground/40 group-hover:text-primary-foreground" />
                 </Link>
               ))}
             </div>
@@ -71,11 +82,11 @@ export function Footer() {
             <ul className="space-y-10 text-foreground/60">
               <li className="flex gap-5">
                 <MapPin className="h-5 w-5 text-primary shrink-0" /> 
-                <span className="text-[10px] uppercase tracking-[0.3em] font-black leading-loose">Elite Kitchen <br />Central District</span>
+                <span className="text-[10px] uppercase tracking-[0.3em] font-black leading-loose whitespace-pre-wrap">{address}</span>
               </li>
               <li className="flex items-center gap-5">
                 <Phone className="h-5 w-5 text-primary shrink-0" /> 
-                <span className="text-[10px] uppercase tracking-[0.3em] font-black">+961 70 105 152</span>
+                <span className="text-[10px] uppercase tracking-[0.3em] font-black">{phone}</span>
               </li>
             </ul>
           </div>
@@ -120,14 +131,14 @@ export function Footer() {
             <ArrowUp className="h-5 w-5 text-foreground/20 group-hover:text-primary-foreground" />
           </button>
 
-          <div className="flex flex-col items-center lg:items-end group">
-            <div className="flex items-center gap-3 mb-4 opacity-40">
-               <Sparkles className="h-3 w-3 text-secondary animate-pulse" />
-               <span className="text-[9px] font-black uppercase tracking-[0.4em] text-foreground">Elite Signature Release</span>
-            </div>
-            <div className="glass-card px-8 py-4 rounded-[2rem] border-foreground/5 bg-foreground/[0.02] shadow-[0_0_40px_rgba(225,29,72,0.15)] group-hover:scale-105 transition-transform duration-700">
-              <span className="text-2xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-secondary to-primary drop-shadow-[0_0_15px_rgba(245,158,11,0.3)]">
-                Powered by Hassan Deeb
+          <div className="flex items-center justify-center">
+            <div className="glass-card px-8 py-3 rounded-full border-amber-500/10 bg-white/5 shadow-[0_0_30px_rgba(245,158,11,0.2)] hover:scale-105 transition-all duration-700 group overflow-hidden relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-secondary/0 via-secondary/10 to-primary/0 animate-shimmer" />
+              <span className="text-sm font-black italic tracking-tighter uppercase whitespace-nowrap flex items-center gap-3">
+                <span className="text-foreground/40 text-[10px] tracking-widest not-italic">Powered by</span>
+                <span className="bg-clip-text text-transparent bg-gradient-to-r from-secondary to-primary drop-shadow-[0_0_8px_rgba(245,158,11,0.4)]">
+                  Hassan Deeb
+                </span>
               </span>
             </div>
           </div>

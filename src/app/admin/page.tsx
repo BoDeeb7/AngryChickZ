@@ -4,14 +4,14 @@ import { useState, useMemo, useEffect } from 'react';
 import { useFirestore, useCollection, useDoc } from '@/firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, orderBy, query, setDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { Product, Category, Review } from '@/types/restaurant';
+import { Product, Category, Review, StoreSettings } from '@/types/restaurant';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Trash2, Edit2, Upload, Loader2, LayoutGrid, List, Utensils, ShieldCheck, ArrowLeft, Star, MessageSquare, Lock, Settings, Image as ImageIcon } from 'lucide-react';
+import { Plus, Trash2, Edit2, Upload, Loader2, LayoutGrid, List, Utensils, ShieldCheck, ArrowLeft, Star, MessageSquare, Lock, Settings, Image as ImageIcon, Globe, Phone, MapPin, Instagram, Facebook } from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -26,6 +26,13 @@ export default function AdminPage() {
   const storage = getStorage();
   const { toast } = useToast();
   
+  // Security: Auto-logout when navigating away
+  useEffect(() => {
+    return () => {
+      setIsAuthenticated(false);
+    };
+  }, []);
+
   const productsRef = useMemo(() => db ? collection(db, 'products') : null, [db]);
   const categoriesRef = useMemo(() => db ? collection(db, 'categories') : null, [db]);
   const reviewsRef = useMemo(() => {
@@ -39,6 +46,9 @@ export default function AdminPage() {
   
   const heroSettingsRef = useMemo(() => db ? doc(db, 'settings', 'hero') : null, [db]);
   const { data: heroSettings } = useDoc<any>(heroSettingsRef);
+
+  const storeSettingsRef = useMemo(() => db ? doc(db, 'settings', 'store') : null, [db]);
+  const { data: storeSettings } = useDoc<StoreSettings>(storeSettingsRef);
 
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -60,6 +70,16 @@ export default function AdminPage() {
     bannerText: 'Elite Signature Release'
   });
 
+  const [storeForm, setStoreForm] = useState<StoreSettings>({
+    phone: '+961 70 105 152',
+    address: 'Elite Kitchen, Central District',
+    instagram: 'https://instagram.com',
+    facebook: 'https://facebook.com',
+    tiktok: 'https://tiktok.com',
+    whatsappNumber: '70105152',
+    openingHours: '12:00 PM - 12:00 AM'
+  });
+
   useEffect(() => {
     if (heroSettings) {
       setHeroForm({
@@ -70,6 +90,32 @@ export default function AdminPage() {
       });
     }
   }, [heroSettings]);
+
+  useEffect(() => {
+    if (storeSettings) {
+      setStoreForm(storeSettings);
+    }
+  }, [storeSettings]);
+
+  // Auto-save logic for hero settings
+  useEffect(() => {
+    if (isAuthenticated && heroSettingsRef && heroForm.bannerHeadline !== heroSettings?.bannerHeadline) {
+      const timeout = setTimeout(() => {
+        setDoc(heroSettingsRef, { ...heroForm, updatedAt: serverTimestamp() }, { merge: true });
+      }, 1000);
+      return () => clearTimeout(timeout);
+    }
+  }, [heroForm, isAuthenticated, heroSettingsRef, heroSettings]);
+
+  // Auto-save logic for store info
+  useEffect(() => {
+    if (isAuthenticated && storeSettingsRef && storeForm.phone !== storeSettings?.phone) {
+      const timeout = setTimeout(() => {
+        setDoc(storeSettingsRef, { ...storeForm, updatedAt: serverTimestamp() }, { merge: true });
+      }, 1000);
+      return () => clearTimeout(timeout);
+    }
+  }, [storeForm, isAuthenticated, storeSettingsRef, storeSettings]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,19 +184,6 @@ export default function AdminPage() {
         operation: isEditing ? 'update' : 'create',
         requestResourceData: data
       }));
-    }
-  };
-
-  const handleSaveHeroSettings = async () => {
-    if (!heroSettingsRef) return;
-    try {
-      await setDoc(heroSettingsRef, {
-        ...heroForm,
-        updatedAt: serverTimestamp()
-      }, { merge: true });
-      toast({ title: "Storefront Updated", description: "Hero settings synchronized." });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Update Failed" });
     }
   };
 
@@ -240,7 +273,10 @@ export default function AdminPage() {
               <Utensils className="h-4 w-4 mr-2" /> Menu
             </TabsTrigger>
             <TabsTrigger value="storefront" className="flex-1 md:flex-none px-8 rounded-full h-full font-black uppercase italic tracking-widest data-[state=active]:bg-primary data-[state=active]:text-white text-[10px]">
-              <Settings className="h-4 w-4 mr-2" /> Storefront
+              <ImageIcon className="h-4 w-4 mr-2" /> Visuals
+            </TabsTrigger>
+            <TabsTrigger value="storeinfo" className="flex-1 md:flex-none px-8 rounded-full h-full font-black uppercase italic tracking-widest data-[state=active]:bg-primary data-[state=active]:text-white text-[10px]">
+              <Globe className="h-4 w-4 mr-2" /> Store Info
             </TabsTrigger>
             <TabsTrigger value="categories" className="flex-1 md:flex-none px-8 rounded-full h-full font-black uppercase italic tracking-widest data-[state=active]:bg-primary data-[state=active]:text-white text-[10px]">
               <List className="h-4 w-4 mr-2" /> Sectors
@@ -357,9 +393,9 @@ export default function AdminPage() {
             <Card className="glass-card rounded-[3.5rem] p-8 border-foreground/10 bg-card/40 max-w-4xl mx-auto">
               <CardHeader className="px-0 pt-0 pb-10 border-b border-foreground/5">
                 <CardTitle className="text-3xl font-black uppercase italic tracking-tighter flex items-center gap-4 text-primary">
-                  <Settings className="h-8 w-8" /> Dynamic Storefront
+                  <Settings className="h-8 w-8" /> Visual Presence
                 </CardTitle>
-                <p className="text-xs font-bold text-foreground/40 uppercase tracking-[0.2em] mt-2">Manage Hero Media & Branding</p>
+                <p className="text-xs font-bold text-foreground/40 uppercase tracking-[0.2em] mt-2">Manage Hero Media & Branding Assets</p>
               </CardHeader>
               <CardContent className="px-0 py-10 space-y-12">
                 <div className="grid md:grid-cols-2 gap-12">
@@ -412,10 +448,87 @@ export default function AdminPage() {
                     />
                   </div>
                 </div>
+                <div className="p-4 bg-primary/5 border border-primary/20 rounded-2xl text-[10px] font-black uppercase tracking-widest text-primary text-center">
+                  Changes sync automatically after 1 second of inactivity.
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-                <Button onClick={handleSaveHeroSettings} className="w-full h-16 bg-primary hover:bg-primary/90 rounded-2xl text-lg font-black uppercase italic shadow-lg">
-                  Deploy Storefront Updates
-                </Button>
+          <TabsContent value="storeinfo" className="space-y-12">
+            <Card className="glass-card rounded-[3.5rem] p-8 border-foreground/10 bg-card/40 max-w-4xl mx-auto">
+              <CardHeader className="px-0 pt-0 pb-10 border-b border-foreground/5">
+                <CardTitle className="text-3xl font-black uppercase italic tracking-tighter flex items-center gap-4 text-primary">
+                  <Globe className="h-8 w-8" /> Store Identity
+                </CardTitle>
+                <p className="text-xs font-bold text-foreground/40 uppercase tracking-[0.2em] mt-2">Manage Contact Details, Address & Social Media</p>
+              </CardHeader>
+              <CardContent className="px-0 py-10 space-y-12">
+                <div className="grid md:grid-cols-2 gap-8">
+                  <div className="space-y-3">
+                    <Label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Public Phone Number</Label>
+                    <div className="relative">
+                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
+                      <Input 
+                        value={storeForm.phone} 
+                        onChange={e => setStoreForm(p => ({ ...p, phone: e.target.value }))}
+                        className="bg-background border-foreground/10 rounded-2xl h-14 pl-12 font-bold text-foreground"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <Label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">WhatsApp Number (Digits Only)</Label>
+                    <Input 
+                      value={storeForm.whatsappNumber} 
+                      onChange={e => setStoreForm(p => ({ ...p, whatsappNumber: e.target.value }))}
+                      className="bg-background border-foreground/10 rounded-2xl h-14 font-bold text-foreground"
+                      placeholder="e.g. 70105152"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Physical Address</Label>
+                  <div className="relative">
+                    <MapPin className="absolute left-4 top-4 h-4 w-4 text-primary" />
+                    <Textarea 
+                      value={storeForm.address} 
+                      onChange={e => setStoreForm(p => ({ ...p, address: e.target.value }))}
+                      className="bg-background border-foreground/10 rounded-2xl min-h-[100px] pl-12 font-bold text-foreground"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-3 gap-6 pt-6">
+                  <div className="space-y-3">
+                    <Label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Instagram URL</Label>
+                    <Input 
+                      value={storeForm.instagram} 
+                      onChange={e => setStoreForm(p => ({ ...p, instagram: e.target.value }))}
+                      className="bg-background border-foreground/10 rounded-2xl h-14 font-bold text-foreground"
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <Label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Facebook URL</Label>
+                    <Input 
+                      value={storeForm.facebook} 
+                      onChange={e => setStoreForm(p => ({ ...p, facebook: e.target.value }))}
+                      className="bg-background border-foreground/10 rounded-2xl h-14 font-bold text-foreground"
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <Label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">TikTok URL</Label>
+                    <Input 
+                      value={storeForm.tiktok} 
+                      onChange={e => setStoreForm(p => ({ ...p, tiktok: e.target.value }))}
+                      className="bg-background border-foreground/10 rounded-2xl h-14 font-bold text-foreground"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-4 bg-primary/5 border border-primary/20 rounded-2xl text-[10px] font-black uppercase tracking-widest text-primary text-center">
+                  All store information is automatically synchronized globally.
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

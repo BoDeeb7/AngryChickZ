@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { X, Minus, Plus, ShoppingBag, Send, CreditCard, Wallet, Trash2, MapPin, User, Phone, Eraser } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,9 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import Image from 'next/image';
-import { OrderDetails } from '@/types/restaurant';
+import { OrderDetails, StoreSettings } from '@/types/restaurant';
+import { useFirestore, useDoc } from '@/firebase';
+import { doc } from 'firebase/firestore';
 
 export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
   const { cart, removeFromCart, updateQuantity, updateNotes, subtotal, itemCount, clearCart } = useCart();
@@ -23,11 +25,17 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
   });
   const [orderInstructions, setOrderInstructions] = useState('');
 
+  const db = useFirestore();
+  const storeSettingsRef = useMemo(() => db ? doc(db, 'settings', 'store') : null, [db]);
+  const { data: storeSettings } = useDoc<StoreSettings>(storeSettingsRef);
+
   const handleCheckout = () => {
     const orderItems = cart.map(item => (
       `• *${item.quantity}x ${item.name}* ($${(item.price * item.quantity).toFixed(2)})\n` +
       (item.notes ? `  _Item Note: ${item.notes}_\n` : '')
     )).join('\n');
+
+    const whatsappNumber = storeSettings?.whatsappNumber || '70105152';
 
     const message = encodeURIComponent(
       `🍗 *NEW ORDER: ANGRY CHICKZ* 🍗\n\n` +
@@ -42,7 +50,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
       `_Formatted via Angry ChickZ Digital Release_`
     );
 
-    window.open(`https://wa.me/70105152?text=${message}`, '_blank');
+    window.open(`https://wa.me/${whatsappNumber}?text=${message}`, '_blank');
     clearCart();
     setCheckoutStep(1);
     setOrderInstructions('');
