@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Instagram, Facebook, Twitter, Phone, MapPin, Clock, ArrowUp, Zap } from 'lucide-react';

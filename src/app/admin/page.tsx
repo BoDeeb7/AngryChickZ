@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -12,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Trash2, Edit2, Upload, Loader2, LayoutGrid, List } from 'lucide-react';
+import { Plus, Trash2, Edit2, Upload, Loader2, LayoutGrid, List, Utensils } from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -307,5 +306,3 @@ export default function AdminPage() {
     </div>
   );
 }
-
-import { Utensils } from 'lucide-react';
