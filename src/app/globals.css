@@ -23,7 +23,7 @@
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
     --ring: 0 72.2% 50.6%;
-    --radius: 1rem;
+    --radius: 1.5rem;
   }
 }
 
@@ -32,21 +32,21 @@
     @apply border-border;
   }
   body {
-    @apply bg-[#0d0e12] text-foreground antialiased;
+    @apply bg-[#08090a] text-foreground antialiased;
     overflow-x: hidden;
   }
 }
 
 .glass-panel {
-  @apply bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl;
+  @apply bg-white/5 backdrop-blur-2xl border border-white/10 shadow-2xl;
 }
 
 .glass-card {
-  @apply bg-white/[0.03] backdrop-blur-lg border border-white/5 hover:border-white/20 transition-all duration-300 shadow-xl;
+  @apply bg-white/[0.02] backdrop-blur-xl border border-white/5 hover:border-red-600/30 transition-all duration-500 shadow-2xl;
 }
 
 .text-glow-red {
-  text-shadow: 0 0 20px rgba(220, 38, 38, 0.4);
+  text-shadow: 0 0 30px rgba(220, 38, 38, 0.6);
 }
 
 .bg-angry-gradient {
@@ -55,24 +55,24 @@
 
 @keyframes float {
   0%, 100% { transform: translateY(0) scale(1); }
-  50% { transform: translateY(-20px) scale(1.05); }
+  50% { transform: translateY(-30px) scale(1.02); }
 }
 
 .animate-float {
-  animation: float 6s ease-in-out infinite;
+  animation: float 8s ease-in-out infinite;
 }
 
 .ambient-light {
-  @apply absolute rounded-full blur-[120px] pointer-events-none opacity-20;
+  @apply absolute rounded-full blur-[160px] pointer-events-none opacity-20;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.02);
+  background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(220, 38, 38, 0.2);
+  background: rgba(220, 38, 38, 0.3);
   border-radius: 10px;
 }

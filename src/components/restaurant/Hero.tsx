@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Flame, Star } from 'lucide-react';
+import { ArrowRight, Flame, Trophy, Crown } from 'lucide-react';
 import Image from 'next/image';
 
 export function Hero() {
@@ -10,72 +10,72 @@ export function Hero() {
   };
 
   return (
-    <section className="relative min-h-[85vh] flex items-center pt-20 overflow-hidden">
-      <div className="container mx-auto px-6 grid lg:grid-cols-2 gap-12 items-center">
-        <div className="space-y-8 relative z-10 animate-in fade-in slide-in-from-left-12 duration-1000">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass-panel text-red-500 font-bold text-xs uppercase tracking-wider">
-            <Flame className="h-3 w-3 fill-red-500" /> New Season Special
+    <section className="relative min-h-screen flex items-center pt-24 overflow-hidden">
+      <div className="container mx-auto px-6 grid lg:grid-cols-2 gap-20 items-center">
+        <div className="space-y-10 relative z-10 animate-in fade-in slide-in-from-left-12 duration-1000">
+          <div className="inline-flex items-center gap-3 px-6 py-2 rounded-full glass-panel text-amber-500 font-black text-[10px] uppercase tracking-[0.3em]">
+            <Crown className="h-3 w-3 fill-amber-500" /> World Famous Hot Chicken
           </div>
           
-          <h1 className="text-6xl lg:text-8xl font-extrabold leading-[1.1] tracking-tight text-white">
-            Unleash The <br />
-            <span className="text-transparent bg-clip-text bg-angry-gradient">Perfect</span> Heat.
+          <h1 className="text-7xl lg:text-9xl font-black leading-[0.9] tracking-tighter text-white uppercase italic">
+            Elite <br />
+            <span className="text-transparent bg-clip-text bg-angry-gradient drop-shadow-2xl">Flavor</span> <br />
+            Legacy.
           </h1>
           
-          <p className="text-lg text-white/60 max-w-lg leading-relaxed font-medium">
-            Gourmet chicken, precision-fried and tossed in our secret spice blend. Experience the heat that keeps you coming back for more.
+          <p className="text-xl text-white/40 max-w-lg leading-relaxed font-medium tracking-tight">
+            Crafted for the bold. Our 24-hour brine meets a top-secret spice architecture to define the new standard of gourmet fast food.
           </p>
 
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap gap-6">
             <Button 
               size="lg" 
-              className="h-16 px-10 rounded-2xl bg-red-600 hover:bg-red-700 text-white text-xl font-bold transition-all duration-300 shadow-xl shadow-red-600/20 group" 
+              className="h-20 px-12 rounded-3xl bg-red-600 hover:bg-red-700 text-white text-2xl font-black transition-all duration-500 shadow-[0_10px_40px_rgba(220,38,38,0.3)] hover:shadow-[0_15px_60px_rgba(220,38,38,0.5)] group uppercase italic" 
               onClick={scrollToMenu}
             >
-              Order Now <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+              Taste The Heat <ArrowRight className="ml-3 h-6 w-6 group-hover:translate-x-2 transition-transform" />
             </Button>
             <Button 
               size="lg" 
               variant="outline" 
-              className="h-16 px-10 rounded-2xl text-xl font-bold border-white/10 hover:bg-white/5 transition-all duration-300" 
+              className="h-20 px-12 rounded-3xl text-2xl font-black border-white/5 hover:bg-white/5 hover:border-white/20 transition-all duration-500 uppercase italic" 
               onClick={scrollToMenu}
             >
               Explore Menu
             </Button>
           </div>
 
-          <div className="flex items-center gap-6 pt-8 border-t border-white/5">
-            <div className="flex -space-x-3">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="h-10 w-10 rounded-full border-2 border-[#0d0e12] overflow-hidden relative">
-                  <Image src={`https://picsum.photos/seed/${i + 10}/100/100`} alt="customer" fill className="object-cover" />
-                </div>
-              ))}
-            </div>
-            <div className="space-y-0.5">
-              <div className="flex text-amber-500 gap-0.5">
-                {[1, 2, 3, 4, 5].map(i => <Star key={i} className="h-3 w-3 fill-amber-500" />)}
+          <div className="flex items-center gap-10 pt-12 border-t border-white/5">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
+                <Trophy className="h-6 w-6 text-amber-500" />
               </div>
-              <p className="text-white/40 font-medium text-[10px] uppercase tracking-widest">12,000+ Happy Customers</p>
+              <div>
+                <p className="text-white font-black text-sm uppercase tracking-widest">#1 Ranked</p>
+                <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Heat Experience 2024</p>
+              </div>
             </div>
           </div>
         </div>
 
         <div className="relative flex justify-center items-center animate-in fade-in zoom-in-75 duration-1000 delay-300">
-          <div className="absolute w-[120%] h-[120%] bg-red-600/10 blur-[150px] rounded-full" />
-          <div className="relative w-full max-w-[550px] aspect-square animate-float">
+          <div className="absolute w-[140%] h-[140%] bg-red-600/10 blur-[180px] rounded-full" />
+          <div className="relative w-full max-w-[650px] aspect-square animate-float">
             <Image 
-              src="https://images.unsplash.com/photo-1568901346375-23c9450c58cd?q=80&w=1000&h=1000&auto=format&fit=crop" 
-              alt="The Inferno Burger" 
+              src="https://images.unsplash.com/photo-1568901346375-23c9450c58cd?q=80&w=1200&h=1200&auto=format&fit=crop" 
+              alt="The Inferno Signature" 
               fill 
-              className="object-contain drop-shadow-[0_20px_50px_rgba(220,38,38,0.4)]"
+              className="object-contain drop-shadow-[0_40px_80px_rgba(220,38,38,0.6)]"
               priority
             />
           </div>
           
-          <div className="absolute -top-4 -right-4 glass-panel p-5 rounded-2xl shadow-2xl">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-red-500 mb-0.5">Heat Level</p>
-            <p className="text-xl font-extrabold text-white uppercase italic">Extreme</p>
+          <div className="absolute top-10 right-0 glass-panel p-8 rounded-[2rem] shadow-2xl rotate-6 hover:rotate-0 transition-transform duration-500">
+            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-red-600 mb-2">Signature Heat</p>
+            <p className="text-4xl font-black text-white uppercase italic tracking-tighter">MOLTEN</p>
+            <div className="flex gap-1 mt-3">
+              {[1,2,3,4,5].map(i => <Flame key={i} className="h-4 w-4 fill-red-600 text-red-600" />)}
+            </div>
           </div>
         </div>
       </div>
