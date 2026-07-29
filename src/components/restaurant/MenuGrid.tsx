@@ -5,7 +5,7 @@ import { useFirestore, useCollection } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { Product, Category } from '@/types/restaurant';
 import { ProductCard } from './ProductCard';
-import { Loader2, Utensils } from 'lucide-react';
+import { Utensils } from 'lucide-react';
 import { MOCK_DATA } from '@/lib/mock-data';
 import { cn } from '@/lib/utils';
 
@@ -16,7 +16,7 @@ export function MenuGrid() {
   const productsRef = useMemo(() => db ? collection(db, 'products') : null, [db]);
   const categoriesRef = useMemo(() => db ? collection(db, 'categories') : null, [db]);
 
-  const { data: dbProducts = [], loading: productsLoading } = useCollection<Product>(productsRef);
+  const { data: dbProducts = [] } = useCollection<Product>(productsRef);
   const { data: dbCategories = [] } = useCollection<Category>(categoriesRef);
 
   const categories = useMemo(() => {
@@ -24,6 +24,7 @@ export function MenuGrid() {
     return [...base, ...dbCategories];
   }, [dbCategories]);
 
+  // Instant hydration: Use DB products if they exist, otherwise fallback to MOCK_DATA instantly.
   const displayProducts = useMemo(() => {
     const combined = dbProducts.length > 0 ? dbProducts : (MOCK_DATA as unknown as Product[]);
     if (activeCategory === 'all') return combined;
@@ -64,12 +65,8 @@ export function MenuGrid() {
           </div>
         </div>
 
-        {productsLoading && dbProducts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-40 opacity-30">
-            <Loader2 className="h-16 w-16 animate-spin mb-6 text-primary" />
-            <p className="text-xs font-black uppercase tracking-widest">Hydrating Menu Items...</p>
-          </div>
-        ) : displayProducts.length > 0 ? (
+        {/* Removed loading spinner logic. displayProducts will always have content (either DB or Mock) */}
+        {displayProducts.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-12">
             {displayProducts.map(product => (
               <ProductCard key={product.id} product={product} />
