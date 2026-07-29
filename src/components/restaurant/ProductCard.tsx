@@ -4,7 +4,7 @@ import { Product } from '@/types/restaurant';
 import { useCart } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Flame, Star, Sparkles, Plus } from 'lucide-react';
+import { Flame, Sparkles, Plus } from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 
@@ -31,6 +31,7 @@ export function ProductCard({ product }: { product: Product }) {
           alt={product.name} 
           fill 
           className="object-cover transition-transform duration-500 group-hover:scale-105"
+          sizes="(max-width: 768px) 50vw, 33vw"
         />
         <div className="absolute top-2 left-2 flex flex-col gap-2 z-10">
           {product.badges?.slice(0, 1).map((badge, idx) => (

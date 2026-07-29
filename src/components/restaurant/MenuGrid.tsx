@@ -12,18 +12,15 @@ export function MenuGrid() {
   const db = useFirestore();
   const [activeCategory, setActiveCategory] = useState('all');
   
-  // States for local/sync data
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
 
-  // Firebase references
   const productsRef = useMemo(() => db ? collection(db, 'products') : null, [db]);
   const categoriesRef = useMemo(() => db ? collection(db, 'categories') : null, [db]);
 
   const { data: dbProducts = [] } = useCollection<Product>(productsRef);
   const { data: dbCategories = [] } = useCollection<Category>(categoriesRef);
 
-  // Sync with LocalStorage as requested (Wiped initially in prompt)
   useEffect(() => {
     const savedProducts = localStorage.getItem('angry_chickz_products');
     const savedCats = localStorage.getItem('angry_chickz_categories');
@@ -32,7 +29,6 @@ export function MenuGrid() {
     if (savedCats) setCategories(JSON.parse(savedCats));
   }, []);
 
-  // Use DB data if available, otherwise local
   const currentProducts = dbProducts.length > 0 ? dbProducts : products;
   const currentCategories = dbCategories.length > 0 ? dbCategories : categories;
 
