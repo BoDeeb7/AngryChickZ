@@ -1,96 +1,102 @@
 
 'use client';
 
-import { Flame, Instagram, Facebook, Twitter, Phone, MapPin, Clock, ArrowUpCircle } from 'lucide-react';
+import { Flame, Instagram, Facebook, Twitter, Phone, MapPin, Clock, ArrowUpCircle, Zap } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 export function Footer() {
-  const logoImg = PlaceHolderImages.find(img => img.id === 'logo-main')?.imageUrl || '';
-
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
-    <footer className="relative bg-black pt-32 pb-16 overflow-hidden border-t border-white/5">
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[1px] bg-gradient-to-r from-transparent via-red-600 to-transparent opacity-50" />
+    <footer className="relative bg-[#0F0F12] pt-40 pb-20 overflow-hidden border-t border-white/5">
+      <div className="ambient-orb w-[500px] h-[500px] bg-red-600/10 bottom-0 left-[-250px]" />
       
-      <div className="container mx-auto px-6">
-        <div className="grid lg:grid-cols-4 md:grid-cols-2 gap-20 mb-32">
-          <div className="space-y-10 lg:col-span-1">
-            <Link href="/" className="flex items-center gap-4">
-              <div className="relative h-16 w-16 overflow-hidden rounded-2xl border-2 border-red-600 shadow-lg shadow-red-600/30">
-                <Image src={logoImg} alt="Logo" fill className="object-cover" />
+      <div className="container mx-auto px-6 relative z-10">
+        <div className="grid lg:grid-cols-4 md:grid-cols-2 gap-24 mb-40">
+          <div className="space-y-12 lg:col-span-1">
+            <Link href="/" className="flex items-center gap-6 group">
+              <div className="relative h-20 w-20 overflow-hidden rounded-[1.5rem] border-2 border-red-600 shadow-2xl group-hover:rotate-6 transition-transform">
+                <Image src="https://images.unsplash.com/photo-1588964895597-cfccd6e2dbf9?q=80&w=200&h=200&auto=format&fit=crop" alt="Logo" fill className="object-cover" />
               </div>
-              <span className="text-3xl font-black italic tracking-tighter text-white">
+              <span className="text-4xl font-black italic tracking-tighter text-white">
                 ANGRY <span className="text-red-600">CHICKZ</span>
               </span>
             </Link>
-            <p className="text-white/40 leading-relaxed font-medium">
+            <p className="text-white/40 leading-relaxed font-medium text-lg">
               We define the standard of high-heat gourmet dining. Precision frying, secret spice chemistry, and absolute flavor dominance.
             </p>
-            <div className="flex gap-4">
+            <div className="flex gap-5">
               {[Instagram, Facebook, Twitter].map((Icon, idx) => (
-                <Link key={idx} href="#" className="h-14 w-14 rounded-2xl glass-panel flex items-center justify-center hover:bg-red-600 transition-all group border-white/5">
-                  <Icon className="h-6 w-6 text-white group-hover:scale-110 transition-transform" />
+                <Link key={idx} href="#" className="h-16 w-16 rounded-[1.5rem] glass-panel flex items-center justify-center hover:bg-red-600 transition-all duration-500 group">
+                  <Icon className="h-7 w-7 text-white group-hover:scale-125 transition-transform" />
                 </Link>
               ))}
             </div>
           </div>
 
           <div>
-            <h4 className="text-sm font-black italic uppercase tracking-[0.4em] mb-10 text-red-600">Menu Vault</h4>
-            <ul className="space-y-5 text-white/60 font-black uppercase italic tracking-tighter text-lg">
-              <li><Link href="#menu" className="hover:text-white transition-colors">Burgers & Buns</Link></li>
-              <li><Link href="#menu" className="hover:text-white transition-colors">Crispy Buckets</Link></li>
-              <li><Link href="#menu" className="hover:text-white transition-colors">Dark Sauces</Link></li>
-              <li><Link href="#menu" className="hover:text-white transition-colors">Liquid Assets</Link></li>
+            <h4 className="text-xs font-black italic uppercase tracking-[0.5em] mb-12 text-red-600">Strategic Sectors</h4>
+            <ul className="space-y-6 text-white/40 font-black uppercase italic tracking-tighter text-xl">
+              <li><Link href="#menu" className="hover:text-white hover:pl-2 transition-all duration-300">Burgers & Buns</Link></li>
+              <li><Link href="#menu" className="hover:text-white hover:pl-2 transition-all duration-300">Crispy Buckets</Link></li>
+              <li><Link href="#menu" className="hover:text-white hover:pl-2 transition-all duration-300">Liquid Gold</Link></li>
+              <li><Link href="#menu" className="hover:text-white hover:pl-2 transition-all duration-300">Dark Reserves</Link></li>
             </ul>
           </div>
 
           <div>
-            <h4 className="text-sm font-black italic uppercase tracking-[0.4em] mb-10 text-red-600">Headquarters</h4>
-            <ul className="space-y-6 text-white/60 font-medium">
-              <li className="flex items-center gap-4">
-                <MapPin className="h-6 w-6 text-red-600" /> 
-                <span className="font-black uppercase italic tracking-tighter">123 Heat Sector, Fire District</span>
+            <h4 className="text-xs font-black italic uppercase tracking-[0.5em] mb-12 text-red-600">Operations</h4>
+            <ul className="space-y-8 text-white/40 font-medium text-lg">
+              <li className="flex items-start gap-5">
+                <MapPin className="h-7 w-7 text-red-600 shrink-0" /> 
+                <span className="font-black uppercase italic tracking-tighter">Sector 7, Heat District, Fire City</span>
               </li>
-              <li className="flex items-center gap-4">
-                <Phone className="h-6 w-6 text-red-600" /> 
+              <li className="flex items-center gap-5">
+                <Phone className="h-7 w-7 text-red-600 shrink-0" /> 
                 <span className="font-black uppercase italic tracking-tighter">+961 70 105 152</span>
               </li>
-              <li className="flex items-center gap-4">
-                <Clock className="h-6 w-6 text-red-600" /> 
-                <span className="font-black uppercase italic tracking-tighter">Every Day: 11AM - 11PM</span>
+              <li className="flex items-center gap-5">
+                <Clock className="h-7 w-7 text-red-600 shrink-0" /> 
+                <span className="font-black uppercase italic tracking-tighter">Daily: 11:00 - 23:00</span>
               </li>
             </ul>
           </div>
 
           <div>
-            <h4 className="text-sm font-black italic uppercase tracking-[0.4em] mb-10 text-red-600">Intelligence</h4>
-            <p className="text-sm text-white/40 mb-6 font-medium">Receive classified updates and spicy intel.</p>
+            <h4 className="text-xs font-black italic uppercase tracking-[0.5em] mb-12 text-red-600">VIP Intelligence</h4>
+            <p className="text-base text-white/40 mb-8 font-medium">Access classified menu updates and priority intel.</p>
             <div className="relative">
-              <input type="email" placeholder="VIP EMAIL ADDRESS" className="w-full h-16 glass-panel rounded-3xl px-6 text-white uppercase font-black italic tracking-tighter placeholder:text-white/20 border-white/5 focus:ring-1 focus:ring-red-600 outline-none" />
-              <button className="absolute right-2 top-2 bottom-2 bg-red-600 hover:bg-red-700 px-6 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white transition-colors">Join</button>
+              <input type="email" placeholder="SECURE EMAIL ADDRESS" className="w-full h-20 glass-panel rounded-[2rem] px-8 text-white uppercase font-black italic tracking-tighter placeholder:text-white/20 outline-none focus:ring-2 focus:ring-red-600" />
+              <button className="absolute right-3 top-3 bottom-3 bg-red-600 hover:bg-red-700 px-8 rounded-[1.5rem] text-[11px] font-black uppercase tracking-widest text-white transition-all shadow-xl">Secure</button>
             </div>
           </div>
         </div>
 
-        <div className="pt-16 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-12">
-          <p className="text-[10px] text-white/20 font-black uppercase tracking-[0.6em]">© {new Date().getFullYear()} Angry ChickZ Global. Operations Secure.</p>
+        <div className="pt-20 border-t border-white/5 flex flex-col lg:flex-row items-center justify-between gap-16">
+          <div className="flex flex-col items-center lg:items-start gap-2">
+             <p className="text-[11px] text-white/20 font-black uppercase tracking-[0.8em]">© ANGRY CHICKZ GLOBAL. ALL RIGHTS RESERVED.</p>
+             <p className="text-[10px] text-red-600/40 font-black uppercase tracking-[0.5em]">Operations Secure • SSL Encrypted</p>
+          </div>
           
-          <button onClick={scrollToTop} className="flex flex-col items-center gap-2 group">
-            <ArrowUpCircle className="h-10 w-10 text-white/20 group-hover:text-red-600 transition-colors" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-white/20">Extraction</span>
+          <button onClick={scrollToTop} className="flex flex-col items-center gap-3 group">
+            <ArrowUpCircle className="h-12 w-12 text-white/10 group-hover:text-red-600 group-hover:-translate-y-2 transition-all duration-500" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-white/10">Extraction</span>
           </button>
 
-          <div className="flex flex-col items-center md:items-end group">
-            <span className="text-[10px] font-black uppercase tracking-[0.5em] text-red-600/80 mb-3 group-hover:text-red-500 transition-colors">Architectural Signature</span>
-            <span className="text-transparent bg-clip-text bg-angry-gradient text-4xl font-black italic tracking-tighter drop-shadow-[0_0_20px_rgba(220,38,38,0.3)] group-hover:scale-110 transition-transform duration-700 whitespace-nowrap">
-              Hassan Deeb - Deeb Data
-            </span>
+          <div className="flex flex-col items-center lg:items-end group cursor-default">
+            <div className="flex items-center gap-3 mb-4">
+               <Zap className="h-4 w-4 text-red-600 fill-red-600" />
+               <span className="text-[12px] font-black uppercase tracking-[0.6em] text-white/40 group-hover:text-red-600 transition-colors">Architectural Signature</span>
+            </div>
+            <div className="relative">
+              <span className="text-transparent bg-clip-text bg-angry-gradient text-5xl font-black italic tracking-tighter drop-shadow-[0_0_30px_rgba(220,38,38,0.4)] group-hover:scale-110 transition-transform duration-700 whitespace-nowrap block">
+                Hassan Deeb - Deeb Data
+              </span>
+              <div className="absolute -bottom-2 left-0 w-0 h-1 bg-angry-gradient group-hover:w-full transition-all duration-700" />
+            </div>
           </div>
         </div>
       </div>

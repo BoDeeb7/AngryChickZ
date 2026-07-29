@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Navbar } from '@/components/restaurant/Navbar';
@@ -7,14 +8,16 @@ import { Footer } from '@/components/restaurant/Footer';
 
 export default function Home() {
   return (
-    <div className="relative flex flex-col min-h-screen overflow-hidden">
-      {/* Background Ambient Lights */}
-      <div className="fixed top-[-10%] left-[-10%] w-[50%] h-[50%] bg-red-600/20 ambient-orb rounded-full" />
-      <div className="fixed bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-yellow-600/10 ambient-orb rounded-full" />
-      <div className="fixed top-[20%] right-[10%] w-[30%] h-[30%] bg-red-900/10 ambient-orb rounded-full" />
+    <div className="relative flex flex-col min-h-screen selection:bg-red-600/30">
+      {/* Dynamic Animated Background Layers */}
+      <div className="fixed inset-0 overflow-hidden -z-10 bg-[#0F0F12]">
+        <div className="ambient-orb w-[600px] h-[600px] bg-red-600 top-[-100px] left-[-100px] animate-orb" />
+        <div className="ambient-orb w-[800px] h-[800px] bg-yellow-600 bottom-[-200px] right-[-200px] animate-orb [animation-delay:2s]" />
+        <div className="ambient-orb w-[400px] h-[400px] bg-red-900 top-[20%] right-[10%] animate-orb [animation-delay:5s]" />
+      </div>
 
       <Navbar />
-      <main className="flex-grow">
+      <main className="flex-grow pt-20">
         <Hero />
         <MenuGrid />
       </main>
