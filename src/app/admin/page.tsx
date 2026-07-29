@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Plus, 
@@ -37,14 +37,23 @@ import { useFirestore, useCollection, useDoc } from '@/firebase';
 import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { useRouter } from 'next/navigation';
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const router = useRouter();
 
   const db = useFirestore();
+
+  // Auto-logout when leaving the admin page
+  useEffect(() => {
+    return () => {
+      setIsAuthenticated(false);
+    };
+  }, []);
 
   // Firestore Data Hooks
   const productsRef = useMemo(() => db ? collection(db, 'products') : null, [db]);
@@ -92,11 +101,11 @@ export default function AdminPage() {
       if (target === 'product') {
         setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, base64] }));
       } else if (target === 'heroBg' && db) {
-        setDoc(doc(db, 'settings', 'hero'), { ...heroSettings, bgImage: base64 }, { merge: true });
+        setDoc(doc(db, 'settings', 'hero'), { bgImage: base64 }, { merge: true });
       } else if (target === 'heroBanner' && db) {
-        setDoc(doc(db, 'settings', 'hero'), { ...heroSettings, bannerImage: base64 }, { merge: true });
+        setDoc(doc(db, 'settings', 'hero'), { bannerImage: base64 }, { merge: true });
       } else if (target === 'logo' && db) {
-        setDoc(doc(db, 'settings', 'store'), { ...storeSettings, logo: base64 }, { merge: true });
+        setDoc(doc(db, 'settings', 'store'), { logo: base64 }, { merge: true });
       }
       setIsSubmitting(false);
       toast({ title: "Upload Success" });

@@ -1,27 +1,29 @@
+
 'use client';
 
 import Link from 'next/link';
 import { ShoppingBag, Shield } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { CartDrawer } from './CartDrawer';
 import { ThemeSwitcher } from './ThemeSwitcher';
+import { useFirestore, useDoc } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import { StoreSettings } from '@/types/restaurant';
 
 export function Navbar() {
   const { itemCount } = useCart();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [adminLogo, setAdminLogo] = useState<string | null>(null);
+
+  const db = useFirestore();
+  const storeSettingsRef = useMemo(() => db ? doc(db, 'settings', 'store') : null, [db]);
+  const { data: storeSettings } = useDoc<StoreSettings>(storeSettingsRef);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
-    
-    // Check for admin-uploaded logo
-    const savedLogo = localStorage.getItem('angry_chickz_logo');
-    if (savedLogo) setAdminLogo(savedLogo);
-
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -31,9 +33,9 @@ export function Navbar() {
         <div className={`container mx-auto max-w-5xl rounded-[2.5rem] px-6 md:px-10 py-3 md:py-4 flex items-center justify-between shadow-2xl transition-all duration-500 ${isScrolled ? 'glass-header' : 'bg-transparent'}`}>
           <Link href="/" className="flex items-center gap-3 md:gap-4 group">
             <div className="relative h-12 w-12 md:h-14 md:w-14 transition-transform duration-500 group-hover:rotate-6 group-hover:scale-110 flex items-center justify-center">
-              {adminLogo ? (
+              {storeSettings?.logo ? (
                 <img 
-                  src={adminLogo} 
+                  src={storeSettings.logo} 
                   alt="Angry ChickZ" 
                   className="h-full w-full object-contain"
                 />
