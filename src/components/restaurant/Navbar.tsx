@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ShoppingBag, UtensilsCrossed } from 'lucide-react';
+import { ShoppingBag, UtensilsCrossed, Shield } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,17 @@ export function Navbar() {
           </Link>
 
           <div className="flex items-center gap-2 md:gap-4">
+            <Link href="/admin">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-10 w-10 md:h-12 md:w-12 rounded-full bg-foreground/5 hover:bg-primary/20 backdrop-blur-md border border-foreground/10 transition-all group"
+                title="Admin Login"
+              >
+                <Shield className="h-5 w-5 text-foreground/40 group-hover:text-primary transition-colors" />
+              </Button>
+            </Link>
+            
             <ThemeSwitcher />
             
             <Button 
