@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Trash2, Edit2, Upload, Loader2, LayoutGrid, List, Utensils, ShieldCheck, ArrowLeft, Star, MessageSquare, Lock, Settings, Image as ImageIcon, Globe, Phone, MapPin, Instagram, Facebook } from 'lucide-react';
+import { Plus, Trash2, Edit2, Upload, Loader2, LayoutGrid, List, Utensils, ShieldCheck, ArrowLeft, Star, MessageSquare, Lock, Settings, Image as ImageIcon, Globe, Phone, MapPin } from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -97,9 +97,9 @@ export default function AdminPage() {
     }
   }, [storeSettings]);
 
-  // Auto-save logic for hero settings
+  // Auto-save logic for changes
   useEffect(() => {
-    if (isAuthenticated && heroSettingsRef && heroForm.bannerHeadline !== heroSettings?.bannerHeadline) {
+    if (isAuthenticated && heroSettingsRef && JSON.stringify(heroForm) !== JSON.stringify(heroSettings)) {
       const timeout = setTimeout(() => {
         setDoc(heroSettingsRef, { ...heroForm, updatedAt: serverTimestamp() }, { merge: true });
       }, 1000);
@@ -107,9 +107,8 @@ export default function AdminPage() {
     }
   }, [heroForm, isAuthenticated, heroSettingsRef, heroSettings]);
 
-  // Auto-save logic for store info
   useEffect(() => {
-    if (isAuthenticated && storeSettingsRef && storeForm.phone !== storeSettings?.phone) {
+    if (isAuthenticated && storeSettingsRef && JSON.stringify(storeForm) !== JSON.stringify(storeSettings)) {
       const timeout = setTimeout(() => {
         setDoc(storeSettingsRef, { ...storeForm, updatedAt: serverTimestamp() }, { merge: true });
       }, 1000);
@@ -119,9 +118,10 @@ export default function AdminPage() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (loginForm.username === 'admin' && loginForm.password === 'admin123') {
+    // Updated Credentials
+    if (loginForm.username === 'Ali@AngryChickZ' && loginForm.password === 'AngryChickZ@DeebData#79') {
       setIsAuthenticated(true);
-      toast({ title: "Access Granted", description: "Welcome to the Command Center." });
+      toast({ title: "Access Granted", description: "Welcome back, Ali." });
     } else {
       toast({ variant: "destructive", title: "Access Denied", description: "Invalid credentials." });
     }
@@ -212,7 +212,7 @@ export default function AdminPage() {
             <div className="h-20 w-20 bg-primary rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-xl">
               <Lock className="h-10 w-10 text-white" />
             </div>
-            <CardTitle className="text-3xl font-black uppercase italic tracking-tighter">Admin Portal</CardTitle>
+            <CardTitle className="text-3xl font-black uppercase italic tracking-tighter text-foreground">Admin Portal</CardTitle>
             <p className="text-xs font-bold text-foreground/40 uppercase tracking-[0.3em] mt-2">Restricted Access</p>
           </CardHeader>
           <CardContent className="p-10">
@@ -223,8 +223,8 @@ export default function AdminPage() {
                   type="text" 
                   value={loginForm.username} 
                   onChange={e => setLoginForm(p => ({ ...p, username: e.target.value }))}
-                  className="h-14 rounded-2xl border-amber-500/10 font-bold bg-white"
-                  placeholder="admin"
+                  className="h-14 rounded-2xl border-amber-500/10 font-bold bg-white text-foreground"
+                  placeholder="Enter username"
                 />
               </div>
               <div className="space-y-2">
@@ -233,11 +233,11 @@ export default function AdminPage() {
                   type="password" 
                   value={loginForm.password} 
                   onChange={e => setLoginForm(p => ({ ...p, password: e.target.value }))}
-                  className="h-14 rounded-2xl border-amber-500/10 font-bold bg-white"
+                  className="h-14 rounded-2xl border-amber-500/10 font-bold bg-white text-foreground"
                   placeholder="••••••••"
                 />
               </div>
-              <Button type="submit" className="w-full h-16 rounded-2xl bg-primary hover:bg-primary/90 font-black uppercase italic text-lg shadow-lg mt-4">
+              <Button type="submit" className="w-full h-16 rounded-2xl bg-primary hover:bg-primary/90 font-black uppercase italic text-lg shadow-lg mt-4 text-white">
                 Verify Credentials
               </Button>
             </form>
@@ -344,7 +344,7 @@ export default function AdminPage() {
                 </div>
 
                 <div className="flex gap-4 pt-4">
-                  <Button onClick={handleSaveProduct} className="flex-grow h-16 bg-primary hover:bg-primary/90 rounded-2xl font-black uppercase italic shadow-lg">
+                  <Button onClick={handleSaveProduct} className="flex-grow h-16 bg-primary hover:bg-primary/90 rounded-2xl font-black uppercase italic shadow-lg text-white">
                     {isEditing ? 'Sync Changes' : 'Initialize Dish'}
                   </Button>
                   {isEditing && (
@@ -536,7 +536,7 @@ export default function AdminPage() {
           <TabsContent value="categories" className="max-w-2xl mx-auto">
             <Card className="glass-card rounded-[3rem] p-4 border-foreground/10 bg-card/40">
               <CardHeader className="p-8">
-                <CardTitle className="text-2xl font-black uppercase italic tracking-tighter">Kitchen Categories</CardTitle>
+                <CardTitle className="text-2xl font-black uppercase italic tracking-tighter text-foreground">Kitchen Categories</CardTitle>
               </CardHeader>
               <CardContent className="p-8 space-y-8">
                 <div className="flex gap-4">
@@ -551,7 +551,7 @@ export default function AdminPage() {
                     const slug = newCategory.name.toLowerCase().replace(/\s+/g, '-');
                     await addDoc(categoriesRef, { name: newCategory.name, slug });
                     setNewCategory({ name: '', slug: '' });
-                  }} className="h-14 w-14 rounded-2xl bg-primary hover:bg-primary/90 shadow-lg p-0">
+                  }} className="h-14 w-14 rounded-2xl bg-primary hover:bg-primary/90 shadow-lg p-0 text-white">
                     <Plus className="h-6 w-6" />
                   </Button>
                 </div>
