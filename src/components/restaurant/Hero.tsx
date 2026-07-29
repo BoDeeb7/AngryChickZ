@@ -4,14 +4,17 @@ import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Star, Flame, Trophy } from 'lucide-react';
 import Image from 'next/image';
-import { useFirestore, useCollection } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { useFirestore, useCollection, useDoc } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
 import { Review } from '@/types/restaurant';
 
 export function Hero() {
   const db = useFirestore();
   const reviewsRef = useMemo(() => db ? collection(db, 'reviews') : null, [db]);
   const { data: reviews = [] } = useCollection<Review>(reviewsRef);
+  
+  const heroSettingsRef = useMemo(() => db ? doc(db, 'settings', 'hero') : null, [db]);
+  const { data: heroSettings } = useDoc<any>(heroSettingsRef);
 
   const averageRating = useMemo(() => {
     if (reviews.length === 0) return 4.9;
@@ -26,11 +29,20 @@ export function Hero() {
     }
   };
 
+  const bgImage = heroSettings?.bgImage || "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?q=80&w=1200&auto=format&fit=crop";
+  const bannerImage = heroSettings?.bannerImage || bgImage;
+  const bannerHeadline = heroSettings?.bannerHeadline || "LEVEL 5 HEAT";
+  const bannerText = heroSettings?.bannerText || "Elite Signature Release";
+
   return (
     <section className="relative min-h-screen flex items-center pt-32 pb-40 overflow-hidden ambient-glow mesh-transition w-full max-w-full">
-      {/* Optimized Orbs - contained to prevent horizontal scroll */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/20 blur-[100px] md:blur-[150px] rounded-full animate-glow-slow pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-secondary/20 blur-[100px] md:blur-[150px] rounded-full animate-glow-slow delay-700 pointer-events-none" />
+      {/* Dynamic Background or Orbs */}
+      <div className="absolute inset-0 opacity-20 pointer-events-none">
+        <Image src={bgImage} alt="background" fill className="object-cover blur-[80px]" />
+      </div>
+      
+      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/10 blur-[100px] md:blur-[150px] rounded-full animate-glow-slow pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-secondary/10 blur-[100px] md:blur-[150px] rounded-full animate-glow-slow delay-700 pointer-events-none" />
 
       <div className="container mx-auto px-6 grid lg:grid-cols-2 gap-12 lg:gap-16 items-center relative z-10 w-full max-w-full overflow-hidden lg:overflow-visible">
         <div className="space-y-8 md:space-y-10 animate-in fade-in slide-in-from-left-12 duration-1000">
@@ -50,7 +62,7 @@ export function Hero() {
           <div className="flex flex-col sm:flex-row gap-4 md:gap-6">
             <Button 
               size="lg" 
-              className="h-20 md:h-24 px-8 md:px-12 rounded-[2rem] md:rounded-[2.5rem] bg-primary hover:bg-primary/90 text-white text-xl md:text-2xl font-black transition-all shadow-xl group uppercase italic" 
+              className="h-20 md:h-24 px-8 md:px-12 rounded-[2rem] md:rounded-[2.5rem] bg-primary hover:bg-primary/90 text-primary-foreground text-xl md:text-2xl font-black transition-all shadow-xl group uppercase italic" 
               onClick={scrollToMenu}
             >
               Order Now <ArrowRight className="ml-3 md:ml-4 h-6 w-6 md:h-8 md:w-8 group-hover:translate-x-3 transition-transform" />
@@ -58,14 +70,14 @@ export function Hero() {
             <Button 
               size="lg" 
               variant="outline" 
-              className="h-20 md:h-24 px-8 md:px-12 rounded-[2rem] md:rounded-[2.5rem] text-xl md:text-2xl font-black border-primary/10 hover:bg-primary/5 uppercase italic backdrop-blur-sm" 
+              className="h-20 md:h-24 px-8 md:px-12 rounded-[2rem] md:rounded-[2.5rem] text-xl md:text-2xl font-black border-foreground/10 text-foreground hover:bg-foreground/5 uppercase italic backdrop-blur-sm" 
               onClick={scrollToMenu}
             >
               Explore Menu
             </Button>
           </div>
 
-          <div className="flex items-center gap-8 md:gap-12 pt-8 md:pt-12 border-t border-primary/5">
+          <div className="flex items-center gap-8 md:gap-12 pt-8 md:pt-12 border-t border-foreground/5">
             <div className="flex items-center gap-4 md:gap-5">
               <div className="flex -space-x-4">
                 {[1, 2, 3].map(i => (
@@ -90,7 +102,7 @@ export function Hero() {
           <div className="absolute w-[120%] h-[120%] bg-primary/5 blur-[80px] md:blur-[120px] rounded-full animate-pulse pointer-events-none" />
           <div className="relative w-full max-w-[400px] md:max-w-[600px] aspect-square transition-transform duration-1000 hover:rotate-2">
             <Image 
-              src="https://images.unsplash.com/photo-1568901346375-23c9450c58cd?q=80&w=1200&auto=format&fit=crop" 
+              src={bannerImage} 
               alt="Angry Inferno Burger" 
               fill 
               className="object-contain drop-shadow-[0_40px_60px_rgba(0,0,0,0.3)]"
@@ -98,9 +110,9 @@ export function Hero() {
             />
           </div>
           
-          <div className="absolute -top-4 -right-2 md:-top-10 md:-right-5 glass-card p-6 md:p-10 rounded-2xl md:rounded-[3rem] rotate-12 border-primary/10 shadow-2xl scale-75 md:scale-100">
-            <p className="text-[9px] md:text-[11px] font-black uppercase tracking-[0.4em] text-primary mb-2 md:mb-3">Elite Signature</p>
-            <p className="text-2xl md:text-4xl font-black text-foreground uppercase italic tracking-tighter">LEVEL 5 HEAT</p>
+          <div className="absolute -top-4 -right-2 md:-top-10 md:-right-5 glass-card p-6 md:p-10 rounded-2xl md:rounded-[3rem] rotate-12 border-primary/10 shadow-2xl scale-75 md:scale-100 bg-card/80 backdrop-blur-xl">
+            <p className="text-[9px] md:text-[11px] font-black uppercase tracking-[0.4em] text-primary mb-2 md:mb-3">{bannerText}</p>
+            <p className="text-2xl md:text-4xl font-black text-foreground uppercase italic tracking-tighter">{bannerHeadline}</p>
             <div className="flex gap-1 mt-3">
               {[1,2,3,4,5].map(i => <Flame key={i} className="h-4 w-4 md:h-6 md:w-6 fill-primary text-primary" />)}
             </div>

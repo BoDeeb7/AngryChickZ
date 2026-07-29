@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { useFirestore, useCollection } from '@/firebase';
-import { collection, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, orderBy, query } from 'firebase/firestore';
+import { useState, useMemo, useEffect } from 'react';
+import { useFirestore, useCollection, useDoc } from '@/firebase';
+import { collection, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, orderBy, query, setDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Product, Category, Review } from '@/types/restaurant';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Trash2, Edit2, Upload, Loader2, LayoutGrid, List, Utensils, ShieldCheck, ArrowLeft, Star, MessageSquare, Lock } from 'lucide-react';
+import { Plus, Trash2, Edit2, Upload, Loader2, LayoutGrid, List, Utensils, ShieldCheck, ArrowLeft, Star, MessageSquare, Lock, Settings, Image as ImageIcon } from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -36,6 +36,9 @@ export default function AdminPage() {
   const { data: products = [] } = useCollection<Product>(productsRef);
   const { data: categories = [] } = useCollection<Category>(categoriesRef);
   const { data: reviews = [] } = useCollection<Review>(reviewsRef);
+  
+  const heroSettingsRef = useMemo(() => db ? doc(db, 'settings', 'hero') : null, [db]);
+  const { data: heroSettings } = useDoc<any>(heroSettingsRef);
 
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -49,6 +52,24 @@ export default function AdminPage() {
   });
 
   const [newCategory, setNewCategory] = useState({ name: '', slug: '' });
+  
+  const [heroForm, setHeroForm] = useState({
+    bgImage: '',
+    bannerImage: '',
+    bannerHeadline: 'LEVEL 5 HEAT',
+    bannerText: 'Elite Signature Release'
+  });
+
+  useEffect(() => {
+    if (heroSettings) {
+      setHeroForm({
+        bgImage: heroSettings.bgImage || '',
+        bannerImage: heroSettings.bannerImage || '',
+        bannerHeadline: heroSettings.bannerHeadline || 'LEVEL 5 HEAT',
+        bannerText: heroSettings.bannerText || 'Elite Signature Release'
+      });
+    }
+  }, [heroSettings]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,19 +81,27 @@ export default function AdminPage() {
     }
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'product' | 'heroBg' | 'heroBanner') => {
     if (!e.target.files?.length) return;
     setIsUploading(true);
     
     try {
       const files = Array.from(e.target.files);
-      const newUrls = await Promise.all(files.map(async (file) => {
-        const storageRef = ref(storage, `menu/${Date.now()}_${file.name}`);
+      const urls = await Promise.all(files.map(async (file) => {
+        const path = target === 'product' ? `menu/${Date.now()}_${file.name}` : `settings/${target}_${Date.now()}_${file.name}`;
+        const storageRef = ref(storage, path);
         await uploadBytes(storageRef, file);
         return await getDownloadURL(storageRef);
       }));
       
-      setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, ...newUrls] }));
+      if (target === 'product') {
+        setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, ...urls] }));
+      } else if (target === 'heroBg') {
+        setHeroForm(prev => ({ ...prev, bgImage: urls[0] }));
+      } else if (target === 'heroBanner') {
+        setHeroForm(prev => ({ ...prev, bannerImage: urls[0] }));
+      }
+      
       toast({ title: "Asset Uploaded", description: "Visual data synchronized." });
     } catch (error) {
       toast({ variant: "destructive", title: "Upload Failed" });
@@ -96,7 +125,7 @@ export default function AdminPage() {
 
     try {
       if (isEditing) {
-        await updateDoc(doc(db, 'products', isEditing), data);
+        await updateDoc(doc(db!, 'products', isEditing), data);
         toast({ title: "Item Updated" });
       } else {
         await addDoc(productsRef, data);
@@ -104,32 +133,25 @@ export default function AdminPage() {
       }
       resetForm();
     } catch (e: any) {
-      const err = new FirestorePermissionError({
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: 'products',
         operation: isEditing ? 'update' : 'create',
         requestResourceData: data
-      });
-      errorEmitter.emit('permission-error', err);
+      }));
     }
   };
 
-  const handleDeleteProduct = async (id: string) => {
-    if (!db) return;
-    if (!confirm('Confirm permanent deletion?')) return;
+  const handleSaveHeroSettings = async () => {
+    if (!heroSettingsRef) return;
     try {
-      await deleteDoc(doc(db, 'products', id));
-      toast({ title: "Item Deleted" });
-    } catch (e) { console.error(e); }
-  };
-
-  const handleAddCategory = async () => {
-    if (!categoriesRef || !newCategory.name) return;
-    try {
-      const slug = newCategory.slug || newCategory.name.toLowerCase().replace(/\s+/g, '-');
-      await addDoc(categoriesRef, { name: newCategory.name, slug });
-      setNewCategory({ name: '', slug: '' });
-      toast({ title: "Category Created" });
-    } catch (e) { console.error(e); }
+      await setDoc(heroSettingsRef, {
+        ...heroForm,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      toast({ title: "Storefront Updated", description: "Hero settings synchronized." });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Update Failed" });
+    }
   };
 
   const resetForm = () => {
@@ -147,7 +169,6 @@ export default function AdminPage() {
       badges: product.badges || [],
     });
     setIsEditing(product.id);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   if (!isAuthenticated) {
@@ -194,7 +215,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FFFBEB] p-8 md:p-16">
+    <div className="min-h-screen bg-background p-8 md:p-16 transition-colors duration-500">
       <div className="container mx-auto max-w-7xl">
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-10 mb-20">
           <div className="flex items-center gap-6">
@@ -203,32 +224,35 @@ export default function AdminPage() {
             </div>
             <div>
               <h1 className="text-4xl font-black tracking-tighter uppercase italic text-foreground leading-none">Command Center</h1>
-              <p className="text-primary font-bold text-[10px] uppercase tracking-[0.4em] mt-2">Elite Management Portal</p>
+              <p className="text-primary font-bold text-[10px] uppercase tracking-[0.4em] mt-2">Executive Management Portal</p>
             </div>
           </div>
           <Link href="/">
-            <Button variant="outline" className="h-16 px-10 rounded-[1.5rem] border-amber-500/20 hover:bg-white text-[11px] font-black uppercase tracking-widest gap-3 shadow-sm">
+            <Button variant="outline" className="h-16 px-10 rounded-[1.5rem] border-primary/20 hover:bg-card text-[11px] font-black uppercase tracking-widest gap-3 shadow-sm text-foreground">
               <ArrowLeft className="h-4 w-4" /> Live Site
             </Button>
           </Link>
         </header>
 
         <Tabs defaultValue="products" className="space-y-12">
-          <TabsList className="bg-amber-500/5 p-2 rounded-[2rem] h-20 gap-2 border border-amber-500/10">
-            <TabsTrigger value="products" className="px-10 rounded-full h-full font-black uppercase italic tracking-widest data-[state=active]:bg-primary data-[state=active]:text-white text-xs">
-              <Utensils className="h-4 w-4 mr-3" /> Menu
+          <TabsList className="bg-foreground/5 p-2 rounded-[2rem] h-20 gap-2 border border-foreground/10 w-full md:w-auto">
+            <TabsTrigger value="products" className="flex-1 md:flex-none px-8 rounded-full h-full font-black uppercase italic tracking-widest data-[state=active]:bg-primary data-[state=active]:text-white text-[10px]">
+              <Utensils className="h-4 w-4 mr-2" /> Menu
             </TabsTrigger>
-            <TabsTrigger value="categories" className="px-10 rounded-full h-full font-black uppercase italic tracking-widest data-[state=active]:bg-primary data-[state=active]:text-white text-xs">
-              <List className="h-4 w-4 mr-3" /> Sectors
+            <TabsTrigger value="storefront" className="flex-1 md:flex-none px-8 rounded-full h-full font-black uppercase italic tracking-widest data-[state=active]:bg-primary data-[state=active]:text-white text-[10px]">
+              <Settings className="h-4 w-4 mr-2" /> Storefront
             </TabsTrigger>
-            <TabsTrigger value="reviews" className="px-10 rounded-full h-full font-black uppercase italic tracking-widest data-[state=active]:bg-primary data-[state=active]:text-white text-xs">
-              <MessageSquare className="h-4 w-4 mr-3" /> Feedback
+            <TabsTrigger value="categories" className="flex-1 md:flex-none px-8 rounded-full h-full font-black uppercase italic tracking-widest data-[state=active]:bg-primary data-[state=active]:text-white text-[10px]">
+              <List className="h-4 w-4 mr-2" /> Sectors
+            </TabsTrigger>
+            <TabsTrigger value="reviews" className="flex-1 md:flex-none px-8 rounded-full h-full font-black uppercase italic tracking-widest data-[state=active]:bg-primary data-[state=active]:text-white text-[10px]">
+              <MessageSquare className="h-4 w-4 mr-2" /> Reviews
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="products" className="grid lg:grid-cols-12 gap-16">
-            <Card className="lg:col-span-5 glass-card rounded-[3.5rem] p-4 border-amber-500/10 bg-white/40">
-              <CardHeader className="p-8 border-b border-amber-500/5">
+            <Card className="lg:col-span-5 glass-card rounded-[3.5rem] p-4 border-foreground/10 bg-card/40">
+              <CardHeader className="p-8 border-b border-foreground/5">
                 <CardTitle className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-4 text-primary">
                   {isEditing ? <Edit2 className="h-6 w-6" /> : <Plus className="h-6 w-6" />}
                   {isEditing ? 'Modify Item' : 'Create Item'}
@@ -237,22 +261,22 @@ export default function AdminPage() {
               <CardContent className="p-8 space-y-8">
                 <div className="space-y-3">
                   <Label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Name</Label>
-                  <Input value={formData.name} onChange={e => setFormData(f => ({ ...f, name: e.target.value }))} className="bg-white border-amber-500/10 rounded-2xl h-14 font-bold" />
+                  <Input value={formData.name} onChange={e => setFormData(f => ({ ...f, name: e.target.value }))} className="bg-background border-foreground/10 rounded-2xl h-14 font-bold text-foreground" />
                 </div>
                 <div className="space-y-3">
                   <Label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Description</Label>
-                  <Textarea value={formData.description} onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} className="bg-white border-amber-500/10 rounded-2xl min-h-[120px] font-bold" />
+                  <Textarea value={formData.description} onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} className="bg-background border-foreground/10 rounded-2xl min-h-[120px] font-bold text-foreground" />
                 </div>
                 
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-3">
                     <Label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Price ($)</Label>
-                    <Input type="number" value={formData.price} onChange={e => setFormData(f => ({ ...f, price: e.target.value }))} className="bg-white border-amber-500/10 rounded-2xl h-14 font-bold" />
+                    <Input type="number" value={formData.price} onChange={e => setFormData(f => ({ ...f, price: e.target.value }))} className="bg-background border-foreground/10 rounded-2xl h-14 font-bold text-foreground" />
                   </div>
                   <div className="space-y-3">
                     <Label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Sector</Label>
                     <select 
-                      className="w-full h-14 px-4 bg-white border border-amber-500/10 rounded-2xl outline-none font-bold text-sm"
+                      className="w-full h-14 px-4 bg-background border border-foreground/10 rounded-2xl outline-none font-bold text-sm text-foreground"
                       value={formData.category}
                       onChange={e => setFormData(f => ({ ...f, category: e.target.value }))}
                     >
@@ -276,9 +300,9 @@ export default function AdminPage() {
                         </button>
                       </div>
                     ))}
-                    <label className="aspect-square flex flex-col items-center justify-center bg-white rounded-xl cursor-pointer hover:bg-amber-50 transition-all border-2 border-dashed border-amber-500/20 group">
+                    <label className="aspect-square flex flex-col items-center justify-center bg-background rounded-xl cursor-pointer hover:bg-foreground/5 transition-all border-2 border-dashed border-foreground/20 group">
                       {isUploading ? <Loader2 className="h-6 w-6 animate-spin text-primary" /> : <Upload className="h-6 w-6 text-foreground/20 group-hover:text-primary" />}
-                      <input type="file" className="hidden" accept="image/*" multiple onChange={handleImageUpload} disabled={isUploading} />
+                      <input type="file" className="hidden" accept="image/*" multiple onChange={(e) => handleImageUpload(e, 'product')} disabled={isUploading} />
                     </label>
                   </div>
                 </div>
@@ -288,7 +312,7 @@ export default function AdminPage() {
                     {isEditing ? 'Sync Changes' : 'Initialize Dish'}
                   </Button>
                   {isEditing && (
-                    <Button variant="ghost" onClick={resetForm} className="h-16 rounded-2xl border border-amber-500/10 px-6">
+                    <Button variant="ghost" onClick={resetForm} className="h-16 rounded-2xl border border-foreground/10 px-6">
                       <Trash2 className="h-6 w-6 text-foreground/20" />
                     </Button>
                   )}
@@ -302,8 +326,8 @@ export default function AdminPage() {
               </h2>
               <div className="grid sm:grid-cols-2 gap-6">
                 {products.map(product => (
-                  <div key={product.id} className="glass-card p-5 rounded-[2.5rem] flex gap-6 items-center group border-amber-500/10 bg-white/40">
-                    <div className="relative h-28 w-28 rounded-[2rem] overflow-hidden flex-shrink-0 shadow-lg">
+                  <div key={product.id} className="glass-card p-5 rounded-[2.5rem] flex gap-6 items-center group border-foreground/10 bg-card/40">
+                    <div className="relative h-28 w-28 rounded-[2rem] overflow-hidden flex-shrink-0 shadow-lg bg-background">
                       <Image src={product.imageUrls[0] || 'https://picsum.photos/seed/food/200/200'} alt={product.name} fill className="object-cover" />
                     </div>
                     <div className="flex-grow flex flex-col justify-between py-1">
@@ -314,10 +338,10 @@ export default function AdminPage() {
                       <div className="flex items-center justify-between mt-4">
                         <span className="font-black text-xl text-foreground italic tracking-tighter">${product.price.toFixed(2)}</span>
                         <div className="flex gap-2">
-                          <Button size="icon" variant="ghost" className="h-10 w-10 rounded-xl bg-amber-500/5 hover:bg-amber-500/10" onClick={() => startEdit(product)}>
-                            <Edit2 className="h-4 w-4" />
+                          <Button size="icon" variant="ghost" className="h-10 w-10 rounded-xl bg-foreground/5 hover:bg-foreground/10" onClick={() => startEdit(product)}>
+                            <Edit2 className="h-4 w-4 text-foreground" />
                           </Button>
-                          <Button size="icon" variant="ghost" className="h-10 w-10 rounded-xl text-primary bg-primary/5 hover:bg-primary/10" onClick={() => handleDeleteProduct(product.id)}>
+                          <Button size="icon" variant="ghost" className="h-10 w-10 rounded-xl text-primary bg-primary/5 hover:bg-primary/10" onClick={() => { if(confirm('Delete?')) deleteDoc(doc(db!, 'products', product.id)); }}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
@@ -329,8 +353,75 @@ export default function AdminPage() {
             </div>
           </TabsContent>
 
-          <TabsContent value="categories" className="max-w-2xl">
-            <Card className="glass-card rounded-[3rem] p-4 border-amber-500/10 bg-white/40">
+          <TabsContent value="storefront" className="space-y-12">
+            <Card className="glass-card rounded-[3.5rem] p-8 border-foreground/10 bg-card/40 max-w-4xl mx-auto">
+              <CardHeader className="px-0 pt-0 pb-10 border-b border-foreground/5">
+                <CardTitle className="text-3xl font-black uppercase italic tracking-tighter flex items-center gap-4 text-primary">
+                  <Settings className="h-8 w-8" /> Dynamic Storefront
+                </CardTitle>
+                <p className="text-xs font-bold text-foreground/40 uppercase tracking-[0.2em] mt-2">Manage Hero Media & Branding</p>
+              </CardHeader>
+              <CardContent className="px-0 py-10 space-y-12">
+                <div className="grid md:grid-cols-2 gap-12">
+                  <div className="space-y-6">
+                    <Label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Hero Background</Label>
+                    <div className="relative h-48 w-full rounded-[2rem] overflow-hidden border-2 border-dashed border-foreground/10 bg-background group">
+                      {heroForm.bgImage ? (
+                        <Image src={heroForm.bgImage} alt="hero-bg" fill className="object-cover" />
+                      ) : (
+                        <div className="flex items-center justify-center h-full text-foreground/20">No Hero Background</div>
+                      )}
+                      <label className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                        <Upload className="h-8 w-8 text-white" />
+                        <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'heroBg')} />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    <Label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Promo Banner Asset</Label>
+                    <div className="relative h-48 w-full rounded-[2rem] overflow-hidden border-2 border-dashed border-foreground/10 bg-background group">
+                      {heroForm.bannerImage ? (
+                        <Image src={heroForm.bannerImage} alt="hero-banner" fill className="object-cover" />
+                      ) : (
+                        <div className="flex items-center justify-center h-full text-foreground/20">No Banner Asset</div>
+                      )}
+                      <label className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                        <Upload className="h-8 w-8 text-white" />
+                        <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'heroBanner')} />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-8">
+                  <div className="space-y-3">
+                    <Label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Banner Headline</Label>
+                    <Input 
+                      value={heroForm.bannerHeadline} 
+                      onChange={e => setHeroForm(p => ({ ...p, bannerHeadline: e.target.value }))}
+                      className="bg-background border-foreground/10 rounded-2xl h-14 font-black uppercase italic tracking-tighter text-foreground"
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <Label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">Banner Description</Label>
+                    <Input 
+                      value={heroForm.bannerText} 
+                      onChange={e => setHeroForm(p => ({ ...p, bannerText: e.target.value }))}
+                      className="bg-background border-foreground/10 rounded-2xl h-14 font-bold text-foreground"
+                    />
+                  </div>
+                </div>
+
+                <Button onClick={handleSaveHeroSettings} className="w-full h-16 bg-primary hover:bg-primary/90 rounded-2xl text-lg font-black uppercase italic shadow-lg">
+                  Deploy Storefront Updates
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="categories" className="max-w-2xl mx-auto">
+            <Card className="glass-card rounded-[3rem] p-4 border-foreground/10 bg-card/40">
               <CardHeader className="p-8">
                 <CardTitle className="text-2xl font-black uppercase italic tracking-tighter">Kitchen Categories</CardTitle>
               </CardHeader>
@@ -340,19 +431,22 @@ export default function AdminPage() {
                     placeholder="New Category Name" 
                     value={newCategory.name} 
                     onChange={e => setNewCategory(c => ({ ...c, name: e.target.value }))}
-                    className="h-14 bg-white border-amber-500/10 rounded-2xl font-bold"
+                    className="h-14 bg-background border-foreground/10 rounded-2xl font-bold text-foreground"
                   />
-                  <Button onClick={handleAddCategory} className="h-14 w-14 rounded-2xl bg-primary hover:bg-primary/90 shadow-lg p-0">
+                  <Button onClick={async () => {
+                    if (!categoriesRef || !newCategory.name) return;
+                    const slug = newCategory.name.toLowerCase().replace(/\s+/g, '-');
+                    await addDoc(categoriesRef, { name: newCategory.name, slug });
+                    setNewCategory({ name: '', slug: '' });
+                  }} className="h-14 w-14 rounded-2xl bg-primary hover:bg-primary/90 shadow-lg p-0">
                     <Plus className="h-6 w-6" />
                   </Button>
                 </div>
                 <div className="grid gap-3">
                   {categories.map(cat => (
-                    <div key={cat.id} className="flex items-center justify-between p-5 bg-white border border-amber-500/10 rounded-2xl group hover:border-primary/30 transition-all">
+                    <div key={cat.id} className="flex items-center justify-between p-5 bg-background border border-foreground/10 rounded-2xl group hover:border-primary/30 transition-all">
                       <span className="font-black uppercase tracking-widest text-xs text-foreground/60">{cat.name}</span>
-                      <Button variant="ghost" size="icon" className="h-10 w-10 text-primary hover:bg-primary/5" onClick={() => {
-                        if(confirm('Delete category?')) deleteDoc(doc(db, 'categories', cat.id));
-                      }}>
+                      <Button variant="ghost" size="icon" className="h-10 w-10 text-primary hover:bg-primary/5" onClick={() => { if(confirm('Delete?')) deleteDoc(doc(db!, 'categories', cat.id)); }}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -368,10 +462,10 @@ export default function AdminPage() {
             </h2>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {reviews.map(review => (
-                <Card key={review.id} className="rounded-[2.5rem] border-amber-500/10 bg-white/40 glass-card p-8">
+                <Card key={review.id} className="rounded-[2.5rem] border-foreground/10 bg-card/40 glass-card p-8 group relative">
                   <div className="flex justify-between items-start mb-6">
                     <div>
-                      <h4 className="font-black uppercase italic tracking-tighter text-lg">{review.customerName}</h4>
+                      <h4 className="font-black uppercase italic tracking-tighter text-lg text-foreground">{review.customerName}</h4>
                       <p className="text-[10px] font-bold text-foreground/40 mt-1">
                         {review.createdAt?.toDate ? review.createdAt.toDate().toLocaleDateString() : 'Recent'}
                       </p>
@@ -387,7 +481,7 @@ export default function AdminPage() {
                     variant="ghost" 
                     size="icon" 
                     className="absolute top-4 right-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => { if(confirm('Remove review?')) deleteDoc(doc(db, 'reviews', review.id!)); }}
+                    onClick={() => { if(confirm('Remove review?')) deleteDoc(doc(db!, 'reviews', review.id!)); }}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>

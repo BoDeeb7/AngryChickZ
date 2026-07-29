@@ -26,8 +26,9 @@
     --radius: 1.75rem;
   }
 
+  /* 1. Midnight Gold: Obsidian Black (#0A0A0C), Metallic Gold (#D4AF37) */
   [data-theme='black-gold'] {
-    --background: 240 10% 4%; /* #0F0F12 */
+    --background: 240 10% 4%; /* #0A0A0C */
     --foreground: 48 100% 98%;
     --card: 240 10% 6%;
     --card-foreground: 48 100% 98%;
@@ -38,48 +39,56 @@
     --secondary: 46 65% 40%;
   }
 
+  /* 2. Crimson Royalty: Velvet Deep Red (#991B1B), Onyx Black */
   [data-theme='red-black'] {
-    --background: 222 47% 6%; /* #111827 */
+    --background: 0 72% 35%; /* #991B1B */
     --foreground: 48 100% 98%;
-    --card: 222 47% 8%;
+    --card: 0 72% 25%;
     --card-foreground: 48 100% 98%;
-    --primary: 345 77% 49%; /* Crimson Red */
+    --primary: 0 0% 0%; /* Onyx Black */
     --primary-foreground: 0 0% 100%;
-    --border: 345 77% 20%;
-    --ring: 345 77% 49%;
+    --border: 0 0% 20%;
+    --ring: 0 0% 0%;
+    --secondary: 48 100% 90%; /* Warm Cream */
   }
 
+  /* 3. Pure Luxe White: Porcelain White (#F8FAFC), Deep Gold (#CA8A04) */
   [data-theme='white-gold'] {
-    --background: 0 0% 98%; /* Royal White #FAFAFA */
+    --background: 210 40% 98%; /* #F8FAFC */
     --foreground: 222 47% 11%;
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
-    --primary: 46 95% 47%; /* Vibrant Gold #EAB308 */
-    --primary-foreground: 222 47% 11%;
-    --border: 46 95% 85%;
-    --ring: 46 95% 47%;
+    --primary: 45 93% 41%; /* Deep Gold #CA8A04 */
+    --primary-foreground: 0 0% 100%;
+    --border: 45 93% 90%;
+    --ring: 45 93% 41%;
+    --secondary: 222 47% 11%;
   }
 
+  /* 4. Neon Ember: Charcoal Black (#121214), Electric Sunset Orange (#EA580C) */
   [data-theme='black-orange'] {
-    --background: 240 10% 3%; /* Midnight Black #09090B */
-    --foreground: 38 92% 50%;
-    --card: 240 10% 5%;
+    --background: 240 10% 4%; /* #121214 */
+    --foreground: 48 100% 98%;
+    --card: 240 10% 7%;
     --card-foreground: 48 100% 98%;
-    --primary: 25 95% 53%; /* Electric Orange #F97316 */
-    --primary-foreground: 240 10% 3%;
-    --border: 25 95% 20%;
-    --ring: 25 95% 53%;
+    --primary: 20 83% 47%; /* Electric Orange #EA580C */
+    --primary-foreground: 0 0% 100%;
+    --border: 20 83% 20%;
+    --ring: 20 83% 47%;
+    --secondary: 48 100% 60%;
   }
 
+  /* 5. Emerald Gourmet: Dark Emerald (#064E3B), Zesty Tangerine (#F97316) */
   [data-theme='green-orange'] {
-    --background: 161 88% 20%; /* Emerald #065F46 */
-    --foreground: 160 30% 96%;
-    --card: 161 88% 15%;
-    --card-foreground: 160 30% 96%;
-    --primary: 28 95% 61%; /* Zesty Orange #FB923C */
-    --primary-foreground: 161 88% 20%;
-    --border: 28 95% 30%;
-    --ring: 28 95% 61%;
+    --background: 165 86% 16%; /* #064E3B */
+    --foreground: 48 100% 98%;
+    --card: 165 86% 12%;
+    --card-foreground: 48 100% 98%;
+    --primary: 25 95% 53%; /* Zesty Tangerine #F97316 */
+    --primary-foreground: 0 0% 100%;
+    --border: 25 95% 30%;
+    --ring: 25 95% 53%;
+    --secondary: 165 86% 80%;
   }
 }
 
@@ -106,8 +115,8 @@
 }
 
 .ambient-glow {
-  background: radial-gradient(circle at 20% 30%, hsl(var(--primary) / 0.15) 0%, transparent 40%),
-              radial-gradient(circle at 80% 70%, hsl(var(--secondary) / 0.15) 0%, transparent 40%);
+  background: radial-gradient(circle at 20% 30%, hsl(var(--primary) / 0.1) 0%, transparent 40%),
+              radial-gradient(circle at 80% 70%, hsl(var(--secondary) / 0.1) 0%, transparent 40%);
 }
 
 .mesh-transition {
