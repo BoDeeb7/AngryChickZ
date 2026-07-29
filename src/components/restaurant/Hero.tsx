@@ -81,8 +81,8 @@ export function Hero() {
             <div className="flex items-center gap-4 md:gap-5">
               <div className="flex -space-x-4">
                 {[1, 2, 3].map(i => (
-                  <div key={i} className="h-10 w-10 md:h-12 md:w-12 rounded-full border-2 border-background bg-muted overflow-hidden">
-                    <Image src={`https://picsum.photos/seed/${i + 80}/48/48`} alt="user" width={48} height={48} className="object-cover" />
+                  <div key={i} className="h-10 w-10 md:h-12 md:w-12 rounded-full border-2 border-background bg-zinc-800 overflow-hidden flex items-center justify-center">
+                    <Flame className="h-5 w-5 text-primary/40" />
                   </div>
                 ))}
               </div>

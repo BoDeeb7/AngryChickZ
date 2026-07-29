@@ -1,24 +1,19 @@
-
 'use client';
 
 import Link from 'next/link';
 import { ShoppingBag, Shield } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { CartDrawer } from './CartDrawer';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import Image from 'next/image';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 export function Navbar() {
   const { itemCount } = useCart();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
-
-  const logoImage = useMemo(() => 
-    PlaceHolderImages.find(img => img.id === 'logo-main')?.imageUrl || 'https://picsum.photos/seed/angrylogo/500/500'
-  , []);
+  const [logoError, setLogoError] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -31,19 +26,28 @@ export function Navbar() {
       <nav className={`fixed top-0 left-0 right-0 z-50 w-full transition-all duration-500 ${isScrolled ? 'py-2 px-4' : 'py-6 px-4 md:px-8'}`}>
         <div className={`container mx-auto max-w-5xl rounded-[2.5rem] px-6 md:px-10 py-3 md:py-4 flex items-center justify-between shadow-2xl transition-all duration-500 ${isScrolled ? 'glass-header' : 'bg-transparent'}`}>
           <Link href="/" className="flex items-center gap-3 md:gap-4 group">
-            <div className="relative h-12 w-12 md:h-14 md:w-14 transition-transform duration-500 group-hover:rotate-6 group-hover:scale-110">
-              <Image 
-                src={logoImage} 
-                alt="Angry ChickZ" 
-                fill 
-                className="object-contain"
-                data-ai-hint="angry chicken mascot logo"
-                priority
-              />
+            <div className="relative h-12 w-12 md:h-14 md:w-14 transition-transform duration-500 group-hover:rotate-6 group-hover:scale-110 flex items-center justify-center">
+              {!logoError ? (
+                <img 
+                  src="/logo.png" 
+                  alt="Angry ChickZ" 
+                  className="h-full w-full object-contain"
+                  onError={() => setLogoError(true)}
+                />
+              ) : (
+                <div className="h-full w-full bg-amber-500/10 rounded-full flex items-center justify-center border border-amber-500/20">
+                   <span className="text-[10px] font-black text-amber-500 italic">AC</span>
+                </div>
+              )}
             </div>
-            <span className="text-xl md:text-2xl font-black tracking-tighter text-foreground leading-none uppercase italic hidden sm:block">
-              ANGRY <span className="text-primary">CHICKZ</span>
-            </span>
+            <div className="flex flex-col">
+              <span className="text-xl md:text-2xl font-black tracking-tighter text-foreground leading-none uppercase italic">
+                ANGRY <span className="text-primary">CHICKZ</span>
+              </span>
+              {logoError && (
+                <span className="text-[10px] font-black tracking-wider text-amber-500 uppercase mt-1">Official Release</span>
+              )}
+            </div>
           </Link>
 
           <div className="flex items-center gap-2 md:gap-4">
