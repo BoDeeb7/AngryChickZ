@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -7,21 +8,40 @@ import { Product, Category } from '@/types/restaurant';
 import { ProductCard } from './ProductCard';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Flame, ChefHat } from 'lucide-react';
+import { Flame, ChefHat, RefreshCw } from 'lucide-react';
 
 export function MenuGrid() {
   const db = useFirestore();
   const [activeTab, setActiveTab] = useState('All');
 
-  const productsRef = useMemo(() => db ? query(collection(db, 'products'), orderBy('createdAt', 'desc')) : null, [db]);
-  const categoriesRef = useMemo(() => db ? collection(db, 'categories') : null, [db]);
+  // Stabilize the query to prevent infinite loops and ensure reliability
+  const productsRef = useMemo(() => {
+    if (!db) return null;
+    // Simplified query to ensure items show even if indexes aren't fully ready yet
+    return collection(db, 'products');
+  }, [db]);
 
-  const { data: products = [], loading: productsLoading } = useCollection<Product>(productsRef);
+  const categoriesRef = useMemo(() => {
+    if (!db) return null;
+    return collection(db, 'categories');
+  }, [db]);
+
+  const { data: products = [], loading: productsLoading, error: productsError } = useCollection<Product>(productsRef);
   const { data: categories = [] } = useCollection<Category>(categoriesRef);
 
-  const filteredProducts = activeTab === 'All' 
-    ? products 
-    : products.filter(p => p.category === activeTab);
+  // Client-side sorting and filtering
+  const displayProducts = useMemo(() => {
+    let list = [...products];
+    // Sort by createdAt if it exists
+    list.sort((a, b) => {
+      const dateA = a.createdAt?.seconds || 0;
+      const dateB = b.createdAt?.seconds || 0;
+      return dateB - dateA; // Newest first
+    });
+
+    if (activeTab === 'All') return list;
+    return list.filter(p => p.category === activeTab);
+  }, [products, activeTab]);
 
   return (
     <section id="menu" className="py-32 relative">
@@ -30,14 +50,14 @@ export function MenuGrid() {
           <div className="space-y-6">
             <div className="flex items-center gap-3 text-red-600">
                <Flame className="h-6 w-6 fill-red-600" />
-               <span className="font-black uppercase tracking-[0.4em] text-xs">The Collection</span>
+               <span className="font-black uppercase tracking-[0.4em] text-xs">The Heat Inventory</span>
             </div>
             <h2 className="text-6xl lg:text-8xl font-black tracking-tighter uppercase italic text-white leading-none">
-              Signature <br /> <span className="text-glow-red text-red-600">Menu</span>
+              Signature <br /> <span className="text-glow-red text-red-600">Assets</span>
             </h2>
           </div>
 
-          <div className="flex flex-wrap gap-3 glass-panel p-2 rounded-[2rem]">
+          <div className="flex flex-wrap gap-3 glass-panel p-2 rounded-[2rem] border-white/5">
             <Button
               variant={activeTab === 'All' ? 'default' : 'ghost'}
               className={`rounded-2xl px-10 h-14 font-black uppercase italic tracking-tighter text-lg transition-all ${activeTab === 'All' ? 'bg-red-600 hover:bg-red-700 text-white shadow-xl shadow-red-600/20' : 'text-white/60 hover:text-white hover:bg-white/5'}`}
@@ -71,17 +91,27 @@ export function MenuGrid() {
               </div>
             ))}
           </div>
-        ) : filteredProducts.length > 0 ? (
+        ) : displayProducts.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
-            {filteredProducts.map(product => (
+            {displayProducts.map(product => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
         ) : (
-          <div className="text-center py-40 glass-card rounded-[4rem] border-dashed">
-            <ChefHat className="h-24 w-24 mx-auto mb-8 text-white/20" />
-            <h3 className="text-4xl font-black italic text-white uppercase tracking-tighter mb-4">Under Development</h3>
-            <p className="text-white/40 font-medium">Our master chefs are currently refining the recipes for this section.</p>
+          <div className="text-center py-40 glass-card rounded-[4rem] border-dashed border-white/10">
+            {productsError ? (
+               <>
+                 <RefreshCw className="h-24 w-24 mx-auto mb-8 text-red-600/40 animate-spin" />
+                 <h3 className="text-4xl font-black italic text-white uppercase tracking-tighter mb-4">Sync Error</h3>
+                 <p className="text-white/40 font-medium">Please check Admin Panel permissions or refresh.</p>
+               </>
+            ) : (
+              <>
+                <ChefHat className="h-24 w-24 mx-auto mb-8 text-white/20" />
+                <h3 className="text-4xl font-black italic text-white uppercase tracking-tighter mb-4">Under Development</h3>
+                <p className="text-white/40 font-medium">Our master chefs are currently refining the recipes for this sector.</p>
+              </>
+            )}
           </div>
         )}
       </div>

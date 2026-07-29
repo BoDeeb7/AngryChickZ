@@ -1,9 +1,14 @@
+
 'use client';
 
 import { Flame, Instagram, Facebook, Twitter, Phone, MapPin, Clock, ArrowUpCircle } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 export function Footer() {
+  const logoImg = PlaceHolderImages.find(img => img.id === 'logo-main')?.imageUrl || '';
+
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -15,9 +20,9 @@ export function Footer() {
       <div className="container mx-auto px-6">
         <div className="grid lg:grid-cols-4 md:grid-cols-2 gap-20 mb-32">
           <div className="space-y-10 lg:col-span-1">
-            <Link href="/" className="flex items-center gap-3">
-              <div className="bg-red-600 p-2 rounded-2xl">
-                <Flame className="h-6 w-6 text-yellow-400 fill-yellow-400" />
+            <Link href="/" className="flex items-center gap-4">
+              <div className="relative h-16 w-16 overflow-hidden rounded-2xl border-2 border-red-600 shadow-lg shadow-red-600/30">
+                <Image src={logoImg} alt="Logo" fill className="object-cover" />
               </div>
               <span className="text-3xl font-black italic tracking-tighter text-white">
                 ANGRY <span className="text-red-600">CHICKZ</span>
@@ -28,7 +33,7 @@ export function Footer() {
             </p>
             <div className="flex gap-4">
               {[Instagram, Facebook, Twitter].map((Icon, idx) => (
-                <Link key={idx} href="#" className="h-14 w-14 rounded-2xl glass-panel flex items-center justify-center hover:bg-red-600 transition-all group">
+                <Link key={idx} href="#" className="h-14 w-14 rounded-2xl glass-panel flex items-center justify-center hover:bg-red-600 transition-all group border-white/5">
                   <Icon className="h-6 w-6 text-white group-hover:scale-110 transition-transform" />
                 </Link>
               ))}
@@ -67,23 +72,23 @@ export function Footer() {
             <h4 className="text-sm font-black italic uppercase tracking-[0.4em] mb-10 text-red-600">Intelligence</h4>
             <p className="text-sm text-white/40 mb-6 font-medium">Receive classified updates and spicy intel.</p>
             <div className="relative">
-              <input type="email" placeholder="VIP EMAIL ADDRESS" className="w-full h-16 glass-panel rounded-3xl px-6 text-white uppercase font-black italic tracking-tighter placeholder:text-white/20 focus:ring-1 focus:ring-red-600 outline-none" />
+              <input type="email" placeholder="VIP EMAIL ADDRESS" className="w-full h-16 glass-panel rounded-3xl px-6 text-white uppercase font-black italic tracking-tighter placeholder:text-white/20 border-white/5 focus:ring-1 focus:ring-red-600 outline-none" />
               <button className="absolute right-2 top-2 bottom-2 bg-red-600 hover:bg-red-700 px-6 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white transition-colors">Join</button>
             </div>
           </div>
         </div>
 
-        <div className="pt-16 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-10">
+        <div className="pt-16 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-12">
           <p className="text-[10px] text-white/20 font-black uppercase tracking-[0.6em]">© {new Date().getFullYear()} Angry ChickZ Global. Operations Secure.</p>
           
           <button onClick={scrollToTop} className="flex flex-col items-center gap-2 group">
-            <ArrowUpCircle className="h-8 w-8 text-white/20 group-hover:text-red-600 transition-colors" />
-            <span className="text-[8px] font-black uppercase tracking-widest text-white/20">Extraction</span>
+            <ArrowUpCircle className="h-10 w-10 text-white/20 group-hover:text-red-600 transition-colors" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-white/20">Extraction</span>
           </button>
 
           <div className="flex flex-col items-center md:items-end group">
-            <span className="text-[9px] font-black uppercase tracking-[0.4em] text-white/20 mb-2">Developed By</span>
-            <span className="text-transparent bg-clip-text bg-angry-gradient text-2xl font-black italic tracking-tighter group-hover:scale-105 transition-transform duration-500">
+            <span className="text-[10px] font-black uppercase tracking-[0.5em] text-red-600/80 mb-3 group-hover:text-red-500 transition-colors">Architectural Signature</span>
+            <span className="text-transparent bg-clip-text bg-angry-gradient text-4xl font-black italic tracking-tighter drop-shadow-[0_0_20px_rgba(220,38,38,0.3)] group-hover:scale-110 transition-transform duration-700 whitespace-nowrap">
               Hassan Deeb - Deeb Data
             </span>
           </div>
