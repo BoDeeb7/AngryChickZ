@@ -29,40 +29,49 @@ export function Hero() {
     }
   };
 
-  const bgImage = heroSettings?.bgImage || "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?q=80&w=1200&auto=format&fit=crop";
+  // High-res gourmet food feast background
+  const bgImage = heroSettings?.bgImage || "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1600&auto=format&fit=crop";
   const bannerImage = heroSettings?.bannerImage || bgImage;
   const bannerHeadline = heroSettings?.bannerHeadline || "LEVEL 5 HEAT";
   const bannerText = heroSettings?.bannerText || "Elite Signature Release";
 
   return (
-    <section className="relative min-h-screen flex items-center pt-32 pb-40 overflow-hidden ambient-glow mesh-transition w-full max-w-full">
-      {/* Dynamic Background or Orbs */}
-      <div className="absolute inset-0 opacity-20 pointer-events-none">
-        <Image src={bgImage} alt="background" fill className="object-cover blur-[80px]" />
+    <section className="relative min-h-screen flex items-center pt-32 pb-40 overflow-hidden w-full max-w-full">
+      {/* Dynamic Background with Mask */}
+      <div className="absolute inset-0 z-0">
+        <Image 
+          src={bgImage} 
+          alt="Gourmet Feast" 
+          fill 
+          className="object-cover opacity-60"
+          priority
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/40 to-background" />
       </div>
       
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/10 blur-[100px] md:blur-[150px] rounded-full animate-glow-slow pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-secondary/10 blur-[100px] md:blur-[150px] rounded-full animate-glow-slow delay-700 pointer-events-none" />
+      {/* Decorative Orbs */}
+      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/20 blur-[150px] rounded-full animate-glow-slow pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-secondary/10 blur-[150px] rounded-full animate-glow-slow delay-700 pointer-events-none" />
 
       <div className="container mx-auto px-6 grid lg:grid-cols-2 gap-12 lg:gap-16 items-center relative z-10 w-full max-w-full overflow-hidden lg:overflow-visible">
         <div className="space-y-8 md:space-y-10 animate-in fade-in slide-in-from-left-12 duration-1000">
-          <div className="inline-flex items-center gap-3 px-6 py-2 rounded-full bg-card/50 backdrop-blur-md border border-primary/10 text-primary font-black text-[10px] md:text-[11px] uppercase tracking-[0.3em] shadow-sm">
+          <div className="inline-flex items-center gap-3 px-6 py-2 rounded-full bg-black/40 backdrop-blur-md border border-amber-500/20 text-amber-500 font-black text-[10px] md:text-[11px] uppercase tracking-[0.3em] shadow-xl">
             <Trophy className="h-4 w-4" /> Global Heat Record
           </div>
           
-          <h1 className="text-4xl md:text-6xl lg:text-[90px] font-black leading-[1] md:leading-[0.95] tracking-tighter text-foreground uppercase italic">
-            Crave The <span className="text-primary drop-shadow-[0_0_15px_rgba(225,29,72,0.3)]">Heat.</span> <br className="hidden sm:block" />
-            Taste The <span className="text-secondary drop-shadow-[0_0_15px_rgba(245,158,11,0.3)]">Perfection.</span>
+          <h1 className="text-4xl md:text-6xl lg:text-[80px] font-black leading-[1] md:leading-[0.95] tracking-tighter text-white uppercase italic drop-shadow-2xl">
+            Crave The <span className="text-primary drop-shadow-[0_0_15px_rgba(225,29,72,0.5)]">Heat.</span> <br className="hidden sm:block" />
+            Taste The <span className="text-secondary drop-shadow-[0_0_15px_rgba(245,158,11,0.5)]">Perfection.</span>
           </h1>
           
-          <p className="text-lg md:text-xl text-foreground/60 max-w-lg leading-relaxed font-medium">
+          <p className="text-lg md:text-xl text-white/80 max-w-lg leading-relaxed font-medium drop-shadow-md">
             Triple-crunch gourmet chicken redefined. Hand-brined for 24 hours, seasoned for an elite crunch.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 md:gap-6">
             <Button 
               size="lg" 
-              className="h-20 md:h-24 px-8 md:px-12 rounded-[2rem] md:rounded-[2.5rem] bg-primary hover:bg-primary/90 text-primary-foreground text-xl md:text-2xl font-black transition-all shadow-xl group uppercase italic" 
+              className="h-20 md:h-24 px-8 md:px-12 rounded-[2rem] md:rounded-[2.5rem] bg-primary hover:bg-primary/90 text-primary-foreground text-xl md:text-2xl font-black transition-all shadow-[0_10px_40px_rgba(225,29,72,0.4)] group uppercase italic" 
               onClick={scrollToMenu}
             >
               Order Now <ArrowRight className="ml-3 md:ml-4 h-6 w-6 md:h-8 md:w-8 group-hover:translate-x-3 transition-transform" />
@@ -70,27 +79,27 @@ export function Hero() {
             <Button 
               size="lg" 
               variant="outline" 
-              className="h-20 md:h-24 px-8 md:px-12 rounded-[2rem] md:rounded-[2.5rem] text-xl md:text-2xl font-black border-foreground/10 text-foreground hover:bg-foreground/5 uppercase italic backdrop-blur-sm" 
+              className="h-20 md:h-24 px-8 md:px-12 rounded-[2rem] md:rounded-[2.5rem] text-xl md:text-2xl font-black border-white/20 text-white hover:bg-white/5 uppercase italic backdrop-blur-sm shadow-xl" 
               onClick={scrollToMenu}
             >
               Explore Menu
             </Button>
           </div>
 
-          <div className="flex items-center gap-8 md:gap-12 pt-8 md:pt-12 border-t border-foreground/5">
+          <div className="flex items-center gap-8 md:gap-12 pt-8 md:pt-12 border-t border-white/10">
             <div className="flex items-center gap-4 md:gap-5">
               <div className="flex -space-x-4">
                 {[1, 2, 3].map(i => (
-                  <div key={i} className="h-10 w-10 md:h-12 md:w-12 rounded-full border-2 border-background bg-zinc-800 overflow-hidden flex items-center justify-center">
-                    <Flame className="h-5 w-5 text-primary/40" />
+                  <div key={i} className="h-10 w-10 md:h-12 md:w-12 rounded-full border-2 border-primary bg-zinc-900 overflow-hidden flex items-center justify-center">
+                    <Flame className="h-5 w-5 text-primary" />
                   </div>
                 ))}
               </div>
               <div>
                 <div className="flex items-center gap-1">
-                  {[1, 2, 3, 4, 5].map(i => <Star key={i} className={`h-3 w-3 md:h-3.5 md:w-3.5 ${i <= Math.round(Number(averageRating)) ? 'fill-secondary text-secondary' : 'text-foreground/10'}`} />)}
+                  {[1, 2, 3, 4, 5].map(i => <Star key={i} className={`h-3 w-3 md:h-3.5 md:w-3.5 ${i <= Math.round(Number(averageRating)) ? 'fill-secondary text-secondary' : 'text-white/20'}`} />)}
                 </div>
-                <p className="text-[10px] md:text-[11px] font-black text-foreground/40 uppercase tracking-widest mt-1.5">
+                <p className="text-[10px] md:text-[11px] font-black text-white/60 uppercase tracking-widest mt-1.5">
                   ⭐ {averageRating} / 5.0 Sentiment
                 </p>
               </div>
@@ -99,20 +108,20 @@ export function Hero() {
         </div>
 
         <div className="relative flex justify-center items-center animate-in fade-in zoom-in-90 duration-1000 delay-300 w-full">
-          <div className="absolute w-[120%] h-[120%] bg-primary/5 blur-[80px] md:blur-[120px] rounded-full animate-pulse pointer-events-none" />
+          <div className="absolute w-[120%] h-[120%] bg-primary/10 blur-[100px] md:blur-[150px] rounded-full animate-pulse pointer-events-none" />
           <div className="relative w-full max-w-[400px] md:max-w-[600px] aspect-square transition-transform duration-1000 hover:rotate-2">
             <Image 
               src={bannerImage} 
-              alt="Angry Inferno Burger" 
+              alt="Angry Inferno Promo" 
               fill 
-              className="object-contain drop-shadow-[0_40px_60px_rgba(0,0,0,0.3)]"
+              className="object-contain drop-shadow-[0_40px_60px_rgba(0,0,0,0.5)]"
               priority
             />
           </div>
           
-          <div className="absolute -top-4 -right-2 md:-top-10 md:-right-5 glass-card p-6 md:p-10 rounded-2xl md:rounded-[3rem] rotate-12 border-primary/10 shadow-2xl scale-75 md:scale-100 bg-card/80 backdrop-blur-xl">
+          <div className="absolute -top-4 -right-2 md:-top-10 md:-right-5 glass-card p-6 md:p-10 rounded-2xl md:rounded-[3rem] rotate-12 border-primary/20 shadow-2xl scale-75 md:scale-100 bg-black/60 backdrop-blur-xl">
             <p className="text-[9px] md:text-[11px] font-black uppercase tracking-[0.4em] text-primary mb-2 md:mb-3">{bannerText}</p>
-            <p className="text-2xl md:text-4xl font-black text-foreground uppercase italic tracking-tighter">{bannerHeadline}</p>
+            <p className="text-2xl md:text-4xl font-black text-white uppercase italic tracking-tighter">{bannerHeadline}</p>
             <div className="flex gap-1 mt-3">
               {[1,2,3,4,5].map(i => <Flame key={i} className="h-4 w-4 md:h-6 md:w-6 fill-primary text-primary" />)}
             </div>

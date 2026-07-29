@@ -26,65 +26,60 @@
     --radius: 1.75rem;
   }
 
-  /* 1. Midnight Gold: Obsidian Black (#0A0A0C), Metallic Gold (#D4AF37) */
   [data-theme='black-gold'] {
-    --background: 240 10% 4%; /* #0A0A0C */
+    --background: 240 10% 4%;
     --foreground: 48 100% 98%;
     --card: 240 10% 6%;
     --card-foreground: 48 100% 98%;
-    --primary: 46 65% 52%; /* Metallic Gold #D4AF37 */
+    --primary: 46 65% 52%;
     --primary-foreground: 240 10% 4%;
     --border: 46 65% 20%;
     --ring: 46 65% 52%;
     --secondary: 46 65% 40%;
   }
 
-  /* 2. Crimson Royalty: Velvet Deep Red (#991B1B), Onyx Black */
   [data-theme='red-black'] {
-    --background: 0 72% 35%; /* #991B1B */
+    --background: 0 72% 35%;
     --foreground: 48 100% 98%;
     --card: 0 72% 25%;
     --card-foreground: 48 100% 98%;
-    --primary: 0 0% 0%; /* Onyx Black */
+    --primary: 0 0% 0%;
     --primary-foreground: 0 0% 100%;
     --border: 0 0% 20%;
     --ring: 0 0% 0%;
-    --secondary: 48 100% 90%; /* Warm Cream */
+    --secondary: 48 100% 90%;
   }
 
-  /* 3. Pure Luxe White: Porcelain White (#F8FAFC), Deep Gold (#CA8A04) */
   [data-theme='white-gold'] {
-    --background: 210 40% 98%; /* #F8FAFC */
+    --background: 210 40% 98%;
     --foreground: 222 47% 11%;
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
-    --primary: 45 93% 41%; /* Deep Gold #CA8A04 */
+    --primary: 45 93% 41%;
     --primary-foreground: 0 0% 100%;
     --border: 45 93% 90%;
     --ring: 45 93% 41%;
     --secondary: 222 47% 11%;
   }
 
-  /* 4. Neon Ember: Charcoal Black (#121214), Electric Sunset Orange (#EA580C) */
   [data-theme='black-orange'] {
-    --background: 240 10% 4%; /* #121214 */
+    --background: 240 10% 4%;
     --foreground: 48 100% 98%;
     --card: 240 10% 7%;
     --card-foreground: 48 100% 98%;
-    --primary: 20 83% 47%; /* Electric Orange #EA580C */
+    --primary: 20 83% 47%;
     --primary-foreground: 0 0% 100%;
     --border: 20 83% 20%;
     --ring: 20 83% 47%;
     --secondary: 48 100% 60%;
   }
 
-  /* 5. Emerald Gourmet: Dark Emerald (#064E3B), Zesty Tangerine (#F97316) */
   [data-theme='green-orange'] {
-    --background: 165 86% 16%; /* #064E3B */
+    --background: 165 86% 16%;
     --foreground: 48 100% 98%;
     --card: 165 86% 12%;
     --card-foreground: 48 100% 98%;
-    --primary: 25 95% 53%; /* Zesty Tangerine #F97316 */
+    --primary: 25 95% 53%;
     --primary-foreground: 0 0% 100%;
     --border: 25 95% 30%;
     --ring: 25 95% 53%;
@@ -102,7 +97,6 @@
   }
   body {
     @apply bg-background text-foreground antialiased font-body transition-colors duration-500;
-    background-attachment: fixed;
   }
 }
 
@@ -150,4 +144,24 @@
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Fire Spark Animations */
+@keyframes spark-float {
+  0% { transform: translateY(0) translateX(0) scale(1); opacity: 0; }
+  10% { opacity: 0.5; }
+  50% { transform: translateY(-50vh) translateX(20px) scale(1.2); opacity: 0.8; }
+  100% { transform: translateY(-100vh) translateX(-20px) scale(0.5); opacity: 0; }
+}
+
+.animate-spark {
+  animation: spark-float linear infinite;
+}
+
+@keyframes shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+.animate-shimmer {
+  animation: shimmer 3s infinite linear;
 }

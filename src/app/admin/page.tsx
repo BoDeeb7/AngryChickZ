@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Plus, 
@@ -19,6 +19,7 @@ import {
   ImageIcon, 
   Globe, 
   X,
+  Palette
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -49,11 +50,12 @@ export default function AdminPage() {
     openingHours: ''
   });
   const [heroSettings, setHeroSettings] = useState({
-    bgImage: 'https://picsum.photos/seed/food/1200/800',
-    bannerImage: 'https://picsum.photos/seed/promo/800/800',
-    bannerHeadline: 'New Arrival',
+    bgImage: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1600&auto=format&fit=crop',
+    bannerImage: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1600&auto=format&fit=crop',
+    bannerHeadline: 'LEVEL 5 HEAT',
     bannerText: 'Elite Signature Release'
   });
+  const [adminLogo, setAdminLogo] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -67,12 +69,14 @@ export default function AdminPage() {
     const savedReviews = localStorage.getItem('angry_chickz_reviews');
     const savedStore = localStorage.getItem('angry_chickz_store_settings');
     const savedHero = localStorage.getItem('angry_chickz_hero_settings');
+    const savedLogo = localStorage.getItem('angry_chickz_logo');
 
     if (savedProducts) setProducts(JSON.parse(savedProducts));
     if (savedCats) setCategories(JSON.parse(savedCats));
     if (savedReviews) setReviews(JSON.parse(savedReviews));
     if (savedStore) setStoreSettings(JSON.parse(savedStore));
     if (savedHero) setHeroSettings(JSON.parse(savedHero));
+    if (savedLogo) setAdminLogo(savedLogo);
   }, []);
 
   useEffect(() => {
@@ -82,8 +86,9 @@ export default function AdminPage() {
       localStorage.setItem('angry_chickz_reviews', JSON.stringify(reviews));
       localStorage.setItem('angry_chickz_store_settings', JSON.stringify(storeSettings));
       localStorage.setItem('angry_chickz_hero_settings', JSON.stringify(heroSettings));
+      if (adminLogo) localStorage.setItem('angry_chickz_logo', adminLogo);
     }
-  }, [products, categories, reviews, storeSettings, heroSettings, isAuthenticated]);
+  }, [products, categories, reviews, storeSettings, heroSettings, adminLogo, isAuthenticated]);
 
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -108,7 +113,7 @@ export default function AdminPage() {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'product' | 'heroBg' | 'heroBanner') => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'product' | 'heroBg' | 'heroBanner' | 'logo') => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -122,8 +127,11 @@ export default function AdminPage() {
         setHeroSettings(prev => ({ ...prev, bgImage: base64 }));
       } else if (target === 'heroBanner') {
         setHeroSettings(prev => ({ ...prev, bannerImage: base64 }));
+      } else if (target === 'logo') {
+        setAdminLogo(base64);
       }
       setIsUploading(false);
+      toast({ title: "Upload Success" });
     };
     reader.readAsDataURL(file);
   };
@@ -193,7 +201,7 @@ export default function AdminPage() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md bg-zinc-900 border-zinc-800 shadow-2xl rounded-2xl">
+        <Card className="w-full max-w-md bg-zinc-900 border-zinc-800 shadow-2xl rounded-2xl overflow-hidden">
           <CardHeader className="text-center pt-8 pb-2">
             <div className="h-16 w-16 bg-amber-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <Lock className="h-8 w-8 text-zinc-950" />
@@ -207,7 +215,7 @@ export default function AdminPage() {
                 <Input 
                   value={loginForm.username} 
                   onChange={e => setLoginForm(p => ({ ...p, username: e.target.value }))}
-                  className="bg-zinc-800 border-zinc-700 text-white rounded-xl"
+                  className="bg-zinc-800 border-zinc-700 text-white rounded-xl h-12 focus:ring-amber-500/50"
                   placeholder="Username"
                 />
               </div>
@@ -217,12 +225,12 @@ export default function AdminPage() {
                   type="password" 
                   value={loginForm.password} 
                   onChange={e => setLoginForm(p => ({ ...p, password: e.target.value }))}
-                  className="bg-zinc-800 border-zinc-700 text-white rounded-xl"
+                  className="bg-zinc-800 border-zinc-700 text-white rounded-xl h-12 focus:ring-amber-500/50"
                   placeholder="••••••••"
                 />
               </div>
-              <Button type="submit" className="w-full h-12 bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold rounded-xl uppercase tracking-widest">
-                Login
+              <Button type="submit" className="w-full h-14 bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold rounded-xl uppercase tracking-widest transition-all">
+                Login Terminal
               </Button>
             </form>
           </CardContent>
@@ -232,9 +240,9 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 pb-20">
       <div className="container mx-auto max-w-6xl p-4 md:p-8">
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 bg-zinc-900 p-6 rounded-2xl border border-zinc-800">
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 bg-zinc-900 p-6 rounded-2xl border border-zinc-800 shadow-xl">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 bg-amber-500 rounded-xl flex items-center justify-center">
               <ShieldCheck className="h-6 w-6 text-zinc-950" />
@@ -256,21 +264,22 @@ export default function AdminPage() {
             {[
               { value: 'products', icon: Utensils, label: 'Items' },
               { value: 'categories', icon: List, label: 'Categories' },
-              { value: 'visuals', icon: ImageIcon, label: 'Visuals' },
+              { value: 'visuals', icon: ImageIcon, label: 'Store Visuals' },
+              { value: 'assets', icon: Palette, label: 'Brand Assets' },
               { value: 'storeinfo', icon: Globe, label: 'Store Info' },
               { value: 'reviews', icon: MessageSquare, label: 'Reviews' },
             ].map((tab) => (
               <TabsTrigger 
                 key={tab.value}
                 value={tab.value} 
-                className="px-6 py-2 rounded-lg font-bold text-xs uppercase tracking-widest data-[state=active]:bg-amber-500 data-[state=active]:text-zinc-950 text-zinc-500"
+                className="px-6 py-3 rounded-lg font-bold text-xs uppercase tracking-widest data-[state=active]:bg-amber-500 data-[state=active]:text-zinc-950 text-zinc-500 transition-all whitespace-nowrap"
               >
                 <tab.icon className="h-4 w-4 mr-2" /> {tab.label}
               </TabsTrigger>
             ))}
           </TabsList>
 
-          <TabsContent value="products" className="grid lg:grid-cols-12 gap-8 outline-none">
+          <TabsContent value="products" className="grid lg:grid-cols-12 gap-8 outline-none animate-in fade-in duration-500">
             <Card className="lg:col-span-5 bg-zinc-900 border-zinc-800 rounded-2xl shadow-xl h-fit sticky top-24">
               <CardHeader className="border-b border-zinc-800">
                 <CardTitle className="text-lg font-bold flex items-center gap-3">
@@ -284,7 +293,7 @@ export default function AdminPage() {
                   <Input 
                     value={formData.name} 
                     onChange={e => setFormData(f => ({ ...f, name: e.target.value }))} 
-                    className="bg-zinc-800 border-zinc-700 rounded-xl"
+                    className="bg-zinc-800 border-zinc-700 rounded-xl text-white focus:ring-amber-500/50"
                   />
                 </div>
                 <div className="space-y-2">
@@ -292,7 +301,7 @@ export default function AdminPage() {
                   <Textarea 
                     value={formData.description} 
                     onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} 
-                    className="bg-zinc-800 border-zinc-700 rounded-xl min-h-[80px]"
+                    className="bg-zinc-800 border-zinc-700 rounded-xl min-h-[80px] text-white"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -302,13 +311,13 @@ export default function AdminPage() {
                       type="number" 
                       value={formData.price} 
                       onChange={e => setFormData(f => ({ ...f, price: e.target.value }))} 
-                      className="bg-zinc-800 border-zinc-700 rounded-xl"
+                      className="bg-zinc-800 border-zinc-700 rounded-xl text-white"
                     />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold text-zinc-500 uppercase">Category</Label>
                     <select 
-                      className="w-full h-10 px-3 bg-zinc-800 border border-zinc-700 rounded-xl text-sm"
+                      className="w-full h-10 px-3 bg-zinc-800 border border-zinc-700 rounded-xl text-sm text-white"
                       value={formData.category}
                       onChange={e => setFormData(f => ({ ...f, category: e.target.value }))}
                     >
@@ -326,14 +335,14 @@ export default function AdminPage() {
                         <button onClick={() => setFormData(f => ({ ...f, imageUrls: f.imageUrls.filter((_, idx) => idx !== i) }))} className="absolute inset-0 bg-red-500/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4" /></button>
                       </div>
                     ))}
-                    <label className="h-16 w-16 flex flex-col items-center justify-center bg-zinc-800 border-2 border-dashed border-zinc-700 rounded-lg cursor-pointer hover:border-amber-500">
+                    <label className="h-16 w-16 flex flex-col items-center justify-center bg-zinc-800 border-2 border-dashed border-zinc-700 rounded-lg cursor-pointer hover:border-amber-500 transition-all">
                       {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5 text-zinc-500" />}
                       <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'product')} />
                     </label>
                   </div>
                 </div>
                 <div className="flex gap-2 pt-4">
-                  <Button onClick={handleSaveProduct} className="flex-grow bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold rounded-xl uppercase tracking-widest text-xs h-11">
+                  <Button onClick={handleSaveProduct} className="flex-grow bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold rounded-xl uppercase tracking-widest text-xs h-11 transition-all">
                     Save Item
                   </Button>
                   {isEditing && (
@@ -350,11 +359,11 @@ export default function AdminPage() {
                 <h2 className="text-lg font-bold flex items-center gap-3">
                   <LayoutGrid className="h-5 w-5 text-amber-500" /> Live Catalog
                 </h2>
-                <Badge className="bg-zinc-900 border-zinc-800 text-amber-500 px-4">{products.length} items</Badge>
+                <Badge className="bg-zinc-900 border-zinc-800 text-amber-500 px-4 py-1">{products.length} items</Badge>
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 {products.map(product => (
-                  <div key={product.id} className="bg-zinc-900 border border-zinc-800 p-4 rounded-2xl flex gap-4 items-center hover:border-amber-500/50 transition-all">
+                  <div key={product.id} className="bg-zinc-900 border border-zinc-800 p-4 rounded-2xl flex gap-4 items-center hover:border-amber-500/50 transition-all group">
                     <div className="relative h-16 w-16 rounded-xl overflow-hidden flex-shrink-0 bg-zinc-800">
                       <Image src={product.imageUrls[0] || 'https://picsum.photos/seed/food/200/200'} alt={product.name} fill className="object-cover" />
                     </div>
@@ -370,19 +379,14 @@ export default function AdminPage() {
                     </div>
                   </div>
                 ))}
-                {products.length === 0 && (
-                  <div className="col-span-full py-20 text-center border-2 border-dashed border-zinc-800 rounded-2xl text-zinc-500 text-sm">
-                    No items added yet. Start by filling the form.
-                  </div>
-                )}
               </div>
             </div>
           </TabsContent>
 
-          <TabsContent value="categories" className="max-w-xl mx-auto space-y-6 outline-none">
+          <TabsContent value="categories" className="max-w-xl mx-auto space-y-6 outline-none animate-in slide-in-from-bottom-4 duration-500">
             <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
               <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4">
-                <CardTitle className="text-lg font-bold">Menu Categories</CardTitle>
+                <CardTitle className="text-lg font-bold text-amber-500">Menu Categories</CardTitle>
                 <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Add sections like Burgers, Drinks, etc.</p>
               </CardHeader>
               <div className="space-y-6">
@@ -391,7 +395,7 @@ export default function AdminPage() {
                     placeholder="New Category Name..." 
                     value={newCategory.name} 
                     onChange={e => setNewCategory(c => ({ ...c, name: e.target.value }))}
-                    className="bg-zinc-800 border-zinc-700 text-white rounded-xl"
+                    className="bg-zinc-800 border-zinc-700 text-white rounded-xl focus:ring-amber-500/50"
                   />
                   <Button onClick={addCategory} className="bg-amber-500 hover:bg-amber-600 text-zinc-950 rounded-xl font-bold px-6">
                     Add
@@ -399,9 +403,9 @@ export default function AdminPage() {
                 </div>
                 <div className="grid gap-2">
                   {categories.map(cat => (
-                    <div key={cat.id} className="flex items-center justify-between p-4 bg-zinc-800/50 border border-zinc-800 rounded-xl">
+                    <div key={cat.id} className="flex items-center justify-between p-4 bg-zinc-800/50 border border-zinc-800 rounded-xl group hover:border-amber-500/30 transition-all">
                       <span className="font-bold text-sm">{cat.name}</span>
-                      <button onClick={() => deleteCategory(cat.id)} className="text-zinc-500 hover:text-red-500"><Trash2 className="h-4 w-4" /></button>
+                      <button onClick={() => deleteCategory(cat.id)} className="text-zinc-500 hover:text-red-500 transition-colors"><Trash2 className="h-4 w-4" /></button>
                     </div>
                   ))}
                 </div>
@@ -409,47 +413,115 @@ export default function AdminPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="visuals" className="max-w-4xl mx-auto space-y-6 outline-none">
+          <TabsContent value="visuals" className="max-w-4xl mx-auto space-y-6 outline-none animate-in fade-in duration-500">
             <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
               <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4">
-                <CardTitle className="text-lg font-bold">Store Visuals</CardTitle>
+                <CardTitle className="text-lg font-bold text-amber-500">Store Visuals</CardTitle>
               </CardHeader>
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <Label className="text-[10px] font-bold text-zinc-500 uppercase">Hero Background</Label>
-                  <div className="relative h-48 rounded-xl overflow-hidden border-2 border-dashed border-zinc-800 group">
+                  <div className="relative h-48 rounded-xl overflow-hidden border-2 border-dashed border-zinc-800 group transition-all hover:border-amber-500/50">
                     <Image src={heroSettings.bgImage} alt="hero" fill className="object-cover" />
-                    <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer"><Upload className="h-6 w-6" /><input type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'heroBg')} /></label>
+                    <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
+                      <Upload className="h-6 w-6 text-white" />
+                      <input type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'heroBg')} />
+                    </label>
                   </div>
                 </div>
                 <div className="space-y-4">
                   <Label className="text-[10px] font-bold text-zinc-500 uppercase">Promo Banner</Label>
-                  <div className="relative h-48 rounded-xl overflow-hidden border-2 border-dashed border-zinc-800 group">
+                  <div className="relative h-48 rounded-xl overflow-hidden border-2 border-dashed border-zinc-800 group transition-all hover:border-amber-500/50">
                     <Image src={heroSettings.bannerImage} alt="banner" fill className="object-cover" />
-                    <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer"><Upload className="h-6 w-6" /><input type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'heroBanner')} /></label>
+                    <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
+                      <Upload className="h-6 w-6 text-white" />
+                      <input type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'heroBanner')} />
+                    </label>
                   </div>
                 </div>
               </div>
             </Card>
           </TabsContent>
+
+          <TabsContent value="assets" className="max-w-xl mx-auto outline-none animate-in fade-in duration-500">
+             <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
+                <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4">
+                  <CardTitle className="text-lg font-bold text-amber-500">Brand Assets</CardTitle>
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Manage your official logo.</p>
+                </CardHeader>
+                <div className="space-y-6">
+                  <Label className="text-[10px] font-bold text-zinc-500 uppercase">Official Logo</Label>
+                  <div className="flex flex-col items-center gap-6">
+                    <div className="relative h-32 w-32 rounded-2xl bg-zinc-800 border-2 border-dashed border-zinc-700 flex items-center justify-center overflow-hidden group hover:border-amber-500/50 transition-all">
+                      {adminLogo ? (
+                        <img src={adminLogo} alt="Logo Preview" className="h-full w-full object-contain p-4" />
+                      ) : (
+                        <ImageIcon className="h-8 w-8 text-zinc-600" />
+                      )}
+                      <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
+                        <Upload className="h-6 w-6 text-white" />
+                        <input type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'logo')} />
+                      </label>
+                    </div>
+                    <p className="text-[10px] text-zinc-500 font-bold uppercase text-center max-w-xs leading-relaxed">
+                      Upload your high-res logo. It will be displayed in the site header and PWA splash screen.
+                    </p>
+                  </div>
+                </div>
+             </Card>
+          </TabsContent>
           
-          <TabsContent value="storeinfo" className="outline-none">
-             <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6">
-                <p className="text-center py-10 text-zinc-500">Store info settings area.</p>
+          <TabsContent value="storeinfo" className="max-w-2xl mx-auto outline-none animate-in fade-in duration-500">
+             <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
+                <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4">
+                  <CardTitle className="text-lg font-bold text-amber-500">Store Settings</CardTitle>
+                </CardHeader>
+                <div className="grid md:grid-cols-2 gap-6 pt-4">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">WhatsApp Number</Label>
+                    <Input value={storeSettings.whatsappNumber} onChange={e => setStoreSettings(s => ({ ...s, whatsappNumber: e.target.value }))} className="bg-zinc-800 border-zinc-700 rounded-xl" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Contact Phone</Label>
+                    <Input value={storeSettings.phone} onChange={e => setStoreSettings(s => ({ ...s, phone: e.target.value }))} className="bg-zinc-800 border-zinc-700 rounded-xl" />
+                  </div>
+                  <div className="md:col-span-2 space-y-2">
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Address</Label>
+                    <Input value={storeSettings.address} onChange={e => setStoreSettings(s => ({ ...s, address: e.target.value }))} className="bg-zinc-800 border-zinc-700 rounded-xl" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Instagram Link</Label>
+                    <Input value={storeSettings.instagram} onChange={e => setStoreSettings(s => ({ ...s, instagram: e.target.value }))} className="bg-zinc-800 border-zinc-700 rounded-xl" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Facebook Link</Label>
+                    <Input value={storeSettings.facebook} onChange={e => setStoreSettings(s => ({ ...s, facebook: e.target.value }))} className="bg-zinc-800 border-zinc-700 rounded-xl" />
+                  </div>
+                </div>
              </Card>
           </TabsContent>
 
-          <TabsContent value="reviews" className="outline-none">
-             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <TabsContent value="reviews" className="outline-none animate-in fade-in duration-500">
+             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {reviews.map((r, i) => (
-                  <Card key={i} className="bg-zinc-900 border-zinc-800 p-4">
-                    <h5 className="font-bold text-sm">{r.customerName}</h5>
-                    <div className="flex my-1">
-                      {Array.from({ length: 5 }).map((_, idx) => <Star key={idx} className={`h-3 w-3 ${idx < r.rating ? 'text-amber-500 fill-amber-500' : 'text-zinc-800'}`} />)}
+                  <Card key={i} className="bg-zinc-900 border-zinc-800 p-6 rounded-2xl shadow-lg hover:border-amber-500/30 transition-all">
+                    <div className="flex justify-between items-start mb-4">
+                      <h5 className="font-bold text-sm text-white">{r.customerName}</h5>
+                      <div className="flex">
+                        {Array.from({ length: 5 }).map((_, idx) => <Star key={idx} className={`h-3 w-3 ${idx < r.rating ? 'text-amber-500 fill-amber-500' : 'text-zinc-800'}`} />)}
+                      </div>
                     </div>
-                    <p className="text-xs text-zinc-400 mt-2">{r.comment}</p>
+                    <p className="text-xs text-zinc-400 leading-relaxed italic">&quot;{r.comment}&quot;</p>
+                    <div className="mt-4 pt-4 border-t border-zinc-800">
+                       <p className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest">{new Date(r.createdAt).toLocaleDateString()}</p>
+                    </div>
                   </Card>
                 ))}
+                {reviews.length === 0 && (
+                  <div className="col-span-full py-20 text-center border-2 border-dashed border-zinc-800 rounded-2xl text-zinc-500">
+                    No customer sentiment logged yet.
+                  </div>
+                )}
              </div>
           </TabsContent>
         </Tabs>

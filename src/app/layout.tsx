@@ -4,6 +4,7 @@ import { FirebaseClientProvider } from '@/firebase';
 import { CartProvider } from '@/context/CartContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { Toaster } from '@/components/ui/toaster';
+import { AmbientSparks } from '@/components/restaurant/AmbientSparks';
 
 export const metadata: Metadata = {
   title: 'Angry ChickZ | Gourmet Fast Food',
@@ -45,6 +46,7 @@ export default function RootLayout({
         <FirebaseClientProvider>
           <ThemeProvider>
             <CartProvider>
+              <AmbientSparks />
               {children}
               <Toaster />
             </CartProvider>
