@@ -1,14 +1,15 @@
 
-"use client";
+'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Product, CartItem } from '@/types/shop';
+import { Product, CartItem } from '@/types/restaurant';
 
 interface CartContextType {
   cart: CartItem[];
   addToCart: (product: Product) => void;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
+  updateNotes: (productId: string, notes: string) => void;
   clearCart: () => void;
   subtotal: number;
   itemCount: number;
@@ -19,11 +20,26 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
 
+  useEffect(() => {
+    const savedCart = localStorage.getItem('angry_chickz_cart');
+    if (savedCart) {
+      try {
+        setCart(JSON.parse(savedCart));
+      } catch (e) {
+        console.error('Failed to parse cart', e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('angry_chickz_cart', JSON.stringify(cart));
+  }, [cart]);
+
   const addToCart = (product: Product) => {
     setCart(prev => {
-      const existingItem = prev.find(item => item.id === product.id);
-      if (existingItem) {
-        return prev.map(item =>
+      const existing = prev.find(item => item.id === product.id);
+      if (existing) {
+        return prev.map(item => 
           item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
@@ -40,14 +56,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       removeFromCart(productId);
       return;
     }
-    setCart(prev => prev.map(item =>
+    setCart(prev => prev.map(item => 
       item.id === productId ? { ...item, quantity } : item
+    ));
+  };
+
+  const updateNotes = (productId: string, notes: string) => {
+    setCart(prev => prev.map(item => 
+      item.id === productId ? { ...item, notes } : item
     ));
   };
 
   const clearCart = () => setCart([]);
 
-  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
@@ -56,6 +78,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       addToCart,
       removeFromCart,
       updateQuantity,
+      updateNotes,
       clearCart,
       subtotal,
       itemCount

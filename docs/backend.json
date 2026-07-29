@@ -1,8 +1,43 @@
 
 {
-  "entities": {},
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "A food item on the menu",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the dish" },
+        "description": { "type": "string", "description": "Short description of the dish" },
+        "price": { "type": "number", "description": "Price in USD" },
+        "category": { "type": "string", "description": "Category slug" },
+        "imageUrls": { "type": "array", "items": { "type": "string" }, "description": "Array of image URLs" },
+        "badges": { "type": "array", "items": { "type": "string" }, "description": "e.g., Spicy, Best Seller" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "price", "category"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Food category for filtering",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Display name" },
+        "slug": { "type": "string", "description": "URL-friendly name" }
+      },
+      "required": ["name", "slug"]
+    }
+  },
   "auth": {
     "providers": ["google.com"]
   },
-  "firestore": {}
+  "firestore": {
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Collection of menu items"
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Collection of menu categories"
+    }
+  }
 }

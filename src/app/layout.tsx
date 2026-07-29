@@ -2,11 +2,12 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { FirebaseClientProvider } from '@/firebase';
+import { CartProvider } from '@/context/CartContext';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'New Project | Powered By Hassan Deeb',
-  description: 'Built from zero with Firebase Studio',
+  title: 'Angry ChickZ | Gourmet Fast Food',
+  description: 'The spiciest, crunchiest chicken in town. Order now!',
 };
 
 export default function RootLayout({
@@ -15,16 +16,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <body className="antialiased min-h-screen flex flex-col">
         <FirebaseClientProvider>
-          <main className="flex-grow">
+          <CartProvider>
             {children}
-          </main>
-          <footer className="border-t border-border py-6 text-center text-sm text-muted-foreground">
-            <p>© {new Date().getFullYear()} - Powered By Hassan Deeb - Deeb Data</p>
-          </footer>
-          <Toaster />
+            <Toaster />
+          </CartProvider>
         </FirebaseClientProvider>
       </body>
     </html>
