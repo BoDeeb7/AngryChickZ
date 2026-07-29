@@ -26,17 +26,60 @@
     --radius: 1.75rem;
   }
 
-  .dark {
-    --background: 222 47% 6%; /* Deep Charcoal */
+  [data-theme='black-gold'] {
+    --background: 240 10% 4%; /* #0F0F12 */
+    --foreground: 48 100% 98%;
+    --card: 240 10% 6%;
+    --card-foreground: 48 100% 98%;
+    --primary: 46 65% 52%; /* Metallic Gold #D4AF37 */
+    --primary-foreground: 240 10% 4%;
+    --border: 46 65% 20%;
+    --ring: 46 65% 52%;
+    --secondary: 46 65% 40%;
+  }
+
+  [data-theme='red-black'] {
+    --background: 222 47% 6%; /* #111827 Onyx-ish */
     --foreground: 48 100% 98%;
     --card: 222 47% 8%;
     --card-foreground: 48 100% 98%;
-    --primary: 345 77% 49%;
+    --primary: 345 77% 49%; /* Crimson Red */
     --primary-foreground: 0 0% 100%;
-    --secondary: 38 92% 50%;
-    --secondary-foreground: 222 47% 6%;
-    --border: 222 47% 15%;
-    --input: 222 47% 15%;
+    --border: 345 77% 20%;
+    --ring: 345 77% 49%;
+  }
+
+  [data-theme='white-gold'] {
+    --background: 0 0% 98%; /* Royal White #FAFAFA */
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --primary: 46 95% 47%; /* Vibrant Gold #EAB308 */
+    --primary-foreground: 222 47% 11%;
+    --border: 46 95% 85%;
+    --ring: 46 95% 47%;
+  }
+
+  [data-theme='black-orange'] {
+    --background: 240 10% 3%; /* Midnight Black #09090B */
+    --foreground: 38 92% 50%; /* Amber highlights */
+    --card: 240 10% 5%;
+    --card-foreground: 48 100% 98%;
+    --primary: 25 95% 53%; /* Electric Orange #F97316 */
+    --primary-foreground: 240 10% 3%;
+    --border: 25 95% 20%;
+    --ring: 25 95% 53%;
+  }
+
+  [data-theme='green-orange'] {
+    --background: 161 88% 20%; /* Emerald #065F46 */
+    --foreground: 160 30% 96%; /* Mint White */
+    --card: 161 88% 15%;
+    --card-foreground: 160 30% 96%;
+    --primary: 28 95% 61%; /* Zesty Orange #FB923C */
+    --primary-foreground: 161 88% 20%;
+    --border: 28 95% 30%;
+    --ring: 28 95% 61%;
   }
 }
 
@@ -45,25 +88,25 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground antialiased font-body;
+    @apply bg-background text-foreground antialiased font-body transition-colors duration-500;
   }
 }
 
 .glass-header {
-  @apply backdrop-blur-xl bg-white/70 dark:bg-gray-900/60 border-b border-amber-500/10;
+  @apply backdrop-blur-xl bg-background/70 border-b border-primary/10;
 }
 
 .glass-card {
-  @apply backdrop-blur-xl bg-white/80 dark:bg-gray-800/40 border border-amber-500/10 shadow-xl transition-all duration-300;
+  @apply backdrop-blur-xl bg-card/80 border border-primary/10 shadow-xl transition-all duration-300;
 }
 
 .bg-warm-glow {
-  background: radial-gradient(circle at 0% 0%, rgba(225, 29, 72, 0.05) 0%, transparent 50%),
-              radial-gradient(circle at 100% 100%, rgba(245, 158, 11, 0.05) 0%, transparent 50%);
+  background: radial-gradient(circle at 0% 0%, hsl(var(--primary) / 0.08) 0%, transparent 50%),
+              radial-gradient(circle at 100% 100%, hsl(var(--secondary) / 0.08) 0%, transparent 50%);
 }
 
 .text-gradient-crimson {
-  @apply bg-clip-text text-transparent bg-gradient-to-r from-rose-600 to-amber-500;
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary;
 }
 
 @keyframes slow-spin {
@@ -82,5 +125,5 @@
   @apply bg-transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  @apply bg-amber-500/20 rounded-full;
+  @apply bg-primary/20 rounded-full;
 }
