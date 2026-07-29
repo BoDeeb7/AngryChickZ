@@ -1,58 +1,20 @@
 
 "use client";
 
-import { Hero } from '@/components/shop/Hero';
-import { ProductGrid } from '@/components/shop/ProductGrid';
-import { ShoppingBag, Star, Zap, Shield } from 'lucide-react';
-
 export default function Home() {
   return (
-    <div className="bg-background">
-      <Hero />
-      
-      {/* Social Proof / Features */}
-      <section className="py-12 glass border-y border-white/5">
-        <div className="container mx-auto px-6 flex flex-wrap justify-between gap-8 items-center">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-fuchsia-500/10 flex items-center justify-center text-fuchsia-500">
-              <Star className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="font-bold text-sm">4.9/5 Rating</p>
-              <p className="text-xs text-muted-foreground">From 10k+ reviews</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-fuchsia-500/10 flex items-center justify-center text-fuchsia-500">
-              <Zap className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="font-bold text-sm">Instant Checkout</p>
-              <p className="text-xs text-muted-foreground">Lightning fast shipping</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-fuchsia-500/10 flex items-center justify-center text-fuchsia-500">
-              <Shield className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="font-bold text-sm">Secure Vault</p>
-              <p className="text-xs text-muted-foreground">256-bit SSL encrypted</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-fuchsia-500/10 flex items-center justify-center text-fuchsia-500">
-              <ShoppingBag className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="font-bold text-sm">Luxury Brands</p>
-              <p className="text-xs text-muted-foreground">Curated premium selection</p>
-            </div>
-          </div>
+    <div className="flex min-h-screen flex-col items-center justify-center p-24 bg-background text-foreground">
+      <div className="z-10 max-w-5xl w-full items-center justify-center font-mono text-sm flex flex-col gap-4">
+        <h1 className="text-4xl font-bold tracking-tight">Project Reset</h1>
+        <p className="text-muted-foreground text-lg text-center">
+          Starting from zero. What would you like to build today?
+        </p>
+        <div className="mt-8 p-4 border rounded-lg bg-card border-border">
+          <p className="text-sm">
+            Powered By Hassan Deeb - Deeb Data
+          </p>
         </div>
-      </section>
-
-      <ProductGrid />
+      </div>
     </div>
   );
 }
