@@ -6,8 +6,9 @@ import { useFirestore, useCollection } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { Product, Category } from '@/types/restaurant';
 import { ProductCard } from './ProductCard';
-import { Utensils, Loader2 } from 'lucide-react';
+import { Utensils } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export function MenuGrid() {
   const db = useFirestore();
@@ -33,17 +34,8 @@ export function MenuGrid() {
     return products.filter(p => p.category === activeCategory);
   }, [products, activeCategory]);
 
-  if (productsLoading && products.length === 0) {
-    return (
-      <div className="py-32 flex flex-col items-center justify-center gap-4">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Loading Gourmet Menu...</p>
-      </div>
-    );
-  }
-
   return (
-    <section id="menu" className="py-16 md:py-32 relative w-full overflow-hidden">
+    <section id="menu" className="py-16 md:py-32 relative w-full overflow-hidden bg-background">
       <div className="container mx-auto px-4 md:px-6 relative z-10 w-full max-w-full">
         <div className="flex flex-col items-center text-center mb-12 md:mb-20 gap-8">
           <div className="space-y-3">
@@ -74,7 +66,19 @@ export function MenuGrid() {
           </div>
         </div>
 
-        {filteredProducts.length > 0 ? (
+        {productsLoading && products.length === 0 ? (
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-8">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+              <div key={i} className="space-y-4">
+                <Skeleton className="aspect-square w-full rounded-2xl bg-zinc-900" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-2/3 bg-zinc-900" />
+                  <Skeleton className="h-4 w-full bg-zinc-900" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredProducts.length > 0 ? (
           <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-8 animate-in fade-in duration-700">
             {filteredProducts.map(product => (
               <ProductCard key={product.id} product={product} />

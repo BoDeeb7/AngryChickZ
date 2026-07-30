@@ -11,6 +11,7 @@ import { ThemeSwitcher } from './ThemeSwitcher';
 import { useFirestore, useDoc } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { StoreSettings } from '@/types/restaurant';
+import Image from 'next/image';
 
 export function Navbar() {
   const { itemCount } = useCart();
@@ -19,7 +20,7 @@ export function Navbar() {
 
   const db = useFirestore();
   const storeSettingsRef = useMemo(() => db ? doc(db, 'settings', 'store') : null, [db]);
-  const { data: storeSettings } = useDoc<StoreSettings>(storeSettingsRef);
+  const { data: storeSettings, loading: storeLoading } = useDoc<StoreSettings>(storeSettingsRef);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -34,10 +35,12 @@ export function Navbar() {
           <Link href="/" className="flex items-center gap-3 md:gap-4 group">
             <div className="relative h-12 w-12 md:h-14 md:w-14 transition-transform duration-500 group-hover:rotate-6 group-hover:scale-110 flex items-center justify-center">
               {storeSettings?.logo ? (
-                <img 
+                <Image 
                   src={storeSettings.logo} 
                   alt="Angry ChickZ" 
-                  className="h-full w-full object-contain"
+                  fill
+                  className="object-contain"
+                  priority
                 />
               ) : (
                 <div className="h-full w-full bg-amber-500/10 rounded-full flex items-center justify-center border border-amber-500/20">

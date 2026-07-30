@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo } from 'react';
@@ -7,11 +8,12 @@ import Image from 'next/image';
 import { useFirestore, useCollection, useDoc } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Review } from '@/types/restaurant';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export function Hero() {
   const db = useFirestore();
   const reviewsRef = useMemo(() => db ? collection(db, 'reviews') : null, [db]);
-  const { data: reviews = [] } = useCollection<Review>(reviewsRef);
+  const { data: reviews = [], loading: reviewsLoading } = useCollection<Review>(reviewsRef);
   
   const heroSettingsRef = useMemo(() => db ? doc(db, 'settings', 'hero') : null, [db]);
   const { data: heroSettings } = useDoc<any>(heroSettingsRef);
@@ -29,7 +31,6 @@ export function Hero() {
     }
   };
 
-  // High-res gourmet food feast background
   const bgImage = heroSettings?.bgImage || "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1600&auto=format&fit=crop";
   const bannerImage = heroSettings?.bannerImage || bgImage;
   const bannerHeadline = heroSettings?.bannerHeadline || "LEVEL 5 HEAT";
@@ -37,7 +38,6 @@ export function Hero() {
 
   return (
     <section className="relative min-h-screen flex items-center pt-32 pb-40 overflow-hidden w-full max-w-full">
-      {/* Dynamic Background with Mask */}
       <div className="absolute inset-0 z-0">
         <Image 
           src={bgImage} 
@@ -45,11 +45,11 @@ export function Hero() {
           fill 
           className="object-cover opacity-60"
           priority
+          sizes="100vw"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/40 to-background" />
       </div>
       
-      {/* Decorative Orbs */}
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/20 blur-[150px] rounded-full animate-glow-slow pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-secondary/10 blur-[150px] rounded-full animate-glow-slow delay-700 pointer-events-none" />
 
@@ -95,13 +95,19 @@ export function Hero() {
                   </div>
                 ))}
               </div>
-              <div>
-                <div className="flex items-center gap-1">
-                  {[1, 2, 3, 4, 5].map(i => <Star key={i} className={`h-3 w-3 md:h-3.5 md:w-3.5 ${i <= Math.round(Number(averageRating)) ? 'fill-secondary text-secondary' : 'text-white/20'}`} />)}
-                </div>
-                <p className="text-[10px] md:text-[11px] font-black text-white/60 uppercase tracking-widest mt-1.5">
-                  ⭐ {averageRating} / 5.0 Sentiment
-                </p>
+              <div className="min-w-[140px]">
+                {reviewsLoading ? (
+                  <Skeleton className="h-4 w-24 bg-white/10 rounded-full" />
+                ) : (
+                  <>
+                    <div className="flex items-center gap-1">
+                      {[1, 2, 3, 4, 5].map(i => <Star key={i} className={`h-3 w-3 md:h-3.5 md:w-3.5 ${i <= Math.round(Number(averageRating)) ? 'fill-secondary text-secondary' : 'text-white/20'}`} />)}
+                    </div>
+                    <p className="text-[10px] md:text-[11px] font-black text-white/60 uppercase tracking-widest mt-1.5">
+                      ⭐ {averageRating} / 5.0 Sentiment
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -116,6 +122,7 @@ export function Hero() {
               fill 
               className="object-contain drop-shadow-[0_40px_60px_rgba(0,0,0,0.5)]"
               priority
+              sizes="(max-width: 768px) 100vw, 50vw"
             />
           </div>
           
