@@ -32,9 +32,12 @@ export function Footer() {
     }
   };
 
-  const handleReviewSubmit = (e: React.FormEvent) => {
+  const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!db || !review.name || !review.comment) return;
+    if (!db || !review.name || !review.comment) {
+      toast({ variant: "destructive", title: "Missing Info", description: "Please provide your name and thoughts." });
+      return;
+    }
     
     setIsSubmitting(true);
     const reviewData = {
@@ -44,22 +47,20 @@ export function Footer() {
       createdAt: serverTimestamp()
     };
 
-    // NON-BLOCKING MUTATION: Don't await addDoc to prevent UI hang
-    addDoc(collection(db, 'reviews'), reviewData)
-      .then(() => {
-        setReview({ name: '', comment: '', rating: 5 });
-        setIsSubmitting(false);
-        toast({ title: "Sentiment Logged", description: "Thank you for your feedback." });
-      })
-      .catch(async (err) => {
-        setIsSubmitting(false);
-        const permissionError = new FirestorePermissionError({
-          path: 'reviews',
-          operation: 'create',
-          requestResourceData: reviewData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
+    try {
+      await addDoc(collection(db, 'reviews'), reviewData);
+      setReview({ name: '', comment: '', rating: 5 });
+      toast({ title: "Sentiment Logged", description: "Thank you for your feedback." });
+    } catch (err) {
+      const permissionError = new FirestorePermissionError({
+        path: 'reviews',
+        operation: 'create',
       });
+      errorEmitter.emit('permission-error', permissionError);
+      toast({ variant: "destructive", title: "Submission Failed", description: "Could not log your review." });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const phone = storeSettings?.phone || '+961 70 105 152';
@@ -136,7 +137,7 @@ export function Footer() {
                 onChange={e => setReview(r => ({ ...r, comment: e.target.value }))}
                 className="h-24 bg-background border-foreground/10 rounded-2xl text-[10px] font-black tracking-widest pt-5 text-foreground" 
               />
-              <Button disabled={isSubmitting} className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground rounded-2xl text-[10px] font-black uppercase tracking-[0.3em]">
+              <Button disabled={isSubmitting} type="submit" className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground rounded-2xl text-[10px] font-black uppercase tracking-[0.3em]">
                 {isSubmitting ? 'Logging...' : 'Submit Review'}
               </Button>
             </form>

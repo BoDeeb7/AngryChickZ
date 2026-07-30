@@ -45,7 +45,7 @@ export default function AdminPage() {
 
   const db = useFirestore();
 
-  // STABLE Firestore References
+  // STABLE Firestore References to avoid loops
   const productsQuery = useMemo(() => {
     if (!db) return null;
     return query(collection(db, 'products'), orderBy('createdAt', 'desc'));
@@ -110,16 +110,30 @@ export default function AdminPage() {
     }
   };
 
-  const saveStoreSettings = useCallback(() => {
+  const saveStoreSettings = useCallback(async () => {
     if (!db || !localStoreSettings) return;
-    setDoc(doc(db, 'settings', 'store'), localStoreSettings, { merge: true })
-      .then(() => toast({ title: "Store Info Updated" }));
+    setIsSubmitting(true);
+    try {
+      await setDoc(doc(db, 'settings', 'store'), localStoreSettings, { merge: true });
+      toast({ title: "Store Info Updated" });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Error Saving Info" });
+    } finally {
+      setIsSubmitting(false);
+    }
   }, [db, localStoreSettings, toast]);
 
-  const saveHeroSettings = useCallback(() => {
+  const saveHeroSettings = useCallback(async () => {
     if (!db || !localHeroSettings) return;
-    setDoc(doc(db, 'settings', 'hero'), localHeroSettings, { merge: true })
-      .then(() => toast({ title: "Hero Settings Updated" }));
+    setIsSubmitting(true);
+    try {
+      await setDoc(doc(db, 'settings', 'hero'), localHeroSettings, { merge: true });
+      toast({ title: "Hero Settings Updated" });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Error Saving Visuals" });
+    } finally {
+      setIsSubmitting(false);
+    }
   }, [db, localHeroSettings, toast]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'product' | 'heroBg' | 'heroBanner' | 'logo') => {
@@ -128,24 +142,28 @@ export default function AdminPage() {
 
     setIsSubmitting(true);
     const reader = new FileReader();
-    reader.onloadend = () => {
+    reader.onloadend = async () => {
       const base64 = reader.result as string;
       if (target === 'product') {
         setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, base64] }));
-      } else if (target === 'heroBg' && db) {
-        setDoc(doc(db, 'settings', 'hero'), { bgImage: base64 }, { merge: true });
-      } else if (target === 'heroBanner' && db) {
-        setDoc(doc(db, 'settings', 'hero'), { bannerImage: base64 }, { merge: true });
-      } else if (target === 'logo' && db) {
-        setDoc(doc(db, 'settings', 'store'), { logo: base64 }, { merge: true });
+        setIsSubmitting(false);
+      } else if (db) {
+        try {
+          if (target === 'heroBg') await setDoc(doc(db, 'settings', 'hero'), { bgImage: base64 }, { merge: true });
+          if (target === 'heroBanner') await setDoc(doc(db, 'settings', 'hero'), { bannerImage: base64 }, { merge: true });
+          if (target === 'logo') await setDoc(doc(db, 'settings', 'store'), { logo: base64 }, { merge: true });
+          toast({ title: "Upload Success" });
+        } catch (err) {
+          toast({ variant: "destructive", title: "Upload Failed" });
+        } finally {
+          setIsSubmitting(false);
+        }
       }
-      setIsSubmitting(false);
-      toast({ title: "Upload Success" });
     };
     reader.readAsDataURL(file);
   };
 
-  const handleSaveProduct = () => {
+  const handleSaveProduct = async () => {
     if (!formData.name || !formData.price || !formData.category || !db) {
       toast({ variant: "destructive", title: "Required", description: "Missing essential info." });
       return;
@@ -159,31 +177,26 @@ export default function AdminPage() {
       category: formData.category,
       imageUrls: formData.imageUrls,
       badges: formData.badges,
-      createdAt: serverTimestamp()
+      createdAt: isEditing ? (products.find(p => p.id === isEditing)?.createdAt || serverTimestamp()) : serverTimestamp()
     };
 
-    const targetDocRef = isEditing ? doc(db, 'products', isEditing) : null;
-    const targetColRef = collection(db, 'products');
-
-    const action = isEditing && targetDocRef 
-      ? setDoc(targetDocRef, productData, { merge: true })
-      : addDoc(targetColRef, productData);
-
-    action
-      .then(() => {
-        setIsSubmitting(false);
-        resetForm();
-        toast({ title: "Product Saved Successfully" });
-      })
-      .catch(async (err) => {
-        setIsSubmitting(false);
-        const permissionError = new FirestorePermissionError({
-          path: isEditing ? targetDocRef!.path : 'products',
-          operation: isEditing ? 'update' : 'create',
-          requestResourceData: productData
-        });
-        errorEmitter.emit('permission-error', permissionError);
+    try {
+      if (isEditing) {
+        await setDoc(doc(db, 'products', isEditing), productData, { merge: true });
+      } else {
+        await addDoc(collection(db, 'products'), productData);
+      }
+      resetForm();
+      toast({ title: "Product Saved Successfully" });
+    } catch (err) {
+      const permissionError = new FirestorePermissionError({
+        path: isEditing ? `products/${isEditing}` : 'products',
+        operation: isEditing ? 'update' : 'create',
       });
+      errorEmitter.emit('permission-error', permissionError);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const resetForm = () => {
@@ -203,26 +216,39 @@ export default function AdminPage() {
     setIsEditing(product.id);
   };
 
-  const deleteProduct = (id: string) => {
+  const deleteProduct = async (id: string) => {
     if (!db || !confirm('Delete permanently?')) return;
-    deleteDoc(doc(db, 'products', id));
+    try {
+      await deleteDoc(doc(db, 'products', id));
+      toast({ title: "Item Deleted" });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Delete Failed" });
+    }
   };
 
-  const addCategory = () => {
+  const addCategory = async () => {
     if (!newCategory.name || !db) return;
     setIsSubmitting(true);
     const slug = newCategory.name.toLowerCase().replace(/\s+/g, '-');
-    addDoc(collection(db, 'categories'), { name: newCategory.name, slug })
-      .then(() => {
-        setIsSubmitting(false);
-        setNewCategory({ name: '' });
-      })
-      .catch(() => setIsSubmitting(false));
+    try {
+      await addDoc(collection(db, 'categories'), { name: newCategory.name, slug });
+      setNewCategory({ name: '' });
+      toast({ title: "Category Added" });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Failed to Add Category" });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const deleteCategory = (id: string) => {
+  const deleteCategory = async (id: string) => {
     if (!db || !confirm('Delete category?')) return;
-    deleteDoc(doc(db, 'categories', id));
+    try {
+      await deleteDoc(doc(db, 'categories', id));
+      toast({ title: "Category Removed" });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Failed to Remove" });
+    }
   };
 
   if (!isAuthenticated) {
@@ -425,6 +451,7 @@ export default function AdminPage() {
                     className="bg-zinc-800 border-zinc-700"
                   />
                   <Button disabled={isSubmitting} onClick={addCategory} className="bg-amber-500 hover:bg-amber-600 text-zinc-950 rounded-xl font-bold">
+                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                     Add
                   </Button>
                 </div>
@@ -444,8 +471,9 @@ export default function AdminPage() {
             <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
               <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4 flex flex-row items-center justify-between">
                 <CardTitle className="text-lg font-bold text-amber-500">Hero Section Content</CardTitle>
-                <Button onClick={saveHeroSettings} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2">
-                  <Save className="h-4 w-4" /> Save Changes
+                <Button disabled={isSubmitting} onClick={saveHeroSettings} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2">
+                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Save Changes
                 </Button>
               </CardHeader>
               <div className="space-y-6">
@@ -510,8 +538,9 @@ export default function AdminPage() {
              <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
                 <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4 flex flex-row items-center justify-between">
                   <CardTitle className="text-lg font-bold text-amber-500">Contact Settings</CardTitle>
-                  <Button onClick={saveStoreSettings} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2">
-                    <Save className="h-4 w-4" /> Save Info
+                  <Button disabled={isSubmitting} onClick={saveStoreSettings} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2">
+                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    Save Info
                   </Button>
                 </CardHeader>
                 <div className="grid md:grid-cols-2 gap-6 pt-4">
