@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -14,14 +13,15 @@ export function MenuGrid() {
   const db = useFirestore();
   const [activeCategory, setActiveCategory] = useState('all');
   
-  const productsRef = useMemo(() => {
+  // Memoize queries and collection refs to ensure stable dependencies for useCollection hook
+  const productsQuery = useMemo(() => {
     if (!db) return null;
     return query(collection(db, 'products'), orderBy('createdAt', 'desc'));
   }, [db]);
 
   const categoriesRef = useMemo(() => db ? collection(db, 'categories') : null, [db]);
 
-  const { data: products = [], loading: productsLoading } = useCollection<Product>(productsRef);
+  const { data: products = [], loading: productsLoading } = useCollection<Product>(productsQuery);
   const { data: categories = [] } = useCollection<Category>(categoriesRef);
 
   const displayCategories = useMemo(() => {
@@ -58,7 +58,7 @@ export function MenuGrid() {
                 >
                   {cat.name}
                   {activeCategory === cat.slug && (
-                    <span className="absolute bottom-0 left-0 w-full h-[2px] bg-primary rounded-full animate-in fade-in slide-in-from-bottom-1 duration-300 shadow-[0_0_8px_rgba(225,29,72,0.4)]" />
+                    <span className="absolute bottom-0 left-0 w-full h-[2px] bg-primary rounded-full shadow-[0_0_8px_rgba(225,29,72,0.4)]" />
                   )}
                 </button>
               ))}
@@ -70,23 +70,23 @@ export function MenuGrid() {
           <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-8">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
               <div key={i} className="space-y-4">
-                <Skeleton className="aspect-square w-full rounded-2xl bg-zinc-900" />
+                <Skeleton className="aspect-square w-full rounded-2xl bg-zinc-900/10" />
                 <div className="space-y-2">
-                  <Skeleton className="h-4 w-2/3 bg-zinc-900" />
-                  <Skeleton className="h-4 w-full bg-zinc-900" />
+                  <Skeleton className="h-4 w-2/3 bg-zinc-900/10" />
+                  <Skeleton className="h-4 w-full bg-zinc-900/10" />
                 </div>
               </div>
             ))}
           </div>
         ) : filteredProducts.length > 0 ? (
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-8 animate-in fade-in duration-700">
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-8">
             {filteredProducts.map(product => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
         ) : (
-          <div className="text-center py-24 bg-zinc-900/50 rounded-3xl border border-dashed border-zinc-800">
-            <Utensils className="h-16 w-16 mx-auto mb-6 text-zinc-800" />
+          <div className="text-center py-24 bg-zinc-900/5 rounded-3xl border border-dashed border-zinc-800/10">
+            <Utensils className="h-16 w-16 mx-auto mb-6 text-zinc-800/20" />
             <h3 className="text-xl font-bold text-foreground uppercase italic mb-2">Menu Coming Soon</h3>
             <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">We are hand-brilling something special.</p>
           </div>

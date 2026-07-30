@@ -92,11 +92,10 @@
     @apply border-border;
   }
   html, body {
-    @apply overflow-x-hidden w-full max-w-full m-0 p-0 touch-pan-y;
-    -webkit-overflow-scrolling: touch;
+    @apply w-full max-w-full m-0 p-0;
   }
   body {
-    @apply bg-background text-foreground antialiased font-body transition-colors duration-500;
+    @apply bg-background text-foreground antialiased font-body transition-colors duration-500 overflow-x-hidden;
   }
 }
 

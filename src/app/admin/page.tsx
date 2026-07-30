@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Plus, 
@@ -37,23 +36,14 @@ import { useFirestore, useCollection, useDoc } from '@/firebase';
 import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { useRouter } from 'next/navigation';
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
-  const router = useRouter();
 
   const db = useFirestore();
-
-  // Auto-logout when leaving the admin page
-  useEffect(() => {
-    return () => {
-      setIsAuthenticated(false);
-    };
-  }, []);
 
   // Firestore Data Hooks
   const productsRef = useMemo(() => db ? collection(db, 'products') : null, [db]);
@@ -67,6 +57,18 @@ export default function AdminPage() {
   const { data: reviews = [] } = useCollection<Review>(reviewsRef);
   const { data: storeSettings } = useDoc<StoreSettings>(storeRef);
   const { data: heroSettings } = useDoc<any>(heroRef);
+
+  // Local state for settings to avoid keystroke-blocking Firestore writes
+  const [localStoreSettings, setLocalStoreSettings] = useState<any>({});
+  const [localHeroSettings, setLocalHeroSettings] = useState<any>({});
+
+  useEffect(() => {
+    if (storeSettings) setLocalStoreSettings(storeSettings);
+  }, [storeSettings]);
+
+  useEffect(() => {
+    if (heroSettings) setLocalHeroSettings(heroSettings);
+  }, [heroSettings]);
 
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -89,6 +91,18 @@ export default function AdminPage() {
       toast({ variant: "destructive", title: "Access Denied", description: "Invalid credentials." });
     }
   };
+
+  const saveStoreSettings = useCallback(() => {
+    if (!db || !localStoreSettings) return;
+    setDoc(doc(db, 'settings', 'store'), localStoreSettings, { merge: true })
+      .then(() => toast({ title: "Store Info Updated" }));
+  }, [db, localStoreSettings, toast]);
+
+  const saveHeroSettings = useCallback(() => {
+    if (!db || !localHeroSettings) return;
+    setDoc(doc(db, 'settings', 'hero'), localHeroSettings, { merge: true })
+      .then(() => toast({ title: "Hero Settings Updated" }));
+  }, [db, localHeroSettings, toast]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'product' | 'heroBg' | 'heroBanner' | 'logo') => {
     const file = e.target.files?.[0];
@@ -169,13 +183,7 @@ export default function AdminPage() {
 
   const deleteProduct = (id: string) => {
     if (!db || !confirm('Delete permanently?')) return;
-    deleteDoc(doc(db, 'products', id))
-      .catch(err => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: `/products/${id}`,
-          operation: 'delete'
-        }));
-      });
+    deleteDoc(doc(db, 'products', id));
   };
 
   const addCategory = () => {
@@ -193,11 +201,6 @@ export default function AdminPage() {
   const deleteCategory = (id: string) => {
     if (!db || !confirm('Delete category?')) return;
     deleteDoc(doc(db, 'categories', id));
-  };
-
-  const updateSettings = (field: keyof StoreSettings, value: string) => {
-    if (!db) return;
-    setDoc(doc(db, 'settings', 'store'), { [field]: value }, { merge: true });
   };
 
   if (!isAuthenticated) {
@@ -417,25 +420,28 @@ export default function AdminPage() {
 
           <TabsContent value="visuals" className="max-w-4xl mx-auto space-y-6">
             <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
-              <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4">
+              <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4 flex flex-row items-center justify-between">
                 <CardTitle className="text-lg font-bold text-amber-500">Hero Section Content</CardTitle>
+                <Button onClick={saveHeroSettings} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2">
+                  <Save className="h-4 w-4" /> Save Changes
+                </Button>
               </CardHeader>
               <div className="space-y-6">
                  <div className="grid md:grid-cols-2 gap-6">
                     <div className="space-y-4">
                       <Label className="text-[10px] font-bold text-zinc-500 uppercase">Headline</Label>
-                      <Input value={heroSettings?.bannerHeadline || ''} onChange={e => setDoc(heroRef!, { bannerHeadline: e.target.value }, { merge: true })} className="bg-zinc-800 border-zinc-700" />
+                      <Input value={localHeroSettings?.bannerHeadline || ''} onChange={e => setLocalHeroSettings((p: any) => ({ ...p, bannerHeadline: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
                     </div>
                     <div className="space-y-4">
                       <Label className="text-[10px] font-bold text-zinc-500 uppercase">Banner Text</Label>
-                      <Input value={heroSettings?.bannerText || ''} onChange={e => setDoc(heroRef!, { bannerText: e.target.value }, { merge: true })} className="bg-zinc-800 border-zinc-700" />
+                      <Input value={localHeroSettings?.bannerText || ''} onChange={e => setLocalHeroSettings((p: any) => ({ ...p, bannerText: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
                     </div>
                  </div>
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-4">
                     <Label className="text-[10px] font-bold text-zinc-500 uppercase">Background Image</Label>
                     <div className="relative h-48 rounded-xl overflow-hidden border-2 border-dashed border-zinc-800 group">
-                      <Image src={heroSettings?.bgImage || 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1600&auto=format&fit=crop'} alt="hero" fill className="object-cover" />
+                      <Image src={localHeroSettings?.bgImage || 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1600&auto=format&fit=crop'} alt="hero" fill className="object-cover" />
                       <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer">
                         <Upload className="h-6 w-6 text-white" />
                         <input type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'heroBg')} />
@@ -445,7 +451,7 @@ export default function AdminPage() {
                   <div className="space-y-4">
                     <Label className="text-[10px] font-bold text-zinc-500 uppercase">Promo Image</Label>
                     <div className="relative h-48 rounded-xl overflow-hidden border-2 border-dashed border-zinc-800 group">
-                      <Image src={heroSettings?.bannerImage || 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1600&auto=format&fit=crop'} alt="banner" fill className="object-cover" />
+                      <Image src={localHeroSettings?.bannerImage || 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1600&auto=format&fit=crop'} alt="banner" fill className="object-cover" />
                       <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer">
                         <Upload className="h-6 w-6 text-white" />
                         <input type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'heroBanner')} />
@@ -464,8 +470,8 @@ export default function AdminPage() {
                 </CardHeader>
                 <div className="flex flex-col items-center gap-6 py-6">
                     <div className="relative h-32 w-32 rounded-2xl bg-zinc-800 border-2 border-dashed border-zinc-700 flex items-center justify-center overflow-hidden group">
-                      {storeSettings?.logo ? (
-                        <img src={storeSettings.logo} alt="Logo" className="h-full w-full object-contain p-4" />
+                      {localStoreSettings?.logo ? (
+                        <img src={localStoreSettings.logo} alt="Logo" className="h-full w-full object-contain p-4" />
                       ) : (
                         <ImageIcon className="h-8 w-8 text-zinc-600" />
                       )}
@@ -480,29 +486,32 @@ export default function AdminPage() {
           
           <TabsContent value="storeinfo" className="max-w-2xl mx-auto">
              <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
-                <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4">
+                <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4 flex flex-row items-center justify-between">
                   <CardTitle className="text-lg font-bold text-amber-500">Contact Settings</CardTitle>
+                  <Button onClick={saveStoreSettings} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2">
+                    <Save className="h-4 w-4" /> Save Info
+                  </Button>
                 </CardHeader>
                 <div className="grid md:grid-cols-2 gap-6 pt-4">
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold text-zinc-500 uppercase">WhatsApp</Label>
-                    <Input value={storeSettings?.whatsappNumber || ''} onChange={e => updateSettings('whatsappNumber', e.target.value)} className="bg-zinc-800 border-zinc-700" />
+                    <Input value={localStoreSettings?.whatsappNumber || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, whatsappNumber: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold text-zinc-500 uppercase">Phone</Label>
-                    <Input value={storeSettings?.phone || ''} onChange={e => updateSettings('phone', e.target.value)} className="bg-zinc-800 border-zinc-700" />
+                    <Input value={localStoreSettings?.phone || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, phone: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
                   </div>
                   <div className="md:col-span-2 space-y-2">
                     <Label className="text-[10px] font-bold text-zinc-500 uppercase">Address</Label>
-                    <Input value={storeSettings?.address || ''} onChange={e => updateSettings('address', e.target.value)} className="bg-zinc-800 border-zinc-700" />
+                    <Input value={localStoreSettings?.address || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, address: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold text-zinc-500 uppercase">Instagram</Label>
-                    <Input value={storeSettings?.instagram || ''} onChange={e => updateSettings('instagram', e.target.value)} className="bg-zinc-800 border-zinc-700" />
+                    <Input value={localStoreSettings?.instagram || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, instagram: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold text-zinc-500 uppercase">TikTok</Label>
-                    <Input value={storeSettings?.tiktok || ''} onChange={e => updateSettings('tiktok', e.target.value)} className="bg-zinc-800 border-zinc-700" />
+                    <Input value={localStoreSettings?.tiktok || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, tiktok: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
                   </div>
                 </div>
              </Card>

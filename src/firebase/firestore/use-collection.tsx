@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   Query, 
   onSnapshot, 
@@ -15,6 +15,9 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  
+  // Use a ref to track if the initial fetch is happening to avoid flickering
+  const isInitialFetch = useRef(true);
 
   useEffect(() => {
     if (!query) {
@@ -22,7 +25,10 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
       return;
     }
 
-    setLoading(true);
+    if (isInitialFetch.current) {
+      setLoading(true);
+    }
+
     const unsubscribe = onSnapshot(
       query,
       (snapshot: QuerySnapshot<T>) => {
@@ -32,15 +38,20 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
         }));
         setData(items);
         setLoading(false);
+        isInitialFetch.current = false;
       },
       async (serverError: FirestoreError) => {
-        const permissionError = new FirestorePermissionError({
-          path: 'collection', // Generic path as Query doesn't easily expose it
-          operation: 'list',
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        // Only emit if it's a real permission error
+        if (serverError.code === 'permission-denied') {
+          const permissionError = new FirestorePermissionError({
+            path: 'collection',
+            operation: 'list',
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        }
         setError(serverError);
         setLoading(false);
+        isInitialFetch.current = false;
       }
     );
 
