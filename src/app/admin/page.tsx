@@ -33,7 +33,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Product, Category, Review, StoreSettings } from '@/types/restaurant';
 import { useFirestore, useCollection, useDoc } from '@/firebase';
-import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -45,20 +45,19 @@ export default function AdminPage() {
 
   const db = useFirestore();
 
-  // Firestore Data Hooks
-  const productsRef = useMemo(() => db ? collection(db, 'products') : null, [db]);
+  // STABLE Firestore References to prevent re-render loops
+  const productsQuery = useMemo(() => db ? query(collection(db, 'products'), orderBy('createdAt', 'desc')) : null, [db]);
   const categoriesRef = useMemo(() => db ? collection(db, 'categories') : null, [db]);
   const reviewsRef = useMemo(() => db ? collection(db, 'reviews') : null, [db]);
   const storeRef = useMemo(() => db ? doc(db, 'settings', 'store') : null, [db]);
   const heroRef = useMemo(() => db ? doc(db, 'settings', 'hero') : null, [db]);
 
-  const { data: products = [] } = useCollection<Product>(productsRef);
+  const { data: products = [] } = useCollection<Product>(productsQuery);
   const { data: categories = [] } = useCollection<Category>(categoriesRef);
   const { data: reviews = [] } = useCollection<Review>(reviewsRef);
   const { data: storeSettings } = useDoc<StoreSettings>(storeRef);
   const { data: heroSettings } = useDoc<any>(heroRef);
 
-  // Local state for settings to avoid keystroke-blocking Firestore writes
   const [localStoreSettings, setLocalStoreSettings] = useState<any>({});
   const [localHeroSettings, setLocalHeroSettings] = useState<any>({});
 
@@ -144,24 +143,32 @@ export default function AdminPage() {
       createdAt: serverTimestamp()
     };
 
-    const mutationPromise = isEditing 
-      ? setDoc(doc(db, 'products', isEditing), productData, { merge: true })
-      : addDoc(collection(db, 'products'), productData);
+    // NON-BLOCKING MUTATION: Proceed immediately to reset UI
+    const docRef = isEditing ? doc(db, 'products', isEditing) : null;
+    const colRef = collection(db, 'products');
 
-    mutationPromise
-      .then(() => {
-        setIsSubmitting(false);
-        resetForm();
-        toast({ title: "Product Saved" });
-      })
-      .catch(err => {
-        setIsSubmitting(false);
+    if (isEditing && docRef) {
+      setDoc(docRef, productData, { merge: true }).catch(async (err) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: isEditing ? `/products/${isEditing}` : '/products',
-          operation: isEditing ? 'update' : 'create',
+          path: docRef.path,
+          operation: 'update',
           requestResourceData: productData
         }));
       });
+    } else {
+      addDoc(colRef, productData).catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: colRef.path,
+          operation: 'create',
+          requestResourceData: productData
+        }));
+      });
+    }
+
+    // Instant Feedback
+    setIsSubmitting(false);
+    resetForm();
+    toast({ title: "Product Sync Initiated" });
   };
 
   const resetForm = () => {
@@ -284,7 +291,7 @@ export default function AdminPage() {
             ))}
           </TabsList>
 
-          <TabsContent value="products" className="grid lg:grid-cols-12 gap-8 outline-none animate-in fade-in duration-500">
+          <TabsContent value="products" className="grid lg:grid-cols-12 gap-8 outline-none">
             <Card className="lg:col-span-5 bg-zinc-900 border-zinc-800 rounded-2xl shadow-xl h-fit sticky top-24">
               <CardHeader className="border-b border-zinc-800">
                 <CardTitle className="text-lg font-bold flex items-center gap-3">
@@ -473,7 +480,7 @@ export default function AdminPage() {
                       {localStoreSettings?.logo ? (
                         <img src={localStoreSettings.logo} alt="Logo" className="h-full w-full object-contain p-4" />
                       ) : (
-                        <ImageIcon className="h-8 w-8 text-zinc-600" />
+                        <Utensils className="h-8 w-8 text-zinc-600" />
                       )}
                       <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer">
                         <Upload className="h-6 w-6 text-white" />

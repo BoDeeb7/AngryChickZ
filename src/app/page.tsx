@@ -3,14 +3,16 @@ import { Hero } from '@/components/restaurant/Hero';
 import { MenuGrid } from '@/components/restaurant/MenuGrid';
 import { Footer } from '@/components/restaurant/Footer';
 
-// Ensure the page is never statically cached to show real-time Firestore data
-// These must be exported from a Server Component, not a Client Component.
+/**
+ * CRITICAL: These exports ensure the page is never statically cached.
+ * This guarantees that new items added on one device appear on others immediately.
+ */
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default function Home() {
   return (
-    <div className="relative flex flex-col min-h-screen selection:bg-primary selection:text-white">
+    <div className="relative flex flex-col min-h-screen selection:bg-primary selection:text-white bg-zinc-950">
       <Navbar />
       <main className="flex-grow">
         <Hero />
