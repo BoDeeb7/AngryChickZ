@@ -5,7 +5,7 @@ import { useFirestore, useCollection } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { Product, Category } from '@/types/restaurant';
 import { ProductCard } from './ProductCard';
-import { Utensils } from 'lucide-react';
+import { Utensils, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -22,7 +22,10 @@ export function MenuGrid() {
     return query(collection(db, 'products'), orderBy('createdAt', 'desc'));
   }, [db]);
 
-  const categoriesRef = useMemo(() => db ? collection(db, 'categories') : null, [db]);
+  const categoriesRef = useMemo(() => {
+    if (!db) return null;
+    return collection(db, 'categories');
+  }, [db]);
 
   const { data: products = [], loading: productsLoading } = useCollection<Product>(productsQuery);
   const { data: categories = [] } = useCollection<Category>(categoriesRef);
@@ -69,7 +72,7 @@ export function MenuGrid() {
           </div>
         </div>
 
-        {productsLoading && products.length === 0 ? (
+        {productsLoading ? (
           <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-8">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
               <div key={i} className="space-y-4">

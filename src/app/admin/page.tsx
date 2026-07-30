@@ -45,12 +45,31 @@ export default function AdminPage() {
 
   const db = useFirestore();
 
-  // STABLE Firestore References to prevent re-render loops
-  const productsQuery = useMemo(() => db ? query(collection(db, 'products'), orderBy('createdAt', 'desc')) : null, [db]);
-  const categoriesRef = useMemo(() => db ? collection(db, 'categories') : null, [db]);
-  const reviewsRef = useMemo(() => db ? collection(db, 'reviews') : null, [db]);
-  const storeRef = useMemo(() => db ? doc(db, 'settings', 'store') : null, [db]);
-  const heroRef = useMemo(() => db ? doc(db, 'settings', 'hero') : null, [db]);
+  // STABLE Firestore References
+  const productsQuery = useMemo(() => {
+    if (!db) return null;
+    return query(collection(db, 'products'), orderBy('createdAt', 'desc'));
+  }, [db]);
+
+  const categoriesRef = useMemo(() => {
+    if (!db) return null;
+    return collection(db, 'categories');
+  }, [db]);
+
+  const reviewsRef = useMemo(() => {
+    if (!db) return null;
+    return collection(db, 'reviews');
+  }, [db]);
+
+  const storeRef = useMemo(() => {
+    if (!db) return null;
+    return doc(db, 'settings', 'store');
+  }, [db]);
+
+  const heroRef = useMemo(() => {
+    if (!db) return null;
+    return doc(db, 'settings', 'hero');
+  }, [db]);
 
   const { data: products = [] } = useCollection<Product>(productsQuery);
   const { data: categories = [] } = useCollection<Category>(categoriesRef);
@@ -143,32 +162,28 @@ export default function AdminPage() {
       createdAt: serverTimestamp()
     };
 
-    // NON-BLOCKING MUTATION: Proceed immediately to reset UI
-    const docRef = isEditing ? doc(db, 'products', isEditing) : null;
-    const colRef = collection(db, 'products');
+    const targetDocRef = isEditing ? doc(db, 'products', isEditing) : null;
+    const targetColRef = collection(db, 'products');
 
-    if (isEditing && docRef) {
-      setDoc(docRef, productData, { merge: true }).catch(async (err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: docRef.path,
-          operation: 'update',
-          requestResourceData: productData
-        }));
-      });
-    } else {
-      addDoc(colRef, productData).catch(async (err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: colRef.path,
-          operation: 'create',
-          requestResourceData: productData
-        }));
-      });
-    }
+    const action = isEditing && targetDocRef 
+      ? setDoc(targetDocRef, productData, { merge: true })
+      : addDoc(targetColRef, productData);
 
-    // Instant Feedback
-    setIsSubmitting(false);
-    resetForm();
-    toast({ title: "Product Sync Initiated" });
+    action
+      .then(() => {
+        setIsSubmitting(false);
+        resetForm();
+        toast({ title: "Product Saved Successfully" });
+      })
+      .catch(async (err) => {
+        setIsSubmitting(false);
+        const permissionError = new FirestorePermissionError({
+          path: isEditing ? targetDocRef!.path : 'products',
+          operation: isEditing ? 'update' : 'create',
+          requestResourceData: productData
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      });
   };
 
   const resetForm = () => {

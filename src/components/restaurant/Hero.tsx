@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo } from 'react';
@@ -12,10 +11,18 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export function Hero() {
   const db = useFirestore();
-  const reviewsRef = useMemo(() => db ? collection(db, 'reviews') : null, [db]);
+
+  // STABLE Firestore References to prevent loops
+  const reviewsRef = useMemo(() => {
+    if (!db) return null;
+    return collection(db, 'reviews');
+  }, [db]);
   const { data: reviews = [], loading: reviewsLoading } = useCollection<Review>(reviewsRef);
   
-  const heroSettingsRef = useMemo(() => db ? doc(db, 'settings', 'hero') : null, [db]);
+  const heroSettingsRef = useMemo(() => {
+    if (!db) return null;
+    return doc(db, 'settings', 'hero');
+  }, [db]);
   const { data: heroSettings } = useDoc<any>(heroSettingsRef);
 
   const averageRating = useMemo(() => {
@@ -50,11 +57,11 @@ export function Hero() {
         <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/40 to-background" />
       </div>
       
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/20 blur-[150px] rounded-full animate-glow-slow pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-secondary/10 blur-[150px] rounded-full animate-glow-slow delay-700 pointer-events-none" />
+      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/20 blur-[150px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-secondary/10 blur-[150px] rounded-full delay-700 pointer-events-none" />
 
-      <div className="container mx-auto px-6 grid lg:grid-cols-2 gap-12 lg:gap-16 items-center relative z-10 w-full max-w-full overflow-hidden lg:overflow-visible">
-        <div className="space-y-8 md:space-y-10 animate-in fade-in slide-in-from-left-12 duration-1000">
+      <div className="container mx-auto px-6 grid lg:grid-cols-2 gap-12 lg:gap-16 items-center relative z-10 w-full max-w-full overflow-hidden">
+        <div className="space-y-8 md:space-y-10">
           <div className="inline-flex items-center gap-3 px-6 py-2 rounded-full bg-black/40 backdrop-blur-md border border-amber-500/20 text-amber-500 font-black text-[10px] md:text-[11px] uppercase tracking-[0.3em] shadow-xl">
             <Trophy className="h-4 w-4" /> Global Heat Record
           </div>
@@ -113,8 +120,8 @@ export function Hero() {
           </div>
         </div>
 
-        <div className="relative flex justify-center items-center animate-in fade-in zoom-in-90 duration-1000 delay-300 w-full">
-          <div className="absolute w-[120%] h-[120%] bg-primary/10 blur-[100px] md:blur-[150px] rounded-full animate-pulse pointer-events-none" />
+        <div className="relative flex justify-center items-center w-full">
+          <div className="absolute w-[120%] h-[120%] bg-primary/10 blur-[100px] md:blur-[150px] rounded-full pointer-events-none" />
           <div className="relative w-full max-w-[400px] md:max-w-[600px] aspect-square transition-transform duration-1000 hover:rotate-2">
             <Image 
               src={bannerImage} 

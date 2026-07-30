@@ -10,6 +10,8 @@ import { useFirestore, useDoc } from '@/firebase';
 import { collection, addDoc, serverTimestamp, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { StoreSettings } from '@/types/restaurant';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export function Footer() {
   const db = useFirestore();
@@ -17,30 +19,47 @@ export function Footer() {
   const [review, setReview] = useState({ name: '', comment: '', rating: 5 });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const storeSettingsRef = useMemo(() => db ? doc(db, 'settings', 'store') : null, [db]);
+  // STABLE Firestore References
+  const storeSettingsRef = useMemo(() => {
+    if (!db) return null;
+    return doc(db, 'settings', 'store');
+  }, [db]);
   const { data: storeSettings } = useDoc<StoreSettings>(storeSettingsRef);
 
-  const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+  const scrollToTop = () => {
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
-  const handleReviewSubmit = async (e: React.FormEvent) => {
+  const handleReviewSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!db || !review.name || !review.comment) return;
     
     setIsSubmitting(true);
-    try {
-      await addDoc(collection(db, 'reviews'), {
-        customerName: review.name,
-        comment: review.comment,
-        rating: review.rating,
-        createdAt: serverTimestamp()
+    const reviewData = {
+      customerName: review.name,
+      comment: review.comment,
+      rating: review.rating,
+      createdAt: serverTimestamp()
+    };
+
+    // NON-BLOCKING MUTATION: Don't await addDoc to prevent UI hang
+    addDoc(collection(db, 'reviews'), reviewData)
+      .then(() => {
+        setReview({ name: '', comment: '', rating: 5 });
+        setIsSubmitting(false);
+        toast({ title: "Sentiment Logged", description: "Thank you for your feedback." });
+      })
+      .catch(async (err) => {
+        setIsSubmitting(false);
+        const permissionError = new FirestorePermissionError({
+          path: 'reviews',
+          operation: 'create',
+          requestResourceData: reviewData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
       });
-      setReview({ name: '', comment: '', rating: 5 });
-      toast({ title: "Sentiment Logged", description: "Thank you for your feedback." });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Error", description: "Could not submit review." });
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   const phone = storeSettings?.phone || '+961 70 105 152';
