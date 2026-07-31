@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Instagram, Facebook, Twitter, Phone, MapPin, ArrowUp, UtensilsCrossed, Star } from 'lucide-react';
+import { Instagram, Facebook, Twitter, Phone, MapPin, ArrowUp, UtensilsCrossed, Star, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,7 +18,7 @@ export function Footer() {
   const [review, setReview] = useState({ name: '', comment: '', rating: 5 });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Stable Firestore References
+  // STABLE Firestore References
   const storeSettingsRef = useMemo(() => db ? doc(db, 'settings', 'store') : null, [db]);
   const { data: storeSettings } = useDoc<StoreSettings>(storeSettingsRef);
 
@@ -31,7 +31,7 @@ export function Footer() {
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!db || !review.name || !review.comment) {
-      toast({ variant: "destructive", title: "Missing Info", description: "Please provide your name and thoughts." });
+      toast({ variant: "destructive", title: "Required", description: "Name and comment please." });
       return;
     }
     
@@ -46,7 +46,7 @@ export function Footer() {
 
       await addDoc(collection(db, 'reviews'), reviewData);
       setReview({ name: '', comment: '', rating: 5 });
-      toast({ title: "Feedback Received", description: "Thank you for sharing your heat with us." });
+      toast({ title: "Sentiment Sent", description: "Thank you for the heat!" });
     } catch (err) {
       console.error(err);
       toast({ variant: "destructive", title: "Submission Failed" });

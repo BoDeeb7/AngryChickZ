@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -14,8 +15,7 @@ export function MenuGrid() {
   const [activeCategory, setActiveCategory] = useState('all');
   
   /**
-   * STABLE QUERIES: Memoize the Firestore query to prevent infinite re-render loops.
-   * Standard React hooks like useCollection will re-subscribe if the query reference changes.
+   * STABLE QUERIES: Strictly memoized to prevent infinite loops.
    */
   const productsQuery = useMemo(() => {
     if (!db) return null;
@@ -45,8 +45,8 @@ export function MenuGrid() {
       <div className="container mx-auto px-4 md:px-6 relative z-10 w-full max-w-full">
         <div className="flex flex-col items-center text-center mb-12 md:mb-20 gap-8">
           <div className="space-y-3">
-            <span className="text-primary font-bold uppercase tracking-[0.4em] text-[10px] block">Premium Menu Selection</span>
-            <h2 className="text-4xl md:text-6xl font-black text-zinc-100 tracking-tighter uppercase italic">Masterful Menu</h2>
+            <span className="text-primary font-bold uppercase tracking-[0.4em] text-[10px] block">Premium Selection</span>
+            <h2 className="text-4xl md:text-6xl font-black text-zinc-100 tracking-tighter uppercase italic">The Menu</h2>
           </div>
 
           <div className="w-full max-w-4xl">
@@ -94,7 +94,7 @@ export function MenuGrid() {
           <div className="text-center py-24 bg-zinc-900/50 rounded-3xl border border-dashed border-zinc-800">
             <Utensils className="h-16 w-16 mx-auto mb-6 text-zinc-800" />
             <h3 className="text-xl font-bold text-zinc-100 uppercase italic mb-2">Menu Coming Soon</h3>
-            <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">We are hand-brining something special.</p>
+            <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Elite heat is on the way.</p>
           </div>
         )}
       </div>

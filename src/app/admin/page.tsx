@@ -19,7 +19,8 @@ import {
   Globe, 
   X,
   Palette,
-  Save
+  Save,
+  MessageSquare
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -41,7 +42,7 @@ export default function AdminPage() {
   const { toast } = useToast();
   const db = useFirestore();
 
-  // Stable Firestore Queries
+  // STABLE Firestore Queries & Refs
   const productsQuery = useMemo(() => {
     if (!db) return null;
     return query(collection(db, 'products'), orderBy('createdAt', 'desc'));
@@ -112,15 +113,15 @@ export default function AdminPage() {
 
       if (isEditing) {
         await setDoc(doc(db, 'products', isEditing), productData, { merge: true });
+        toast({ title: "Product Updated" });
       } else {
         await addDoc(collection(db, 'products'), productData);
+        toast({ title: "Product Created" });
       }
-
-      toast({ title: "Product Saved Successfully" });
       resetForm();
     } catch (err) {
       console.error(err);
-      toast({ variant: "destructive", title: "Save Failed", description: "Could not sync item to cloud." });
+      toast({ variant: "destructive", title: "Save Failed" });
     } finally {
       setIsSubmitting(false);
     }
@@ -158,7 +159,7 @@ export default function AdminPage() {
           const docRef = target === 'logo' ? doc(db, 'settings', 'store') : doc(db, 'settings', 'hero');
           const updateData = target === 'heroBg' ? { bgImage: base64 } : target === 'heroBanner' ? { bannerImage: base64 } : { logo: base64 };
           await setDoc(docRef, updateData, { merge: true });
-          toast({ title: "Asset Uploaded Successfully" });
+          toast({ title: "Image Uploaded" });
         }
       } catch (err) {
         toast({ variant: "destructive", title: "Upload Failed" });
@@ -187,7 +188,7 @@ export default function AdminPage() {
     if (!db || !confirm('Delete permanently?')) return;
     try {
       await deleteDoc(doc(db, 'products', id));
-      toast({ title: "Item Removed Successfully" });
+      toast({ title: "Item Deleted" });
     } catch (err) {
       toast({ variant: "destructive", title: "Delete Failed" });
     }
@@ -208,7 +209,7 @@ export default function AdminPage() {
     setIsSubmitting(true);
     try {
       await setDoc(doc(db, 'settings', 'store'), localStoreSettings, { merge: true });
-      toast({ title: "Store Info Updated" });
+      toast({ title: "Store Settings Updated" });
     } catch (err) {
       toast({ variant: "destructive", title: "Update Failed" });
     } finally {
@@ -221,7 +222,7 @@ export default function AdminPage() {
     setIsSubmitting(true);
     try {
       await setDoc(doc(db, 'settings', 'hero'), localHeroSettings, { merge: true });
-      toast({ title: "Hero Visuals Synced" });
+      toast({ title: "Hero Settings Updated" });
     } catch (err) {
       toast({ variant: "destructive", title: "Sync Failed" });
     } finally {
@@ -280,12 +281,12 @@ export default function AdminPage() {
             </div>
             <div>
               <h1 className="text-xl font-bold tracking-tight">Admin Terminal</h1>
-              <p className="text-zinc-500 text-[10px] uppercase font-bold tracking-widest">Sync Status: Real-time Cloud</p>
+              <p className="text-zinc-500 text-[10px] uppercase font-bold tracking-widest">Realtime Cloud Enabled</p>
             </div>
           </div>
           <Link href="/">
             <Button variant="outline" className="bg-zinc-800 border-zinc-700 hover:bg-zinc-700 rounded-xl">
-              <ArrowLeft className="h-4 w-4 mr-2" /> Back to Store
+              <ArrowLeft className="h-4 w-4 mr-2" /> View Site
             </Button>
           </Link>
         </header>
@@ -301,20 +302,17 @@ export default function AdminPage() {
             <TabsTrigger value="visuals" className="px-6 py-3 rounded-lg font-bold text-xs uppercase tracking-widest data-[state=active]:bg-amber-500 data-[state=active]:text-zinc-950 text-zinc-500">
               <ImageIcon className="h-4 w-4 mr-2" /> Visuals
             </TabsTrigger>
-            <TabsTrigger value="assets" className="px-6 py-3 rounded-lg font-bold text-xs uppercase tracking-widest data-[state=active]:bg-amber-500 data-[state=active]:text-zinc-950 text-zinc-500">
-              <Palette className="h-4 w-4 mr-2" /> Logo
-            </TabsTrigger>
             <TabsTrigger value="storeinfo" className="px-6 py-3 rounded-lg font-bold text-xs uppercase tracking-widest data-[state=active]:bg-amber-500 data-[state=active]:text-zinc-950 text-zinc-500">
               <Globe className="h-4 w-4 mr-2" /> Store Info
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="products" className="grid lg:grid-cols-12 gap-8 outline-none">
-            <Card className="lg:col-span-5 bg-zinc-900 border-zinc-800 rounded-2xl shadow-xl h-fit sticky top-24">
+          <TabsContent value="products" className="grid lg:grid-cols-12 gap-8">
+            <Card className="lg:col-span-5 bg-zinc-900 border-zinc-800 rounded-2xl shadow-xl h-fit">
               <CardHeader className="border-b border-zinc-800">
                 <CardTitle className="text-lg font-bold flex items-center gap-3">
                   {isEditing ? <Edit2 className="h-5 w-5 text-amber-500" /> : <Plus className="h-5 w-5 text-amber-500" />}
-                  {isEditing ? 'Update Item' : 'Add New Item'}
+                  {isEditing ? 'Edit Item' : 'New Item'}
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 space-y-4">
@@ -390,13 +388,13 @@ export default function AdminPage() {
                 <h2 className="text-lg font-bold flex items-center gap-3">
                   <LayoutGrid className="h-5 w-5 text-amber-500" /> Active Menu
                 </h2>
-                <Badge className="bg-zinc-900 border-zinc-800 text-amber-500 px-4 py-1">{products.length} Items Synced</Badge>
+                <Badge className="bg-zinc-900 border-zinc-800 text-amber-500 px-4 py-1">{products.length} Items</Badge>
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 {products.map(product => (
                   <div key={product.id} className="bg-zinc-900 border border-zinc-800 p-4 rounded-2xl flex gap-4 items-center group">
                     <div className="relative h-16 w-16 rounded-xl overflow-hidden flex-shrink-0 bg-zinc-800">
-                      <Image src={product.imageUrls[0] || 'https://picsum.photos/seed/food/200/200'} alt={product.name} fill className="object-cover" />
+                      <Image src={product.imageUrls?.[0] || 'https://picsum.photos/seed/food/200/200'} alt={product.name} fill className="object-cover" />
                     </div>
                     <div className="flex-grow min-w-0">
                       <h4 className="font-bold text-zinc-100 truncate text-sm">{product.name}</h4>
@@ -449,7 +447,7 @@ export default function AdminPage() {
           <TabsContent value="visuals" className="max-w-4xl mx-auto space-y-6">
             <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
               <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4 flex flex-row items-center justify-between">
-                <CardTitle className="text-lg font-bold text-amber-500">Hero Content</CardTitle>
+                <CardTitle className="text-lg font-bold text-amber-500">Global Visuals</CardTitle>
                 <Button disabled={isSubmitting} onClick={saveHeroSettings} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2">
                   {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save
                 </Button>
@@ -467,17 +465,21 @@ export default function AdminPage() {
                  </div>
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-4">
-                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Background</Label>
-                    <div className="relative h-48 rounded-xl overflow-hidden border border-zinc-800 group">
-                      <Image src={localHeroSettings?.bgImage || 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1600&auto=format&fit=crop'} alt="hero" fill className="object-cover" />
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Logo Upload</Label>
+                    <div className="relative h-32 w-32 rounded-2xl bg-zinc-800 border-2 border-dashed border-zinc-700 flex items-center justify-center overflow-hidden group mx-auto md:mx-0">
+                      {localStoreSettings?.logo ? (
+                        <img src={localStoreSettings.logo} alt="Logo" className="h-full w-full object-contain p-4" />
+                      ) : (
+                        <Utensils className="h-8 w-8 text-zinc-600" />
+                      )}
                       <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer">
-                        <Upload className="h-6 w-6 text-white" />
-                        <input type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'heroBg')} />
+                        {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin text-white" /> : <Upload className="h-6 w-6 text-white" />}
+                        <input type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'logo')} />
                       </label>
                     </div>
                   </div>
                   <div className="space-y-4">
-                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Promo Image</Label>
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Hero Promo Image</Label>
                     <div className="relative h-48 rounded-xl overflow-hidden border border-zinc-800 group">
                       <Image src={localHeroSettings?.bannerImage || 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1600&auto=format&fit=crop'} alt="banner" fill className="object-cover" />
                       <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer">
@@ -490,57 +492,35 @@ export default function AdminPage() {
               </div>
             </Card>
           </TabsContent>
-
-          <TabsContent value="assets" className="max-w-xl mx-auto">
-             <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
-                <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4">
-                  <CardTitle className="text-lg font-bold text-amber-500">Brand Logo</CardTitle>
-                </CardHeader>
-                <div className="flex flex-col items-center gap-6 py-6">
-                    <div className="relative h-32 w-32 rounded-2xl bg-zinc-800 border-2 border-dashed border-zinc-700 flex items-center justify-center overflow-hidden group">
-                      {localStoreSettings?.logo ? (
-                        <img src={localStoreSettings.logo} alt="Logo" className="h-full w-full object-contain p-4" />
-                      ) : (
-                        <Utensils className="h-8 w-8 text-zinc-600" />
-                      )}
-                      <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer">
-                        {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin text-white" /> : <Upload className="h-6 w-6 text-white" />}
-                        <input type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'logo')} />
-                      </label>
-                    </div>
-                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Supports PNG, JPG (Max 2MB)</p>
-                </div>
-             </Card>
-          </TabsContent>
           
           <TabsContent value="storeinfo" className="max-w-2xl mx-auto">
              <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
                 <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4 flex flex-row items-center justify-between">
                   <CardTitle className="text-lg font-bold text-amber-500">Contact Details</CardTitle>
                   <Button disabled={isSubmitting} onClick={saveStoreSettings} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2">
-                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Sync
+                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Sync Cloud
                   </Button>
                 </CardHeader>
                 <div className="grid md:grid-cols-2 gap-6 pt-6">
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold text-zinc-500 uppercase">WhatsApp</Label>
-                    <input value={localStoreSettings?.whatsappNumber || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, whatsappNumber: e.target.value }))} className="w-full h-10 px-3 bg-zinc-800 border border-zinc-700 rounded-xl text-sm" />
+                    <Input value={localStoreSettings?.whatsappNumber || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, whatsappNumber: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold text-zinc-500 uppercase">Phone</Label>
-                    <input value={localStoreSettings?.phone || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, phone: e.target.value }))} className="w-full h-10 px-3 bg-zinc-800 border border-zinc-700 rounded-xl text-sm" />
+                    <Input value={localStoreSettings?.phone || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, phone: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
                   </div>
                   <div className="md:col-span-2 space-y-2">
                     <Label className="text-[10px] font-bold text-zinc-500 uppercase">Address</Label>
-                    <input value={localStoreSettings?.address || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, address: e.target.value }))} className="w-full h-10 px-3 bg-zinc-800 border border-zinc-700 rounded-xl text-sm" />
+                    <Input value={localStoreSettings?.address || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, address: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold text-zinc-500 uppercase">Instagram</Label>
-                    <input value={localStoreSettings?.instagram || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, instagram: e.target.value }))} className="w-full h-10 px-3 bg-zinc-800 border border-zinc-700 rounded-xl text-sm" />
+                    <Input value={localStoreSettings?.instagram || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, instagram: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold text-zinc-500 uppercase">TikTok</Label>
-                    <input value={localStoreSettings?.tiktok || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, tiktok: e.target.value }))} className="w-full h-10 px-3 bg-zinc-800 border border-zinc-700 rounded-xl text-sm" />
+                    <Input value={localStoreSettings?.tiktok || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, tiktok: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
                   </div>
                 </div>
              </Card>
