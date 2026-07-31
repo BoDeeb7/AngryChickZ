@@ -18,11 +18,8 @@ export function Footer() {
   const [review, setReview] = useState({ name: '', comment: '', rating: 5 });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // STABLE Firestore References
-  const storeSettingsRef = useMemo(() => {
-    if (!db) return null;
-    return doc(db, 'settings', 'store');
-  }, [db]);
+  // Stable Firestore References
+  const storeSettingsRef = useMemo(() => db ? doc(db, 'settings', 'store') : null, [db]);
   const { data: storeSettings } = useDoc<StoreSettings>(storeSettingsRef);
 
   const scrollToTop = () => {
@@ -133,7 +130,7 @@ export function Footer() {
                 className="h-24 bg-background border-foreground/10 rounded-2xl text-[10px] font-black tracking-widest pt-5 text-foreground" 
               />
               <Button disabled={isSubmitting} type="submit" className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground rounded-2xl text-[10px] font-black uppercase tracking-[0.3em]">
-                {isSubmitting ? 'Logging...' : 'Submit Sentiment'}
+                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : 'Submit Sentiment'}
               </Button>
             </form>
           </div>

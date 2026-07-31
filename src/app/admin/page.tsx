@@ -14,8 +14,6 @@ import {
   Utensils, 
   ShieldCheck, 
   ArrowLeft, 
-  Star, 
-  MessageSquare, 
   Lock, 
   ImageIcon, 
   Globe, 
@@ -41,28 +39,17 @@ export default function AdminPage() {
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
-
   const db = useFirestore();
 
+  // Stable Firestore Queries
   const productsQuery = useMemo(() => {
     if (!db) return null;
     return query(collection(db, 'products'), orderBy('createdAt', 'desc'));
   }, [db]);
 
-  const categoriesRef = useMemo(() => {
-    if (!db) return null;
-    return collection(db, 'categories');
-  }, [db]);
-
-  const storeRef = useMemo(() => {
-    if (!db) return null;
-    return doc(db, 'settings', 'store');
-  }, [db]);
-
-  const heroRef = useMemo(() => {
-    if (!db) return null;
-    return doc(db, 'settings', 'hero');
-  }, [db]);
+  const categoriesRef = useMemo(() => db ? collection(db, 'categories') : null, [db]);
+  const storeRef = useMemo(() => db ? doc(db, 'settings', 'store') : null, [db]);
+  const heroRef = useMemo(() => db ? doc(db, 'settings', 'hero') : null, [db]);
 
   const { data: products = [] } = useCollection<Product>(productsQuery);
   const { data: categories = [] } = useCollection<Category>(categoriesRef);
@@ -71,15 +58,6 @@ export default function AdminPage() {
 
   const [localStoreSettings, setLocalStoreSettings] = useState<any>({});
   const [localHeroSettings, setLocalHeroSettings] = useState<any>({});
-
-  useEffect(() => {
-    if (storeSettings) setLocalStoreSettings(storeSettings);
-  }, [storeSettings]);
-
-  useEffect(() => {
-    if (heroSettings) setLocalHeroSettings(heroSettings);
-  }, [heroSettings]);
-
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -89,8 +67,15 @@ export default function AdminPage() {
     imageUrls: [] as string[],
     badges: [] as string[],
   });
-
   const [newCategory, setNewCategory] = useState({ name: '' });
+
+  useEffect(() => {
+    if (storeSettings) setLocalStoreSettings(storeSettings);
+  }, [storeSettings]);
+
+  useEffect(() => {
+    if (heroSettings) setLocalHeroSettings(heroSettings);
+  }, [heroSettings]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -174,10 +159,10 @@ export default function AdminPage() {
           const updateData = target === 'heroBg' ? { bgImage: base64 } : target === 'heroBanner' ? { bannerImage: base64 } : { logo: base64 };
           await setDoc(docRef, updateData, { merge: true });
           toast({ title: "Asset Uploaded Successfully" });
-          setIsSubmitting(false);
         }
       } catch (err) {
         toast({ variant: "destructive", title: "Upload Failed" });
+      } finally {
         setIsSubmitting(false);
       }
     };
