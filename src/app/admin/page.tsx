@@ -36,7 +36,15 @@ import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp, query, ord
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Independent Loading States to prevent button cross-talk
+  const [isProductSaving, setIsProductSaving] = useState(false);
+  const [isCategoryAdding, setIsCategoryAdding] = useState(false);
+  const [isVisualsSaving, setIsVisualsSaving] = useState(false);
+  const [isStoreInfoSaving, setIsStoreInfoSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isLoginLoading, setIsLoginLoading] = useState(false);
+
   const { toast } = useToast();
   const db = useFirestore();
 
@@ -78,18 +86,20 @@ export default function AdminPage() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoginLoading(true);
+    // Simple mock auth for prototype
     if (loginForm.username === 'Ali@AngryChickZ' && loginForm.password === 'AngryChickZ@DeebData#79') {
       setIsAuthenticated(true);
       toast({ title: "Authorized", description: "Welcome back, Ali." });
     } else {
       toast({ variant: "destructive", title: "Access Denied", description: "Invalid credentials." });
     }
+    setIsLoginLoading(false);
   };
 
   const resetForm = useCallback(() => {
     setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
     setIsEditing(null);
-    setIsSubmitting(false);
   }, []);
 
   const handleSaveProduct = async (e: React.FormEvent) => {
@@ -99,7 +109,7 @@ export default function AdminPage() {
       return;
     }
 
-    setIsSubmitting(true);
+    setIsProductSaving(true);
     try {
       const productData = {
         name: formData.name,
@@ -122,7 +132,7 @@ export default function AdminPage() {
     } catch (err: any) {
       toast({ variant: "destructive", title: "Save Error", description: err.message });
     } finally {
-      setIsSubmitting(false);
+      setIsProductSaving(false);
     }
   };
 
@@ -130,7 +140,7 @@ export default function AdminPage() {
     e.preventDefault();
     if (!newCategoryName || !db) return;
     
-    setIsSubmitting(true);
+    setIsCategoryAdding(true);
     try {
       const slug = newCategoryName.toLowerCase().trim().replace(/\s+/g, '-');
       await addDoc(collection(db, 'categories'), { 
@@ -142,7 +152,7 @@ export default function AdminPage() {
     } catch (err: any) {
       toast({ variant: "destructive", title: "Error", description: err.message });
     } finally {
-      setIsSubmitting(false);
+      setIsCategoryAdding(false);
     }
   };
 
@@ -150,28 +160,27 @@ export default function AdminPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setIsSubmitting(true);
+    setIsUploading(true);
     const reader = new FileReader();
     reader.onloadend = async () => {
       const base64 = reader.result as string;
       try {
         if (target === 'product') {
           setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, base64] }));
-          setIsSubmitting(false);
         } else if (db) {
           const docRef = target === 'logo' ? doc(db, 'settings', 'store') : doc(db, 'settings', 'hero');
           const updateData = target === 'heroBg' ? { bgImage: base64 } : target === 'heroBanner' ? { bannerImage: base64 } : { logo: base64 };
           await setDoc(docRef, updateData, { merge: true });
-          toast({ title: "Success", description: "Visual updated." });
-          setIsSubmitting(false);
+          toast({ title: "Visual Updated", description: "Changes reflected instantly." });
         }
       } catch (err: any) {
         toast({ variant: "destructive", title: "Upload Failed", description: err.message });
-        setIsSubmitting(false);
+      } finally {
+        setIsUploading(false);
       }
     };
     reader.onerror = () => {
-      setIsSubmitting(false);
+      setIsUploading(false);
       toast({ variant: "destructive", title: "Error", description: "Failed to read file." });
     };
     reader.readAsDataURL(file);
@@ -179,33 +188,30 @@ export default function AdminPage() {
 
   const deleteProduct = async (id: string) => {
     if (!db || !confirm('Permanently delete this item?')) return;
-    setIsSubmitting(true);
     try {
       await deleteDoc(doc(db, 'products', id));
       toast({ title: "Deleted", description: "Item removed from menu." });
     } catch (err: any) {
       toast({ variant: "destructive", title: "Error", description: err.message });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   const deleteCategory = async (id: string) => {
     if (!db || !confirm('Remove this category?')) return;
-    setIsSubmitting(true);
     try {
       await deleteDoc(doc(db, 'categories', id));
       toast({ title: "Category Removed" });
     } catch (err: any) {
       toast({ variant: "destructive", title: "Error", description: err.message });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   const saveSettings = async (target: 'store' | 'hero') => {
     if (!db) return;
-    setIsSubmitting(true);
+    
+    if (target === 'store') setIsStoreInfoSaving(true);
+    if (target === 'hero') setIsVisualsSaving(true);
+
     try {
       const data = target === 'store' ? localStoreSettings : localHeroSettings;
       await setDoc(doc(db, 'settings', target), data, { merge: true });
@@ -213,7 +219,8 @@ export default function AdminPage() {
     } catch (err: any) {
       toast({ variant: "destructive", title: "Sync Error", description: err.message });
     } finally {
-      setIsSubmitting(false);
+      if (target === 'store') setIsStoreInfoSaving(false);
+      if (target === 'hero') setIsVisualsSaving(false);
     }
   };
 
@@ -248,8 +255,8 @@ export default function AdminPage() {
                   placeholder="••••••••"
                 />
               </div>
-              <Button disabled={isSubmitting} type="submit" className="w-full h-14 bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold rounded-xl uppercase tracking-widest">
-                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Login Terminal'}
+              <Button disabled={isLoginLoading} type="submit" className="w-full h-14 bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold rounded-xl uppercase tracking-widest">
+                {isLoginLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Login Terminal'}
               </Button>
             </form>
           </CardContent>
@@ -340,14 +347,14 @@ export default function AdminPage() {
                         </div>
                       ))}
                       <label className="h-16 w-16 flex flex-col items-center justify-center bg-zinc-800 border-2 border-dashed border-zinc-700 rounded-lg cursor-pointer hover:border-amber-500 transition-colors">
-                        {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5 text-zinc-500" />}
+                        {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5 text-zinc-500" />}
                         <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'product')} />
                       </label>
                     </div>
                   </div>
                   <div className="flex gap-2 pt-4">
-                    <Button disabled={isSubmitting} type="submit" className="flex-grow bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold rounded-xl uppercase tracking-widest text-xs h-11">
-                      {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                    <Button disabled={isProductSaving} type="submit" className="flex-grow bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold rounded-xl uppercase tracking-widest text-xs h-11">
+                      {isProductSaving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                       {isEditing ? 'Update Item' : 'Save Item'}
                     </Button>
                     {isEditing && (
@@ -414,8 +421,8 @@ export default function AdminPage() {
                     onChange={e => setNewCategoryName(e.target.value)}
                     className="bg-zinc-800 border-zinc-700 h-12 rounded-xl"
                   />
-                  <Button disabled={isSubmitting || !newCategoryName} type="submit" className="bg-amber-500 hover:bg-amber-600 text-zinc-950 rounded-xl font-bold px-8 h-12 uppercase italic tracking-widest text-xs">
-                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create'}
+                  <Button disabled={isCategoryAdding || !newCategoryName} type="submit" className="bg-amber-500 hover:bg-amber-600 text-zinc-950 rounded-xl font-bold px-8 h-12 uppercase italic tracking-widest text-xs">
+                    {isCategoryAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create'}
                   </Button>
                 </form>
                 <div className="grid gap-2">
@@ -434,8 +441,8 @@ export default function AdminPage() {
             <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
               <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4 flex flex-row items-center justify-between">
                 <CardTitle className="text-lg font-bold text-amber-500 italic uppercase">Digital Visuals</CardTitle>
-                <Button disabled={isSubmitting} onClick={() => saveSettings('hero')} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2 rounded-xl h-10 px-6 uppercase italic text-[10px] tracking-widest">
-                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Sync Hero
+                <Button disabled={isVisualsSaving} onClick={() => saveSettings('hero')} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2 rounded-xl h-10 px-6 uppercase italic text-[10px] tracking-widest">
+                  {isVisualsSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Sync Hero
                 </Button>
               </CardHeader>
               <div className="space-y-6 pt-4">
@@ -459,7 +466,7 @@ export default function AdminPage() {
                         <Utensils className="h-8 w-8 text-zinc-600" />
                       )}
                       <label className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-all">
-                        {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin text-white" /> : <Upload className="h-6 w-6 text-white" />}
+                        {isUploading ? <Loader2 className="h-6 w-6 animate-spin text-white" /> : <Upload className="h-6 w-6 text-white" />}
                         <input type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'logo')} />
                       </label>
                     </div>
@@ -483,8 +490,8 @@ export default function AdminPage() {
              <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
                 <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4 flex flex-row items-center justify-between">
                   <CardTitle className="text-lg font-bold text-amber-500 italic uppercase">Cloud Contact Info</CardTitle>
-                  <Button disabled={isSubmitting} onClick={() => saveSettings('store')} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2 rounded-xl h-10 px-6 uppercase italic text-[10px] tracking-widest">
-                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Update
+                  <Button disabled={isStoreInfoSaving} onClick={() => saveSettings('store')} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2 rounded-xl h-10 px-6 uppercase italic text-[10px] tracking-widest">
+                    {isStoreInfoSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Update
                   </Button>
                 </CardHeader>
                 <div className="grid md:grid-cols-2 gap-6 pt-6">
