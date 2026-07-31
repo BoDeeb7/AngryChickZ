@@ -18,10 +18,7 @@ import {
   ImageIcon, 
   Globe, 
   X,
-  Palette,
   Save,
-  MessageSquare,
-  Sparkles
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -69,7 +66,7 @@ export default function AdminPage() {
     imageUrls: [] as string[],
     badges: [] as string[],
   });
-  const [newCategory, setNewCategory] = useState({ name: '' });
+  const [newCategoryName, setNewCategoryName] = useState('');
 
   useEffect(() => {
     if (storeSettings) setLocalStoreSettings(storeSettings);
@@ -92,12 +89,13 @@ export default function AdminPage() {
   const resetForm = useCallback(() => {
     setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
     setIsEditing(null);
+    setIsSubmitting(false);
   }, []);
 
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.price || !formData.category || !db) {
-      toast({ variant: "destructive", title: "Required", description: "Missing essential info." });
+      toast({ variant: "destructive", title: "Required", description: "Please fill essential fields." });
       return;
     }
 
@@ -115,32 +113,34 @@ export default function AdminPage() {
 
       if (isEditing) {
         await setDoc(doc(db, 'products', isEditing), productData, { merge: true });
-        toast({ title: "Product Updated" });
+        toast({ title: "Updated", description: "Product has been updated successfully." });
       } else {
         await addDoc(collection(db, 'products'), productData);
-        toast({ title: "Product Created" });
+        toast({ title: "Created", description: "New product added to menu." });
       }
       resetForm();
-    } catch (err) {
-      console.error(err);
-      toast({ variant: "destructive", title: "Save Failed" });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Save Error", description: err.message });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const addCategory = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!newCategory.name || !db) return;
+  const addCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCategoryName || !db) return;
+    
     setIsSubmitting(true);
     try {
-      const slug = newCategory.name.toLowerCase().trim().replace(/\s+/g, '-');
-      await addDoc(collection(db, 'categories'), { name: newCategory.name.trim(), slug });
-      setNewCategory({ name: '' });
-      toast({ title: "Category Added" });
-    } catch (err) {
-      console.error(err);
-      toast({ variant: "destructive", title: "Failed to Add Category" });
+      const slug = newCategoryName.toLowerCase().trim().replace(/\s+/g, '-');
+      await addDoc(collection(db, 'categories'), { 
+        name: newCategoryName.trim(), 
+        slug 
+      });
+      setNewCategoryName('');
+      toast({ title: "Category Added", description: `"${newCategoryName}" is now available.` });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: err.message });
     } finally {
       setIsSubmitting(false);
     }
@@ -162,86 +162,56 @@ export default function AdminPage() {
           const docRef = target === 'logo' ? doc(db, 'settings', 'store') : doc(db, 'settings', 'hero');
           const updateData = target === 'heroBg' ? { bgImage: base64 } : target === 'heroBanner' ? { bannerImage: base64 } : { logo: base64 };
           await setDoc(docRef, updateData, { merge: true });
-          toast({ title: "Image Uploaded Successfully" });
+          toast({ title: "Success", description: "Visual updated." });
+          setIsSubmitting(false);
         }
-      } catch (err) {
-        console.error(err);
-        toast({ variant: "destructive", title: "Upload Failed" });
-      } finally {
+      } catch (err: any) {
+        toast({ variant: "destructive", title: "Upload Failed", description: err.message });
         setIsSubmitting(false);
       }
     };
     reader.onerror = () => {
       setIsSubmitting(false);
-      toast({ variant: "destructive", title: "Reader Error" });
+      toast({ variant: "destructive", title: "Error", description: "Failed to read file." });
     };
     reader.readAsDataURL(file);
   };
 
-  const startEdit = (product: Product) => {
-    setFormData({
-      name: product.name,
-      description: product.description,
-      price: product.price.toString(),
-      category: product.category,
-      imageUrls: product.imageUrls || [],
-      badges: product.badges || [],
-    });
-    setIsEditing(product.id);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
   const deleteProduct = async (id: string) => {
-    if (!db || !confirm('Delete permanently?')) return;
+    if (!db || !confirm('Permanently delete this item?')) return;
     setIsSubmitting(true);
     try {
       await deleteDoc(doc(db, 'products', id));
-      toast({ title: "Item Deleted" });
-    } catch (err) {
-      toast({ variant: "destructive", title: "Delete Failed" });
+      toast({ title: "Deleted", description: "Item removed from menu." });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: err.message });
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const deleteCategory = async (id: string) => {
-    if (!db || !confirm('Delete category?')) return;
+    if (!db || !confirm('Remove this category?')) return;
     setIsSubmitting(true);
     try {
       await deleteDoc(doc(db, 'categories', id));
       toast({ title: "Category Removed" });
-    } catch (err) {
-      toast({ variant: "destructive", title: "Failed to Remove" });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: err.message });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const saveStoreSettings = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!db || !localStoreSettings) return;
+  const saveSettings = async (target: 'store' | 'hero') => {
+    if (!db) return;
     setIsSubmitting(true);
     try {
-      await setDoc(doc(db, 'settings', 'store'), localStoreSettings, { merge: true });
-      toast({ title: "Store Settings Updated" });
-    } catch (err) {
-      console.error(err);
-      toast({ variant: "destructive", title: "Update Failed" });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const saveHeroSettings = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!db || !localHeroSettings) return;
-    setIsSubmitting(true);
-    try {
-      await setDoc(doc(db, 'settings', 'hero'), localHeroSettings, { merge: true });
-      toast({ title: "Hero Settings Updated" });
-    } catch (err) {
-      console.error(err);
-      toast({ variant: "destructive", title: "Sync Failed" });
+      const data = target === 'store' ? localStoreSettings : localHeroSettings;
+      await setDoc(doc(db, 'settings', target), data, { merge: true });
+      toast({ title: "Synced", description: `${target === 'store' ? 'Store' : 'Visual'} settings pushed to cloud.` });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Sync Error", description: err.message });
     } finally {
       setIsSubmitting(false);
     }
@@ -266,7 +236,6 @@ export default function AdminPage() {
                   onChange={e => setLoginForm(p => ({ ...p, username: e.target.value }))}
                   className="bg-zinc-800 border-zinc-700 text-white rounded-xl h-12"
                   placeholder="Username"
-                  autoComplete="username"
                 />
               </div>
               <div className="space-y-2">
@@ -277,7 +246,6 @@ export default function AdminPage() {
                   onChange={e => setLoginForm(p => ({ ...p, password: e.target.value }))}
                   className="bg-zinc-800 border-zinc-700 text-white rounded-xl h-12"
                   placeholder="••••••••"
-                  autoComplete="current-password"
                 />
               </div>
               <Button disabled={isSubmitting} type="submit" className="w-full h-14 bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold rounded-xl uppercase tracking-widest">
@@ -329,8 +297,8 @@ export default function AdminPage() {
           <TabsContent value="products" className="grid lg:grid-cols-12 gap-8">
             <Card className="lg:col-span-5 bg-zinc-900 border-zinc-800 rounded-2xl shadow-xl h-fit">
               <CardHeader className="border-b border-zinc-800">
-                <CardTitle className="text-lg font-bold flex items-center gap-3">
-                  {isEditing ? <Edit2 className="h-5 w-5 text-amber-500" /> : <Plus className="h-5 w-5 text-amber-500" />}
+                <CardTitle className="text-lg font-bold flex items-center gap-3 text-amber-500 uppercase tracking-tighter italic">
+                  {isEditing ? <Edit2 className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
                   {isEditing ? 'Edit Item' : 'New Item'}
                 </CardTitle>
               </CardHeader>
@@ -338,37 +306,21 @@ export default function AdminPage() {
                 <form onSubmit={handleSaveProduct} className="space-y-4">
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold text-zinc-500 uppercase">Item Name</Label>
-                    <Input 
-                      required
-                      value={formData.name} 
-                      onChange={e => setFormData(f => ({ ...f, name: e.target.value }))} 
-                      className="bg-zinc-800 border-zinc-700 rounded-xl text-white"
-                    />
+                    <Input required value={formData.name} onChange={e => setFormData(f => ({ ...f, name: e.target.value }))} className="bg-zinc-800 border-zinc-700 rounded-xl" />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold text-zinc-500 uppercase">Description</Label>
-                    <Textarea 
-                      value={formData.description} 
-                      onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} 
-                      className="bg-zinc-800 border-zinc-700 rounded-xl min-h-[80px]"
-                    />
+                    <Textarea value={formData.description} onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} className="bg-zinc-800 border-zinc-700 rounded-xl" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold text-zinc-500 uppercase">Price ($)</Label>
-                      <Input 
-                        required
-                        type="number" 
-                        step="0.01"
-                        value={formData.price} 
-                        onChange={e => setFormData(f => ({ ...f, price: e.target.value }))} 
-                        className="bg-zinc-800 border-zinc-700 rounded-xl"
-                      />
+                      <Input required type="number" step="0.01" value={formData.price} onChange={e => setFormData(f => ({ ...f, price: e.target.value }))} className="bg-zinc-800 border-zinc-700 rounded-xl" />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold text-zinc-500 uppercase">Category</Label>
                       <select 
-                        required
+                        required 
                         className="w-full h-10 px-3 bg-zinc-800 border border-zinc-700 rounded-xl text-sm text-white"
                         value={formData.category}
                         onChange={e => setFormData(f => ({ ...f, category: e.target.value }))}
@@ -384,10 +336,10 @@ export default function AdminPage() {
                       {formData.imageUrls.map((url, i) => (
                         <div key={i} className="relative h-16 w-16 rounded-lg overflow-hidden border border-zinc-700 group">
                           <Image src={url} alt="preview" fill className="object-cover" />
-                          <button type="button" onClick={() => setFormData(f => ({ ...f, imageUrls: f.imageUrls.filter((_, idx) => idx !== i) }))} className="absolute inset-0 bg-red-500/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4" /></button>
+                          <button type="button" onClick={() => setFormData(f => ({ ...f, imageUrls: f.imageUrls.filter((_, idx) => idx !== i) }))} className="absolute inset-0 bg-red-500/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4 text-white" /></button>
                         </div>
                       ))}
-                      <label className="h-16 w-16 flex flex-col items-center justify-center bg-zinc-800 border-2 border-dashed border-zinc-700 rounded-lg cursor-pointer hover:border-amber-500">
+                      <label className="h-16 w-16 flex flex-col items-center justify-center bg-zinc-800 border-2 border-dashed border-zinc-700 rounded-lg cursor-pointer hover:border-amber-500 transition-colors">
                         {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5 text-zinc-500" />}
                         <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'product')} />
                       </label>
@@ -410,23 +362,34 @@ export default function AdminPage() {
 
             <div className="lg:col-span-7 space-y-6">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold flex items-center gap-3">
-                  <LayoutGrid className="h-5 w-5 text-amber-500" /> Active Menu
+                <h2 className="text-lg font-bold flex items-center gap-3 text-amber-500 italic uppercase">
+                  <LayoutGrid className="h-5 w-5" /> Active Menu
                 </h2>
-                <Badge className="bg-zinc-900 border-zinc-800 text-amber-500 px-4 py-1">{products.length} Items</Badge>
+                <Badge className="bg-zinc-900 border-zinc-800 text-amber-500 px-4 py-1 font-black">{products.length} ITEMS</Badge>
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 {products.map(product => (
-                  <div key={product.id} className="bg-zinc-900 border border-zinc-800 p-4 rounded-2xl flex gap-4 items-center group">
-                    <div className="relative h-16 w-16 rounded-xl overflow-hidden flex-shrink-0 bg-zinc-800">
+                  <div key={product.id} className="bg-zinc-900 border border-zinc-800 p-4 rounded-2xl flex gap-4 items-center group hover:border-amber-500/50 transition-all">
+                    <div className="relative h-16 w-16 rounded-xl overflow-hidden flex-shrink-0 bg-zinc-800 shadow-lg">
                       <Image src={product.imageUrls?.[0] || 'https://picsum.photos/seed/food/200/200'} alt={product.name} fill className="object-cover" />
                     </div>
                     <div className="flex-grow min-w-0">
-                      <h4 className="font-bold text-zinc-100 truncate text-sm">{product.name}</h4>
+                      <h4 className="font-bold text-zinc-100 truncate text-sm uppercase italic">{product.name}</h4>
                       <div className="flex items-center justify-between mt-1">
                         <span className="font-bold text-amber-500 text-xs">${product.price.toFixed(2)}</span>
                         <div className="flex gap-1">
-                          <button onClick={() => startEdit(product)} className="p-2 text-zinc-500 hover:text-white"><Edit2 className="h-4 w-4" /></button>
+                          <button onClick={() => { 
+                            setFormData({ 
+                              name: product.name, 
+                              description: product.description, 
+                              price: product.price.toString(), 
+                              category: product.category, 
+                              imageUrls: product.imageUrls || [], 
+                              badges: product.badges || [] 
+                            }); 
+                            setIsEditing(product.id);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }} className="p-2 text-zinc-500 hover:text-white"><Edit2 className="h-4 w-4" /></button>
                           <button onClick={() => deleteProduct(product.id)} className="p-2 text-zinc-500 hover:text-red-500"><Trash2 className="h-4 w-4" /></button>
                         </div>
                       </div>
@@ -440,26 +403,26 @@ export default function AdminPage() {
           <TabsContent value="categories" className="max-w-xl mx-auto space-y-6">
             <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
               <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4">
-                <CardTitle className="text-lg font-bold text-amber-500">Categories</CardTitle>
+                <CardTitle className="text-lg font-bold text-amber-500 italic uppercase">Manage Sections</CardTitle>
               </CardHeader>
               <div className="space-y-6">
                 <form onSubmit={addCategory} className="flex gap-3">
                   <Input 
-                    required
-                    placeholder="Category Name" 
-                    value={newCategory.name} 
-                    onChange={e => setNewCategory({ name: e.target.value })}
-                    className="bg-zinc-800 border-zinc-700"
+                    required 
+                    placeholder="New Section Title" 
+                    value={newCategoryName} 
+                    onChange={e => setNewCategoryName(e.target.value)}
+                    className="bg-zinc-800 border-zinc-700 h-12 rounded-xl"
                   />
-                  <Button disabled={isSubmitting || !newCategory.name} type="submit" className="bg-amber-500 hover:bg-amber-600 text-zinc-950 rounded-xl font-bold px-6">
-                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add'}
+                  <Button disabled={isSubmitting || !newCategoryName} type="submit" className="bg-amber-500 hover:bg-amber-600 text-zinc-950 rounded-xl font-bold px-8 h-12 uppercase italic tracking-widest text-xs">
+                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create'}
                   </Button>
                 </form>
                 <div className="grid gap-2">
                   {categories.map(cat => (
-                    <div key={cat.id} className="flex items-center justify-between p-4 bg-zinc-800/50 border border-zinc-800 rounded-xl">
-                      <span className="font-bold text-sm">{cat.name}</span>
-                      <button onClick={() => deleteCategory(cat.id)} className="text-zinc-500 hover:text-red-500"><Trash2 className="h-4 w-4" /></button>
+                    <div key={cat.id} className="flex items-center justify-between p-4 bg-zinc-800/50 border border-zinc-800 rounded-xl hover:border-amber-500/30 transition-all">
+                      <span className="font-bold text-sm uppercase italic text-zinc-300">{cat.name}</span>
+                      <button onClick={() => deleteCategory(cat.id)} className="text-zinc-500 hover:text-red-500 transition-colors"><Trash2 className="h-4 w-4" /></button>
                     </div>
                   ))}
                 </div>
@@ -470,44 +433,44 @@ export default function AdminPage() {
           <TabsContent value="visuals" className="max-w-4xl mx-auto space-y-6">
             <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
               <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4 flex flex-row items-center justify-between">
-                <CardTitle className="text-lg font-bold text-amber-500">Global Visuals</CardTitle>
-                <Button disabled={isSubmitting} onClick={(e) => saveHeroSettings(e)} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2">
-                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save
+                <CardTitle className="text-lg font-bold text-amber-500 italic uppercase">Digital Visuals</CardTitle>
+                <Button disabled={isSubmitting} onClick={() => saveSettings('hero')} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2 rounded-xl h-10 px-6 uppercase italic text-[10px] tracking-widest">
+                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Sync Hero
                 </Button>
               </CardHeader>
               <div className="space-y-6 pt-4">
                  <div className="grid md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold text-zinc-500 uppercase">Headline</Label>
+                      <Label className="text-[10px] font-bold text-zinc-500 uppercase">Banner Headline</Label>
                       <Input value={localHeroSettings?.bannerHeadline || ''} onChange={e => setLocalHeroSettings((p: any) => ({ ...p, bannerHeadline: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold text-zinc-500 uppercase">Banner Text</Label>
+                      <Label className="text-[10px] font-bold text-zinc-500 uppercase">Banner Subtext</Label>
                       <Input value={localHeroSettings?.bannerText || ''} onChange={e => setLocalHeroSettings((p: any) => ({ ...p, bannerText: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
                     </div>
                  </div>
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-4">
-                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Logo Upload</Label>
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Logo Brand Mark</Label>
                     <div className="relative h-32 w-32 rounded-2xl bg-zinc-800 border-2 border-dashed border-zinc-700 flex items-center justify-center overflow-hidden group mx-auto md:mx-0">
                       {localStoreSettings?.logo ? (
                         <img src={localStoreSettings.logo} alt="Logo" className="h-full w-full object-contain p-4" />
                       ) : (
                         <Utensils className="h-8 w-8 text-zinc-600" />
                       )}
-                      <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer">
+                      <label className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-all">
                         {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin text-white" /> : <Upload className="h-6 w-6 text-white" />}
                         <input type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'logo')} />
                       </label>
                     </div>
                   </div>
                   <div className="space-y-4">
-                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Hero Promo Image</Label>
-                    <div className="relative h-48 rounded-xl overflow-hidden border border-zinc-800 group">
-                      <Image src={localHeroSettings?.bannerImage || 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1600&auto=format&fit=crop'} alt="banner" fill className="object-cover" />
-                      <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer">
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Hero Background</Label>
+                    <div className="relative h-48 rounded-xl overflow-hidden border border-zinc-800 group shadow-2xl">
+                      <Image src={localHeroSettings?.bgImage || 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1600&auto=format&fit=crop'} alt="bg" fill className="object-cover" />
+                      <label className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-all">
                         <Upload className="h-6 w-6 text-white" />
-                        <input type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'heroBanner')} />
+                        <input type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'heroBg')} />
                       </label>
                     </div>
                   </div>
@@ -519,30 +482,30 @@ export default function AdminPage() {
           <TabsContent value="storeinfo" className="max-w-2xl mx-auto">
              <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
                 <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4 flex flex-row items-center justify-between">
-                  <CardTitle className="text-lg font-bold text-amber-500">Contact Details</CardTitle>
-                  <Button disabled={isSubmitting} onClick={(e) => saveStoreSettings(e)} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2">
-                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Sync Cloud
+                  <CardTitle className="text-lg font-bold text-amber-500 italic uppercase">Cloud Contact Info</CardTitle>
+                  <Button disabled={isSubmitting} onClick={() => saveSettings('store')} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2 rounded-xl h-10 px-6 uppercase italic text-[10px] tracking-widest">
+                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Update
                   </Button>
                 </CardHeader>
                 <div className="grid md:grid-cols-2 gap-6 pt-6">
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">WhatsApp</Label>
-                    <Input value={localStoreSettings?.whatsappNumber || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, whatsappNumber: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">WhatsApp (International)</Label>
+                    <Input value={localStoreSettings?.whatsappNumber || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, whatsappNumber: e.target.value }))} className="bg-zinc-800 border-zinc-700" placeholder="e.g. 96170105152" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Phone</Label>
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Landline/Mobile</Label>
                     <Input value={localStoreSettings?.phone || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, phone: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
                   </div>
                   <div className="md:col-span-2 space-y-2">
-                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Address</Label>
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Physical Address</Label>
                     <Input value={localStoreSettings?.address || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, address: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Instagram</Label>
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Instagram Link</Label>
                     <Input value={localStoreSettings?.instagram || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, instagram: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">TikTok</Label>
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">TikTok Link</Label>
                     <Input value={localStoreSettings?.tiktok || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, tiktok: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
                   </div>
                 </div>
