@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -119,9 +120,8 @@ export default function AdminPage() {
         setIsSubmitting(false);
       })
       .catch(async (err) => {
-        const permissionError = new FirestorePermissionError({ path: 'settings/store', operation: 'update' });
-        errorEmitter.emit('permission-error', permissionError);
         setIsSubmitting(false);
+        toast({ variant: "destructive", title: "Update Failed", description: "Check permissions." });
       });
   }, [db, localStoreSettings, toast]);
 
@@ -134,9 +134,8 @@ export default function AdminPage() {
         setIsSubmitting(false);
       })
       .catch(async (err) => {
-        const permissionError = new FirestorePermissionError({ path: 'settings/hero', operation: 'update' });
-        errorEmitter.emit('permission-error', permissionError);
         setIsSubmitting(false);
+        toast({ variant: "destructive", title: "Update Failed", description: "Check permissions." });
       });
   }, [db, localHeroSettings, toast]);
 
@@ -193,17 +192,12 @@ export default function AdminPage() {
     mutationPromise
       .then(() => {
         resetForm();
-        toast({ title: "Product Saved Successfully" });
+        toast({ title: "Product Saved Success (Global Sync Active)" });
         setIsSubmitting(false);
       })
       .catch(async (err) => {
-        const permissionError = new FirestorePermissionError({
-          path: isEditing ? `products/${isEditing}` : 'products',
-          operation: isEditing ? 'update' : 'create',
-          requestResourceData: productData
-        });
-        errorEmitter.emit('permission-error', permissionError);
         setIsSubmitting(false);
+        toast({ variant: "destructive", title: "Save Failed", description: "Check Firestore rules." });
       });
   };
 
@@ -227,7 +221,7 @@ export default function AdminPage() {
   const deleteProduct = (id: string) => {
     if (!db || !confirm('Delete permanently?')) return;
     deleteDoc(doc(db, 'products', id))
-      .then(() => toast({ title: "Item Deleted" }))
+      .then(() => toast({ title: "Item Deleted Globally" }))
       .catch(async () => toast({ variant: "destructive", title: "Delete Failed" }));
   };
 
@@ -238,7 +232,7 @@ export default function AdminPage() {
     addDoc(collection(db, 'categories'), { name: newCategory.name, slug })
       .then(() => {
         setNewCategory({ name: '' });
-        toast({ title: "Category Added" });
+        toast({ title: "Category Added Globally" });
         setIsSubmitting(false);
       })
       .catch(async () => {
@@ -250,7 +244,7 @@ export default function AdminPage() {
   const deleteCategory = (id: string) => {
     if (!db || !confirm('Delete category?')) return;
     deleteDoc(doc(db, 'categories', id))
-      .then(() => toast({ title: "Category Removed" }))
+      .then(() => toast({ title: "Category Removed Globally" }))
       .catch(async () => toast({ variant: "destructive", title: "Failed to Remove" }));
   };
 
@@ -305,7 +299,7 @@ export default function AdminPage() {
             </div>
             <div>
               <h1 className="text-xl font-bold tracking-tight">Admin Terminal</h1>
-              <p className="text-zinc-500 text-[10px] uppercase font-bold tracking-widest">Session Active: Ali</p>
+              <p className="text-zinc-500 text-[10px] uppercase font-bold tracking-widest">Sync Status: Active</p>
             </div>
           </div>
           <Link href="/">
