@@ -52,7 +52,7 @@ export function Footer() {
       toast({ title: "Feedback Received", description: "Thank you for sharing your heat with us." });
     } catch (err) {
       console.error(err);
-      toast({ variant: "destructive", title: "Submission Failed", description: "Check your connection and try again." });
+      toast({ variant: "destructive", title: "Submission Failed" });
     } finally {
       setIsSubmitting(false);
     }

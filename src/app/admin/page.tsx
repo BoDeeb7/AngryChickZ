@@ -32,7 +32,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Product, Category, Review, StoreSettings } from '@/types/restaurant';
+import { Product, Category, StoreSettings } from '@/types/restaurant';
 import { useFirestore, useCollection, useDoc } from '@/firebase';
 import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 
@@ -44,7 +44,6 @@ export default function AdminPage() {
 
   const db = useFirestore();
 
-  // STABLE Firestore References
   const productsQuery = useMemo(() => {
     if (!db) return null;
     return query(collection(db, 'products'), orderBy('createdAt', 'desc'));
@@ -136,7 +135,7 @@ export default function AdminPage() {
       resetForm();
     } catch (err) {
       console.error(err);
-      toast({ variant: "destructive", title: "Save Failed", description: "Check connection." });
+      toast({ variant: "destructive", title: "Save Failed" });
     } finally {
       setIsSubmitting(false);
     }
@@ -169,15 +168,16 @@ export default function AdminPage() {
       try {
         if (target === 'product') {
           setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, base64] }));
+          setIsSubmitting(false);
         } else if (db) {
           const docRef = target === 'logo' ? doc(db, 'settings', 'store') : doc(db, 'settings', 'hero');
           const updateData = target === 'heroBg' ? { bgImage: base64 } : target === 'heroBanner' ? { bannerImage: base64 } : { logo: base64 };
           await setDoc(docRef, updateData, { merge: true });
           toast({ title: "Asset Uploaded Successfully" });
+          setIsSubmitting(false);
         }
       } catch (err) {
         toast({ variant: "destructive", title: "Upload Failed" });
-      } finally {
         setIsSubmitting(false);
       }
     };
@@ -260,7 +260,7 @@ export default function AdminPage() {
                 <Input 
                   value={loginForm.username} 
                   onChange={e => setLoginForm(p => ({ ...p, username: e.target.value }))}
-                  className="bg-zinc-800 border-zinc-700 text-white rounded-xl h-12 focus:ring-amber-500/50"
+                  className="bg-zinc-800 border-zinc-700 text-white rounded-xl h-12"
                   placeholder="Username"
                 />
               </div>
@@ -270,11 +270,11 @@ export default function AdminPage() {
                   type="password" 
                   value={loginForm.password} 
                   onChange={e => setLoginForm(p => ({ ...p, password: e.target.value }))}
-                  className="bg-zinc-800 border-zinc-700 text-white rounded-xl h-12 focus:ring-amber-500/50"
+                  className="bg-zinc-800 border-zinc-700 text-white rounded-xl h-12"
                   placeholder="••••••••"
                 />
               </div>
-              <Button type="submit" className="w-full h-14 bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold rounded-xl uppercase tracking-widest transition-all">
+              <Button type="submit" className="w-full h-14 bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold rounded-xl uppercase tracking-widest">
                 Login Terminal
               </Button>
             </form>
