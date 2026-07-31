@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Instagram, Facebook, Twitter, Phone, MapPin, ArrowUp, UtensilsCrossed, Sparkles, Star } from 'lucide-react';
+import { Instagram, Facebook, Twitter, Phone, MapPin, ArrowUp, UtensilsCrossed, Star } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,8 +11,6 @@ import { useFirestore, useDoc } from '@/firebase';
 import { collection, addDoc, serverTimestamp, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { StoreSettings } from '@/types/restaurant';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 
 export function Footer() {
   const db = useFirestore();
@@ -33,7 +31,7 @@ export function Footer() {
     }
   };
 
-  const handleReviewSubmit = (e: React.FormEvent) => {
+  const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!db || !review.name || !review.comment) {
       toast({ variant: "destructive", title: "Missing Info", description: "Please provide your name and thoughts." });
@@ -41,30 +39,23 @@ export function Footer() {
     }
     
     setIsSubmitting(true);
-    const reviewData = {
-      customerName: review.name,
-      comment: review.comment,
-      rating: review.rating,
-      createdAt: serverTimestamp()
-    };
+    try {
+      const reviewData = {
+        customerName: review.name,
+        comment: review.comment,
+        rating: review.rating,
+        createdAt: serverTimestamp()
+      };
 
-    // NON-BLOCKING: Handle success and error immediately to prevent "Logging..." hang
-    addDoc(collection(db, 'reviews'), reviewData)
-      .then(() => {
-        setReview({ name: '', comment: '', rating: 5 });
-        toast({ title: "Feedback Received", description: "Thank you for sharing your heat with us." });
-        setIsSubmitting(false);
-      })
-      .catch(async (err) => {
-        const permissionError = new FirestorePermissionError({
-          path: 'reviews',
-          operation: 'create',
-          requestResourceData: reviewData
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        toast({ variant: "destructive", title: "Submission Failed", description: "Check your connection and try again." });
-        setIsSubmitting(false);
-      });
+      await addDoc(collection(db, 'reviews'), reviewData);
+      setReview({ name: '', comment: '', rating: 5 });
+      toast({ title: "Feedback Received", description: "Thank you for sharing your heat with us." });
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Submission Failed", description: "Check your connection and try again." });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const phone = storeSettings?.phone || '+961 70 105 152';

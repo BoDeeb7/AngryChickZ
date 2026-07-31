@@ -35,8 +35,6 @@ import { Badge } from '@/components/ui/badge';
 import { Product, Category, Review, StoreSettings } from '@/types/restaurant';
 import { useFirestore, useCollection, useDoc } from '@/firebase';
 import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -46,7 +44,7 @@ export default function AdminPage() {
 
   const db = useFirestore();
 
-  // STABLE Firestore References to avoid infinite render loops
+  // STABLE Firestore References
   const productsQuery = useMemo(() => {
     if (!db) return null;
     return query(collection(db, 'products'), orderBy('createdAt', 'desc'));
@@ -55,11 +53,6 @@ export default function AdminPage() {
   const categoriesRef = useMemo(() => {
     if (!db) return null;
     return collection(db, 'categories');
-  }, [db]);
-
-  const reviewsRef = useMemo(() => {
-    if (!db) return null;
-    return collection(db, 'reviews');
   }, [db]);
 
   const storeRef = useMemo(() => {
@@ -74,7 +67,6 @@ export default function AdminPage() {
 
   const { data: products = [] } = useCollection<Product>(productsQuery);
   const { data: categories = [] } = useCollection<Category>(categoriesRef);
-  const { data: reviews = [] } = useCollection<Review>(reviewsRef);
   const { data: storeSettings } = useDoc<StoreSettings>(storeRef);
   const { data: heroSettings } = useDoc<any>(heroRef);
 
@@ -111,37 +103,60 @@ export default function AdminPage() {
     }
   };
 
-  const saveStoreSettings = useCallback(() => {
-    if (!db || !localStoreSettings) return;
-    setIsSubmitting(true);
-    const docRef = doc(db, 'settings', 'store');
-    
-    setDoc(docRef, localStoreSettings, { merge: true })
-      .then(() => {
-        toast({ title: "Store Info Updated Globally" });
-      })
-      .catch((err) => {
-        console.error(err);
-        toast({ variant: "destructive", title: "Update Failed" });
-      })
-      .finally(() => setIsSubmitting(false));
-  }, [db, localStoreSettings, toast]);
+  const resetForm = useCallback(() => {
+    setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
+    setIsEditing(null);
+  }, []);
 
-  const saveHeroSettings = useCallback(() => {
-    if (!db || !localHeroSettings) return;
-    setIsSubmitting(true);
-    const docRef = doc(db, 'settings', 'hero');
+  const handleSaveProduct = async () => {
+    if (!formData.name || !formData.price || !formData.category || !db) {
+      toast({ variant: "destructive", title: "Required", description: "Missing essential info." });
+      return;
+    }
 
-    setDoc(docRef, localHeroSettings, { merge: true })
-      .then(() => {
-        toast({ title: "Hero Visuals Synced" });
-      })
-      .catch((err) => {
-        console.error(err);
-        toast({ variant: "destructive", title: "Sync Failed" });
-      })
-      .finally(() => setIsSubmitting(false));
-  }, [db, localHeroSettings, toast]);
+    setIsSubmitting(true);
+    try {
+      const productData = {
+        name: formData.name,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        category: formData.category,
+        imageUrls: formData.imageUrls,
+        badges: formData.badges,
+        createdAt: isEditing ? (products.find(p => p.id === isEditing)?.createdAt || serverTimestamp()) : serverTimestamp()
+      };
+
+      if (isEditing) {
+        await setDoc(doc(db, 'products', isEditing), productData, { merge: true });
+      } else {
+        await addDoc(collection(db, 'products'), productData);
+      }
+
+      toast({ title: "Product Saved Successfully" });
+      resetForm();
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Save Failed", description: "Check connection." });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const addCategory = async () => {
+    if (!newCategory.name || !db) return;
+    setIsSubmitting(true);
+    try {
+      const slug = newCategory.name.toLowerCase().trim().replace(/\s+/g, '-');
+      await addDoc(collection(db, 'categories'), { name: newCategory.name.trim(), slug });
+      setNewCategory({ name: '' });
+      toast({ title: "Category Added" });
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Failed to Add Category" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'product' | 'heroBg' | 'heroBanner' | 'logo') => {
     const file = e.target.files?.[0];
@@ -149,66 +164,25 @@ export default function AdminPage() {
 
     setIsSubmitting(true);
     const reader = new FileReader();
-    reader.onloadend = () => {
+    reader.onloadend = async () => {
       const base64 = reader.result as string;
-      if (target === 'product') {
-        setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, base64] }));
+      try {
+        if (target === 'product') {
+          setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, base64] }));
+        } else if (db) {
+          const docRef = target === 'logo' ? doc(db, 'settings', 'store') : doc(db, 'settings', 'hero');
+          const updateData = target === 'heroBg' ? { bgImage: base64 } : target === 'heroBanner' ? { bannerImage: base64 } : { logo: base64 };
+          await setDoc(docRef, updateData, { merge: true });
+          toast({ title: "Asset Uploaded Successfully" });
+        }
+      } catch (err) {
+        toast({ variant: "destructive", title: "Upload Failed" });
+      } finally {
         setIsSubmitting(false);
-      } else if (db) {
-        const docRef = target === 'logo' ? doc(db, 'settings', 'store') : doc(db, 'settings', 'hero');
-        const updateData = target === 'heroBg' ? { bgImage: base64 } : target === 'heroBanner' ? { bannerImage: base64 } : { logo: base64 };
-        
-        setDoc(docRef, updateData, { merge: true })
-          .then(() => {
-            toast({ title: "Asset Uploaded Successfully" });
-          })
-          .catch(() => {
-            toast({ variant: "destructive", title: "Upload Failed" });
-          })
-          .finally(() => setIsSubmitting(false));
       }
     };
     reader.onerror = () => setIsSubmitting(false);
     reader.readAsDataURL(file);
-  };
-
-  const handleSaveProduct = () => {
-    if (!formData.name || !formData.price || !formData.category || !db) {
-      toast({ variant: "destructive", title: "Required", description: "Missing essential info." });
-      return;
-    }
-
-    setIsSubmitting(true);
-    const productData = {
-      name: formData.name,
-      description: formData.description,
-      price: parseFloat(formData.price),
-      category: formData.category,
-      imageUrls: formData.imageUrls,
-      badges: formData.badges,
-      createdAt: isEditing ? (products.find(p => p.id === isEditing)?.createdAt || serverTimestamp()) : serverTimestamp()
-    };
-
-    const docRef = isEditing ? doc(db, 'products', isEditing) : null;
-    const mutationPromise = isEditing 
-      ? setDoc(docRef!, productData, { merge: true })
-      : addDoc(collection(db, 'products'), productData);
-
-    mutationPromise
-      .then(() => {
-        resetForm();
-        toast({ title: "Product Saved Success (Global Sync Active)" });
-      })
-      .catch((err) => {
-        console.error(err);
-        toast({ variant: "destructive", title: "Save Failed" });
-      })
-      .finally(() => setIsSubmitting(false));
-  };
-
-  const resetForm = () => {
-    setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
-    setIsEditing(null);
   };
 
   const startEdit = (product: Product) => {
@@ -223,35 +197,50 @@ export default function AdminPage() {
     setIsEditing(product.id);
   };
 
-  const deleteProduct = (id: string) => {
+  const deleteProduct = async (id: string) => {
     if (!db || !confirm('Delete permanently?')) return;
-    deleteDoc(doc(db, 'products', id))
-      .then(() => toast({ title: "Item Removed Globally" }))
-      .catch(() => toast({ variant: "destructive", title: "Delete Failed" }));
+    try {
+      await deleteDoc(doc(db, 'products', id));
+      toast({ title: "Item Removed Successfully" });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Delete Failed" });
+    }
   };
 
-  const addCategory = () => {
-    if (!newCategory.name || !db) return;
-    setIsSubmitting(true);
-    const slug = newCategory.name.toLowerCase().trim().replace(/\s+/g, '-');
-    
-    addDoc(collection(db, 'categories'), { name: newCategory.name.trim(), slug })
-      .then(() => {
-        setNewCategory({ name: '' });
-        toast({ title: "Category Added Successfully" });
-      })
-      .catch((err) => {
-        console.error(err);
-        toast({ variant: "destructive", title: "Failed to Add Category" });
-      })
-      .finally(() => setIsSubmitting(false));
-  };
-
-  const deleteCategory = (id: string) => {
+  const deleteCategory = async (id: string) => {
     if (!db || !confirm('Delete category?')) return;
-    deleteDoc(doc(db, 'categories', id))
-      .then(() => toast({ title: "Category Removed" }))
-      .catch(() => toast({ variant: "destructive", title: "Failed to Remove" }));
+    try {
+      await deleteDoc(doc(db, 'categories', id));
+      toast({ title: "Category Removed" });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Failed to Remove" });
+    }
+  };
+
+  const saveStoreSettings = async () => {
+    if (!db || !localStoreSettings) return;
+    setIsSubmitting(true);
+    try {
+      await setDoc(doc(db, 'settings', 'store'), localStoreSettings, { merge: true });
+      toast({ title: "Store Info Updated" });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Update Failed" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const saveHeroSettings = async () => {
+    if (!db || !localHeroSettings) return;
+    setIsSubmitting(true);
+    try {
+      await setDoc(doc(db, 'settings', 'hero'), localHeroSettings, { merge: true });
+      toast({ title: "Hero Visuals Synced" });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Sync Failed" });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!isAuthenticated) {
@@ -317,22 +306,21 @@ export default function AdminPage() {
 
         <Tabs defaultValue="products" className="space-y-8">
           <TabsList className="bg-zinc-900 border border-zinc-800 p-1 rounded-xl h-auto w-full overflow-x-auto no-scrollbar justify-start">
-            {[
-              { value: 'products', icon: Utensils, label: 'Items' },
-              { value: 'categories', icon: List, label: 'Categories' },
-              { value: 'visuals', icon: ImageIcon, label: 'Visuals' },
-              { value: 'assets', icon: Palette, label: 'Logo' },
-              { value: 'storeinfo', icon: Globe, label: 'Store Info' },
-              { value: 'reviews', icon: MessageSquare, label: 'Reviews' },
-            ].map((tab) => (
-              <TabsTrigger 
-                key={tab.value}
-                value={tab.value} 
-                className="px-6 py-3 rounded-lg font-bold text-xs uppercase tracking-widest data-[state=active]:bg-amber-500 data-[state=active]:text-zinc-950 text-zinc-500 transition-all whitespace-nowrap"
-              >
-                <tab.icon className="h-4 w-4 mr-2" /> {tab.label}
-              </TabsTrigger>
-            ))}
+            <TabsTrigger value="products" className="px-6 py-3 rounded-lg font-bold text-xs uppercase tracking-widest data-[state=active]:bg-amber-500 data-[state=active]:text-zinc-950 text-zinc-500">
+              <Utensils className="h-4 w-4 mr-2" /> Items
+            </TabsTrigger>
+            <TabsTrigger value="categories" className="px-6 py-3 rounded-lg font-bold text-xs uppercase tracking-widest data-[state=active]:bg-amber-500 data-[state=active]:text-zinc-950 text-zinc-500">
+              <List className="h-4 w-4 mr-2" /> Categories
+            </TabsTrigger>
+            <TabsTrigger value="visuals" className="px-6 py-3 rounded-lg font-bold text-xs uppercase tracking-widest data-[state=active]:bg-amber-500 data-[state=active]:text-zinc-950 text-zinc-500">
+              <ImageIcon className="h-4 w-4 mr-2" /> Visuals
+            </TabsTrigger>
+            <TabsTrigger value="assets" className="px-6 py-3 rounded-lg font-bold text-xs uppercase tracking-widest data-[state=active]:bg-amber-500 data-[state=active]:text-zinc-950 text-zinc-500">
+              <Palette className="h-4 w-4 mr-2" /> Logo
+            </TabsTrigger>
+            <TabsTrigger value="storeinfo" className="px-6 py-3 rounded-lg font-bold text-xs uppercase tracking-widest data-[state=active]:bg-amber-500 data-[state=active]:text-zinc-950 text-zinc-500">
+              <Globe className="h-4 w-4 mr-2" /> Store Info
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="products" className="grid lg:grid-cols-12 gap-8 outline-none">
@@ -550,42 +538,26 @@ export default function AdminPage() {
                 <div className="grid md:grid-cols-2 gap-6 pt-6">
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold text-zinc-500 uppercase">WhatsApp</Label>
-                    <Input value={localStoreSettings?.whatsappNumber || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, whatsappNumber: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
+                    <input value={localStoreSettings?.whatsappNumber || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, whatsappNumber: e.target.value }))} className="w-full h-10 px-3 bg-zinc-800 border border-zinc-700 rounded-xl text-sm" />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold text-zinc-500 uppercase">Phone</Label>
-                    <Input value={localStoreSettings?.phone || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, phone: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
+                    <input value={localStoreSettings?.phone || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, phone: e.target.value }))} className="w-full h-10 px-3 bg-zinc-800 border border-zinc-700 rounded-xl text-sm" />
                   </div>
                   <div className="md:col-span-2 space-y-2">
                     <Label className="text-[10px] font-bold text-zinc-500 uppercase">Address</Label>
-                    <Input value={localStoreSettings?.address || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, address: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
+                    <input value={localStoreSettings?.address || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, address: e.target.value }))} className="w-full h-10 px-3 bg-zinc-800 border border-zinc-700 rounded-xl text-sm" />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold text-zinc-500 uppercase">Instagram</Label>
-                    <Input value={localStoreSettings?.instagram || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, instagram: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
+                    <input value={localStoreSettings?.instagram || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, instagram: e.target.value }))} className="w-full h-10 px-3 bg-zinc-800 border border-zinc-700 rounded-xl text-sm" />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold text-zinc-500 uppercase">TikTok</Label>
-                    <Input value={localStoreSettings?.tiktok || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, tiktok: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
+                    <input value={localStoreSettings?.tiktok || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, tiktok: e.target.value }))} className="w-full h-10 px-3 bg-zinc-800 border border-zinc-700 rounded-xl text-sm" />
                   </div>
                 </div>
              </Card>
-          </TabsContent>
-
-          <TabsContent value="reviews">
-             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {reviews.map((r, i) => (
-                  <Card key={i} className="bg-zinc-900 border-zinc-800 p-6 rounded-2xl shadow-lg">
-                    <div className="flex justify-between items-start mb-4">
-                      <h5 className="font-bold text-sm text-white">{r.customerName}</h5>
-                      <div className="flex">
-                        {Array.from({ length: 5 }).map((_, idx) => <Star key={idx} className={`h-3 w-3 ${idx < r.rating ? 'text-amber-500 fill-amber-500' : 'text-zinc-800'}`} />)}
-                      </div>
-                    </div>
-                    <p className="text-xs text-zinc-400 leading-relaxed italic line-clamp-4">&quot;{r.comment}&quot;</p>
-                  </Card>
-                ))}
-             </div>
           </TabsContent>
         </Tabs>
       </div>
