@@ -32,12 +32,14 @@ import { Badge } from '@/components/ui/badge';
 import { Product, Category, StoreSettings } from '@/types/restaurant';
 import { useFirestore, useCollection, useDoc } from '@/firebase';
 import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   
-  // Independent Loading States to prevent button cross-talk
+  // COMPLETELY INDEPENDENT LOADING STATES
   const [isProductSaving, setIsProductSaving] = useState(false);
   const [isCategoryAdding, setIsCategoryAdding] = useState(false);
   const [isVisualsSaving, setIsVisualsSaving] = useState(false);
@@ -112,8 +114,8 @@ export default function AdminPage() {
     setIsProductSaving(true);
     try {
       const productData = {
-        name: formData.name,
-        description: formData.description,
+        name: formData.name.trim(),
+        description: formData.description.trim(),
         price: parseFloat(formData.price),
         category: formData.category,
         imageUrls: formData.imageUrls,
@@ -122,17 +124,29 @@ export default function AdminPage() {
       };
 
       if (isEditing) {
-        await setDoc(doc(db, 'products', isEditing), productData, { merge: true });
-        toast({ title: "Updated", description: "Product has been updated successfully." });
+        setDoc(doc(db, 'products', isEditing), productData, { merge: true })
+          .then(() => {
+            toast({ title: "Updated", description: "Product has been updated successfully." });
+            resetForm();
+          })
+          .catch((err) => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `products/${isEditing}`, operation: 'update', requestResourceData: productData }));
+          })
+          .finally(() => setIsProductSaving(false));
       } else {
-        await addDoc(collection(db, 'products'), productData);
-        toast({ title: "Created", description: "New product added to menu." });
+        addDoc(collection(db, 'products'), productData)
+          .then(() => {
+            toast({ title: "Created", description: "New product added to menu." });
+            resetForm();
+          })
+          .catch((err) => {
+             errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'products', operation: 'create', requestResourceData: productData }));
+          })
+          .finally(() => setIsProductSaving(false));
       }
-      resetForm();
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Save Error", description: err.message });
-    } finally {
       setIsProductSaving(false);
+      toast({ variant: "destructive", title: "Form Error", description: err.message });
     }
   };
 
@@ -143,16 +157,20 @@ export default function AdminPage() {
     setIsCategoryAdding(true);
     try {
       const slug = newCategoryName.toLowerCase().trim().replace(/\s+/g, '-');
-      await addDoc(collection(db, 'categories'), { 
-        name: newCategoryName.trim(), 
-        slug 
-      });
-      setNewCategoryName('');
-      toast({ title: "Category Added", description: `"${newCategoryName}" is now available.` });
+      const catData = { name: newCategoryName.trim(), slug };
+      
+      addDoc(collection(db, 'categories'), catData)
+        .then(() => {
+          setNewCategoryName('');
+          toast({ title: "Category Added", description: `"${catData.name}" is now available.` });
+        })
+        .catch((err) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'categories', operation: 'create', requestResourceData: catData }));
+        })
+        .finally(() => setIsCategoryAdding(false));
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Error", description: err.message });
-    } finally {
       setIsCategoryAdding(false);
+      toast({ variant: "destructive", title: "Error", description: err.message });
     }
   };
 
@@ -162,21 +180,21 @@ export default function AdminPage() {
 
     setIsUploading(true);
     const reader = new FileReader();
-    reader.onloadend = async () => {
+    reader.onloadend = () => {
       const base64 = reader.result as string;
-      try {
-        if (target === 'product') {
-          setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, base64] }));
-        } else if (db) {
-          const docRef = target === 'logo' ? doc(db, 'settings', 'store') : doc(db, 'settings', 'hero');
-          const updateData = target === 'heroBg' ? { bgImage: base64 } : target === 'heroBanner' ? { bannerImage: base64 } : { logo: base64 };
-          await setDoc(docRef, updateData, { merge: true });
-          toast({ title: "Visual Updated", description: "Changes reflected instantly." });
-        }
-      } catch (err: any) {
-        toast({ variant: "destructive", title: "Upload Failed", description: err.message });
-      } finally {
+      if (target === 'product') {
+        setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, base64] }));
         setIsUploading(false);
+      } else if (db) {
+        const docRef = target === 'logo' ? doc(db, 'settings', 'store') : doc(db, 'settings', 'hero');
+        const updateData = target === 'heroBg' ? { bgImage: base64 } : target === 'heroBanner' ? { bannerImage: base64 } : { logo: base64 };
+        
+        setDoc(docRef, updateData, { merge: true })
+          .then(() => toast({ title: "Visual Updated", description: "Changes reflected instantly." }))
+          .catch((err) => {
+             errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update', requestResourceData: updateData }));
+          })
+          .finally(() => setIsUploading(false));
       }
     };
     reader.onerror = () => {
@@ -186,42 +204,43 @@ export default function AdminPage() {
     reader.readAsDataURL(file);
   };
 
-  const deleteProduct = async (id: string) => {
+  const deleteProduct = (id: string) => {
     if (!db || !confirm('Permanently delete this item?')) return;
-    try {
-      await deleteDoc(doc(db, 'products', id));
-      toast({ title: "Deleted", description: "Item removed from menu." });
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "Error", description: err.message });
-    }
+    deleteDoc(doc(db, 'products', id))
+      .then(() => toast({ title: "Deleted", description: "Item removed from menu." }))
+      .catch((err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `products/${id}`, operation: 'delete' }));
+      });
   };
 
-  const deleteCategory = async (id: string) => {
+  const deleteCategory = (id: string) => {
     if (!db || !confirm('Remove this category?')) return;
-    try {
-      await deleteDoc(doc(db, 'categories', id));
-      toast({ title: "Category Removed" });
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "Error", description: err.message });
-    }
+    deleteDoc(doc(db, 'categories', id))
+      .then(() => toast({ title: "Category Removed" }))
+      .catch((err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `categories/${id}`, operation: 'delete' }));
+      });
   };
 
-  const saveSettings = async (target: 'store' | 'hero') => {
+  const saveSettings = (target: 'store' | 'hero') => {
     if (!db) return;
     
     if (target === 'store') setIsStoreInfoSaving(true);
     if (target === 'hero') setIsVisualsSaving(true);
 
-    try {
-      const data = target === 'store' ? localStoreSettings : localHeroSettings;
-      await setDoc(doc(db, 'settings', target), data, { merge: true });
-      toast({ title: "Synced", description: `${target === 'store' ? 'Store' : 'Visual'} settings pushed to cloud.` });
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "Sync Error", description: err.message });
-    } finally {
-      if (target === 'store') setIsStoreInfoSaving(false);
-      if (target === 'hero') setIsVisualsSaving(false);
-    }
+    const data = target === 'store' ? localStoreSettings : localHeroSettings;
+    
+    setDoc(doc(db, 'settings', target), data, { merge: true })
+      .then(() => {
+        toast({ title: "Synced", description: `${target === 'store' ? 'Store' : 'Visual'} settings pushed to cloud.` });
+      })
+      .catch((err) => {
+         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `settings/${target}`, operation: 'update', requestResourceData: data }));
+      })
+      .finally(() => {
+        if (target === 'store') setIsStoreInfoSaving(false);
+        if (target === 'hero') setIsVisualsSaving(false);
+      });
   };
 
   if (!isAuthenticated) {
