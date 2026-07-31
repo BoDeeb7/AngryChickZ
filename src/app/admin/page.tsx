@@ -120,7 +120,7 @@ export default function AdminPage() {
       resetForm();
     } catch (err) {
       console.error(err);
-      toast({ variant: "destructive", title: "Save Failed" });
+      toast({ variant: "destructive", title: "Save Failed", description: "Could not sync item to cloud." });
     } finally {
       setIsSubmitting(false);
     }
@@ -180,6 +180,7 @@ export default function AdminPage() {
       badges: product.badges || [],
     });
     setIsEditing(product.id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const deleteProduct = async (id: string) => {
