@@ -34,7 +34,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Product, Category, Review, StoreSettings } from '@/types/restaurant';
 import { useFirestore, useCollection, useDoc } from '@/firebase';
-import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp, query, orderBy, Firestore } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -46,7 +46,7 @@ export default function AdminPage() {
 
   const db = useFirestore();
 
-  // STABLE Firestore References to avoid loops
+  // STABLE Firestore References to avoid infinite render loops
   const productsQuery = useMemo(() => {
     if (!db) return null;
     return query(collection(db, 'products'), orderBy('createdAt', 'desc'));
@@ -114,28 +114,43 @@ export default function AdminPage() {
   const saveStoreSettings = useCallback(() => {
     if (!db || !localStoreSettings) return;
     setIsSubmitting(true);
-    setDoc(doc(db, 'settings', 'store'), localStoreSettings, { merge: true })
+    const docRef = doc(db, 'settings', 'store');
+    
+    // NON-BLOCKING: No 'await' used here to prevent UI freezing
+    setDoc(docRef, localStoreSettings, { merge: true })
       .then(() => {
-        toast({ title: "Store Info Updated" });
+        toast({ title: "Store Info Updated Globally" });
         setIsSubmitting(false);
       })
       .catch(async (err) => {
+        const permissionError = new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'write',
+          requestResourceData: localStoreSettings,
+        });
+        errorEmitter.emit('permission-error', permissionError);
         setIsSubmitting(false);
-        toast({ variant: "destructive", title: "Update Failed", description: "Check permissions." });
       });
   }, [db, localStoreSettings, toast]);
 
   const saveHeroSettings = useCallback(() => {
     if (!db || !localHeroSettings) return;
     setIsSubmitting(true);
-    setDoc(doc(db, 'settings', 'hero'), localHeroSettings, { merge: true })
+    const docRef = doc(db, 'settings', 'hero');
+
+    setDoc(docRef, localHeroSettings, { merge: true })
       .then(() => {
-        toast({ title: "Hero Settings Updated" });
+        toast({ title: "Hero Visuals Synced" });
         setIsSubmitting(false);
       })
       .catch(async (err) => {
+        const permissionError = new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'write',
+          requestResourceData: localHeroSettings,
+        });
+        errorEmitter.emit('permission-error', permissionError);
         setIsSubmitting(false);
-        toast({ variant: "destructive", title: "Update Failed", description: "Check permissions." });
       });
   }, [db, localHeroSettings, toast]);
 
@@ -156,7 +171,7 @@ export default function AdminPage() {
         
         setDoc(docRef, updateData, { merge: true })
           .then(() => {
-            toast({ title: "Upload Success" });
+            toast({ title: "Asset Uploaded Successfully" });
             setIsSubmitting(false);
           })
           .catch(async () => {
@@ -185,10 +200,12 @@ export default function AdminPage() {
       createdAt: isEditing ? (products.find(p => p.id === isEditing)?.createdAt || serverTimestamp()) : serverTimestamp()
     };
 
+    const docRef = isEditing ? doc(db, 'products', isEditing) : null;
     const mutationPromise = isEditing 
-      ? setDoc(doc(db, 'products', isEditing), productData, { merge: true })
+      ? setDoc(docRef!, productData, { merge: true })
       : addDoc(collection(db, 'products'), productData);
 
+    // NON-BLOCKING: UI resets immediately, Firestore handles the write in background
     mutationPromise
       .then(() => {
         resetForm();
@@ -197,7 +214,12 @@ export default function AdminPage() {
       })
       .catch(async (err) => {
         setIsSubmitting(false);
-        toast({ variant: "destructive", title: "Save Failed", description: "Check Firestore rules." });
+        const permissionError = new FirestorePermissionError({
+          path: isEditing ? docRef!.path : 'products',
+          operation: isEditing ? 'update' : 'create',
+          requestResourceData: productData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
       });
   };
 
@@ -221,7 +243,7 @@ export default function AdminPage() {
   const deleteProduct = (id: string) => {
     if (!db || !confirm('Delete permanently?')) return;
     deleteDoc(doc(db, 'products', id))
-      .then(() => toast({ title: "Item Deleted Globally" }))
+      .then(() => toast({ title: "Item Removed Locally and Globally" }))
       .catch(async () => toast({ variant: "destructive", title: "Delete Failed" }));
   };
 
@@ -232,7 +254,7 @@ export default function AdminPage() {
     addDoc(collection(db, 'categories'), { name: newCategory.name, slug })
       .then(() => {
         setNewCategory({ name: '' });
-        toast({ title: "Category Added Globally" });
+        toast({ title: "Category Added" });
         setIsSubmitting(false);
       })
       .catch(async () => {
@@ -244,7 +266,7 @@ export default function AdminPage() {
   const deleteCategory = (id: string) => {
     if (!db || !confirm('Delete category?')) return;
     deleteDoc(doc(db, 'categories', id))
-      .then(() => toast({ title: "Category Removed Globally" }))
+      .then(() => toast({ title: "Category Removed" }))
       .catch(async () => toast({ variant: "destructive", title: "Failed to Remove" }));
   };
 
@@ -299,7 +321,7 @@ export default function AdminPage() {
             </div>
             <div>
               <h1 className="text-xl font-bold tracking-tight">Admin Terminal</h1>
-              <p className="text-zinc-500 text-[10px] uppercase font-bold tracking-widest">Sync Status: Active</p>
+              <p className="text-zinc-500 text-[10px] uppercase font-bold tracking-widest">Sync Status: Real-time Cloud</p>
             </div>
           </div>
           <Link href="/">
@@ -314,8 +336,8 @@ export default function AdminPage() {
             {[
               { value: 'products', icon: Utensils, label: 'Items' },
               { value: 'categories', icon: List, label: 'Categories' },
-              { value: 'visuals', icon: ImageIcon, label: 'Store Visuals' },
-              { value: 'assets', icon: Palette, label: 'Brand Assets' },
+              { value: 'visuals', icon: ImageIcon, label: 'Visuals' },
+              { value: 'assets', icon: Palette, label: 'Logo' },
               { value: 'storeinfo', icon: Globe, label: 'Store Info' },
               { value: 'reviews', icon: MessageSquare, label: 'Reviews' },
             ].map((tab) => (
@@ -408,9 +430,9 @@ export default function AdminPage() {
             <div className="lg:col-span-7 space-y-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold flex items-center gap-3">
-                  <LayoutGrid className="h-5 w-5 text-amber-500" /> Live Catalog
+                  <LayoutGrid className="h-5 w-5 text-amber-500" /> Active Menu
                 </h2>
-                <Badge className="bg-zinc-900 border-zinc-800 text-amber-500 px-4 py-1">{products.length} items</Badge>
+                <Badge className="bg-zinc-900 border-zinc-800 text-amber-500 px-4 py-1">{products.length} Items Synced</Badge>
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 {products.map(product => (
@@ -434,21 +456,21 @@ export default function AdminPage() {
             </div>
           </TabsContent>
 
+          {/* Other tabs remain largely the same, focusing on non-blocking saves */}
           <TabsContent value="categories" className="max-w-xl mx-auto space-y-6">
             <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
               <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4">
-                <CardTitle className="text-lg font-bold text-amber-500">Menu Categories</CardTitle>
+                <CardTitle className="text-lg font-bold text-amber-500">Categories</CardTitle>
               </CardHeader>
               <div className="space-y-6">
                 <div className="flex gap-3">
                   <Input 
-                    placeholder="New Category Name..." 
+                    placeholder="Category Name" 
                     value={newCategory.name} 
                     onChange={e => setNewCategory({ name: e.target.value })}
                     className="bg-zinc-800 border-zinc-700"
                   />
-                  <Button disabled={isSubmitting} onClick={addCategory} className="bg-amber-500 hover:bg-amber-600 text-zinc-950 rounded-xl font-bold">
-                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  <Button disabled={isSubmitting} onClick={addCategory} className="bg-amber-500 hover:bg-amber-600 text-zinc-950 rounded-xl font-bold px-6">
                     Add
                   </Button>
                 </div>
@@ -467,27 +489,26 @@ export default function AdminPage() {
           <TabsContent value="visuals" className="max-w-4xl mx-auto space-y-6">
             <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
               <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4 flex flex-row items-center justify-between">
-                <CardTitle className="text-lg font-bold text-amber-500">Hero Section Content</CardTitle>
+                <CardTitle className="text-lg font-bold text-amber-500">Hero Content</CardTitle>
                 <Button disabled={isSubmitting} onClick={saveHeroSettings} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2">
-                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  Save Changes
+                  <Save className="h-4 w-4" /> Save
                 </Button>
               </CardHeader>
               <div className="space-y-6">
-                 <div className="grid md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
+                 <div className="grid md:grid-cols-2 gap-6 pt-4">
+                    <div className="space-y-2">
                       <Label className="text-[10px] font-bold text-zinc-500 uppercase">Headline</Label>
                       <Input value={localHeroSettings?.bannerHeadline || ''} onChange={e => setLocalHeroSettings((p: any) => ({ ...p, bannerHeadline: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
                     </div>
-                    <div className="space-y-4">
+                    <div className="space-y-2">
                       <Label className="text-[10px] font-bold text-zinc-500 uppercase">Banner Text</Label>
                       <Input value={localHeroSettings?.bannerText || ''} onChange={e => setLocalHeroSettings((p: any) => ({ ...p, bannerText: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
                     </div>
                  </div>
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-4">
-                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Background Image</Label>
-                    <div className="relative h-48 rounded-xl overflow-hidden border-2 border-dashed border-zinc-800 group">
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Background</Label>
+                    <div className="relative h-48 rounded-xl overflow-hidden border border-zinc-800 group">
                       <Image src={localHeroSettings?.bgImage || 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1600&auto=format&fit=crop'} alt="hero" fill className="object-cover" />
                       <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer">
                         <Upload className="h-6 w-6 text-white" />
@@ -497,7 +518,7 @@ export default function AdminPage() {
                   </div>
                   <div className="space-y-4">
                     <Label className="text-[10px] font-bold text-zinc-500 uppercase">Promo Image</Label>
-                    <div className="relative h-48 rounded-xl overflow-hidden border-2 border-dashed border-zinc-800 group">
+                    <div className="relative h-48 rounded-xl overflow-hidden border border-zinc-800 group">
                       <Image src={localHeroSettings?.bannerImage || 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1600&auto=format&fit=crop'} alt="banner" fill className="object-cover" />
                       <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer">
                         <Upload className="h-6 w-6 text-white" />
@@ -513,7 +534,7 @@ export default function AdminPage() {
           <TabsContent value="assets" className="max-w-xl mx-auto">
              <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
                 <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4">
-                  <CardTitle className="text-lg font-bold text-amber-500">Official Logo</CardTitle>
+                  <CardTitle className="text-lg font-bold text-amber-500">Brand Logo</CardTitle>
                 </CardHeader>
                 <div className="flex flex-col items-center gap-6 py-6">
                     <div className="relative h-32 w-32 rounded-2xl bg-zinc-800 border-2 border-dashed border-zinc-700 flex items-center justify-center overflow-hidden group">
@@ -527,6 +548,7 @@ export default function AdminPage() {
                         <input type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'logo')} />
                       </label>
                     </div>
+                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Supports PNG, JPG (Max 2MB)</p>
                 </div>
              </Card>
           </TabsContent>
@@ -534,13 +556,12 @@ export default function AdminPage() {
           <TabsContent value="storeinfo" className="max-w-2xl mx-auto">
              <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
                 <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4 flex flex-row items-center justify-between">
-                  <CardTitle className="text-lg font-bold text-amber-500">Contact Settings</CardTitle>
+                  <CardTitle className="text-lg font-bold text-amber-500">Contact Details</CardTitle>
                   <Button disabled={isSubmitting} onClick={saveStoreSettings} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2">
-                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                    Save Info
+                    <Save className="h-4 w-4" /> Sync
                   </Button>
                 </CardHeader>
-                <div className="grid md:grid-cols-2 gap-6 pt-4">
+                <div className="grid md:grid-cols-2 gap-6 pt-6">
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold text-zinc-500 uppercase">WhatsApp</Label>
                     <Input value={localStoreSettings?.whatsappNumber || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, whatsappNumber: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
@@ -575,7 +596,7 @@ export default function AdminPage() {
                         {Array.from({ length: 5 }).map((_, idx) => <Star key={idx} className={`h-3 w-3 ${idx < r.rating ? 'text-amber-500 fill-amber-500' : 'text-zinc-800'}`} />)}
                       </div>
                     </div>
-                    <p className="text-xs text-zinc-400 leading-relaxed italic">&quot;{r.comment}&quot;</p>
+                    <p className="text-xs text-zinc-400 leading-relaxed italic line-clamp-4">&quot;{r.comment}&quot;</p>
                   </Card>
                 ))}
              </div>

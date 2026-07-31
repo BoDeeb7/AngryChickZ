@@ -5,8 +5,9 @@ import { MenuGrid } from '@/components/restaurant/MenuGrid';
 import { Footer } from '@/components/restaurant/Footer';
 
 /**
- * CRITICAL: These settings ensure the page is never statically cached.
- * This guarantees that new items added on one device appear on others immediately.
+ * CRITICAL: These settings ensure the page is never statically cached by Next.js.
+ * By setting dynamic to 'force-dynamic', we ensure that every visitor sees the
+ * latest Firestore data synced across all devices globally.
  */
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

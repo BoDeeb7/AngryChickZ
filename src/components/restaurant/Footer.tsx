@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -47,10 +48,11 @@ export function Footer() {
       createdAt: serverTimestamp()
     };
 
+    // NON-BLOCKING: Handle success and error immediately to prevent "Logging..." hang
     addDoc(collection(db, 'reviews'), reviewData)
       .then(() => {
         setReview({ name: '', comment: '', rating: 5 });
-        toast({ title: "Sentiment Logged", description: "Thank you for your feedback." });
+        toast({ title: "Feedback Received", description: "Thank you for sharing your heat with us." });
         setIsSubmitting(false);
       })
       .catch(async (err) => {
@@ -60,7 +62,7 @@ export function Footer() {
           requestResourceData: reviewData
         });
         errorEmitter.emit('permission-error', permissionError);
-        toast({ variant: "destructive", title: "Submission Failed", description: "Could not log your review." });
+        toast({ variant: "destructive", title: "Submission Failed", description: "Check your connection and try again." });
         setIsSubmitting(false);
       });
   };
@@ -84,7 +86,7 @@ export function Footer() {
               </span>
             </div>
             <p className="text-foreground/40 leading-relaxed font-bold text-[10px] uppercase tracking-[0.2em]">
-              Gourmet fried chicken obsession. Established 2024. Level 5 heat.
+              Premium Fried Chicken. Ultra-Modern Experience. Level 5 Heat.
             </p>
             <div className="flex gap-4">
               {[
@@ -100,7 +102,7 @@ export function Footer() {
           </div>
 
           <div>
-            <h4 className="text-[10px] font-black uppercase tracking-[0.5em] mb-12 text-primary">Contact Us</h4>
+            <h4 className="text-[10px] font-black uppercase tracking-[0.5em] mb-12 text-primary">Location</h4>
             <ul className="space-y-10 text-foreground/60">
               <li className="flex gap-5">
                 <MapPin className="h-5 w-5 text-primary shrink-0" /> 
@@ -114,11 +116,11 @@ export function Footer() {
           </div>
 
           <div className="lg:col-span-2 bg-foreground/[0.03] p-10 rounded-[3rem] border border-foreground/5 shadow-2xl">
-            <h4 className="text-[10px] font-black uppercase tracking-[0.5em] mb-8 text-primary">Customer Sentiment</h4>
+            <h4 className="text-[10px] font-black uppercase tracking-[0.5em] mb-8 text-primary">Your Sentiment</h4>
             <form onSubmit={handleReviewSubmit} className="space-y-5">
               <div className="flex gap-4">
                 <Input 
-                  placeholder="NAME" 
+                  placeholder="FULL NAME" 
                   value={review.name}
                   onChange={e => setReview(r => ({ ...r, name: e.target.value }))}
                   className="h-14 bg-background border-foreground/10 rounded-2xl text-[10px] outline-none font-black tracking-widest text-foreground" 
@@ -134,13 +136,13 @@ export function Footer() {
                 </div>
               </div>
               <Textarea 
-                placeholder="YOUR THOUGHTS..." 
+                placeholder="WHAT'S ON YOUR MIND?" 
                 value={review.comment}
                 onChange={e => setReview(r => ({ ...r, comment: e.target.value }))}
                 className="h-24 bg-background border-foreground/10 rounded-2xl text-[10px] font-black tracking-widest pt-5 text-foreground" 
               />
               <Button disabled={isSubmitting} type="submit" className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground rounded-2xl text-[10px] font-black uppercase tracking-[0.3em]">
-                {isSubmitting ? 'Logging...' : 'Submit Review'}
+                {isSubmitting ? 'Logging...' : 'Submit Sentiment'}
               </Button>
             </form>
           </div>
