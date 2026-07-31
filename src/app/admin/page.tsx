@@ -34,7 +34,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Product, Category, Review, StoreSettings } from '@/types/restaurant';
 import { useFirestore, useCollection, useDoc } from '@/firebase';
-import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp, query, orderBy, Firestore } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -116,21 +116,15 @@ export default function AdminPage() {
     setIsSubmitting(true);
     const docRef = doc(db, 'settings', 'store');
     
-    // NON-BLOCKING: No 'await' used here to prevent UI freezing
     setDoc(docRef, localStoreSettings, { merge: true })
       .then(() => {
         toast({ title: "Store Info Updated Globally" });
-        setIsSubmitting(false);
       })
-      .catch(async (err) => {
-        const permissionError = new FirestorePermissionError({
-          path: docRef.path,
-          operation: 'write',
-          requestResourceData: localStoreSettings,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        setIsSubmitting(false);
-      });
+      .catch((err) => {
+        console.error(err);
+        toast({ variant: "destructive", title: "Update Failed" });
+      })
+      .finally(() => setIsSubmitting(false));
   }, [db, localStoreSettings, toast]);
 
   const saveHeroSettings = useCallback(() => {
@@ -141,17 +135,12 @@ export default function AdminPage() {
     setDoc(docRef, localHeroSettings, { merge: true })
       .then(() => {
         toast({ title: "Hero Visuals Synced" });
-        setIsSubmitting(false);
       })
-      .catch(async (err) => {
-        const permissionError = new FirestorePermissionError({
-          path: docRef.path,
-          operation: 'write',
-          requestResourceData: localHeroSettings,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        setIsSubmitting(false);
-      });
+      .catch((err) => {
+        console.error(err);
+        toast({ variant: "destructive", title: "Sync Failed" });
+      })
+      .finally(() => setIsSubmitting(false));
   }, [db, localHeroSettings, toast]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'product' | 'heroBg' | 'heroBanner' | 'logo') => {
@@ -172,14 +161,14 @@ export default function AdminPage() {
         setDoc(docRef, updateData, { merge: true })
           .then(() => {
             toast({ title: "Asset Uploaded Successfully" });
-            setIsSubmitting(false);
           })
-          .catch(async () => {
-            setIsSubmitting(false);
+          .catch(() => {
             toast({ variant: "destructive", title: "Upload Failed" });
-          });
+          })
+          .finally(() => setIsSubmitting(false));
       }
     };
+    reader.onerror = () => setIsSubmitting(false);
     reader.readAsDataURL(file);
   };
 
@@ -205,22 +194,16 @@ export default function AdminPage() {
       ? setDoc(docRef!, productData, { merge: true })
       : addDoc(collection(db, 'products'), productData);
 
-    // NON-BLOCKING: UI resets immediately, Firestore handles the write in background
     mutationPromise
       .then(() => {
         resetForm();
         toast({ title: "Product Saved Success (Global Sync Active)" });
-        setIsSubmitting(false);
       })
-      .catch(async (err) => {
-        setIsSubmitting(false);
-        const permissionError = new FirestorePermissionError({
-          path: isEditing ? docRef!.path : 'products',
-          operation: isEditing ? 'update' : 'create',
-          requestResourceData: productData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-      });
+      .catch((err) => {
+        console.error(err);
+        toast({ variant: "destructive", title: "Save Failed" });
+      })
+      .finally(() => setIsSubmitting(false));
   };
 
   const resetForm = () => {
@@ -243,31 +226,32 @@ export default function AdminPage() {
   const deleteProduct = (id: string) => {
     if (!db || !confirm('Delete permanently?')) return;
     deleteDoc(doc(db, 'products', id))
-      .then(() => toast({ title: "Item Removed Locally and Globally" }))
-      .catch(async () => toast({ variant: "destructive", title: "Delete Failed" }));
+      .then(() => toast({ title: "Item Removed Globally" }))
+      .catch(() => toast({ variant: "destructive", title: "Delete Failed" }));
   };
 
   const addCategory = () => {
     if (!newCategory.name || !db) return;
     setIsSubmitting(true);
-    const slug = newCategory.name.toLowerCase().replace(/\s+/g, '-');
-    addDoc(collection(db, 'categories'), { name: newCategory.name, slug })
+    const slug = newCategory.name.toLowerCase().trim().replace(/\s+/g, '-');
+    
+    addDoc(collection(db, 'categories'), { name: newCategory.name.trim(), slug })
       .then(() => {
         setNewCategory({ name: '' });
-        toast({ title: "Category Added" });
-        setIsSubmitting(false);
+        toast({ title: "Category Added Successfully" });
       })
-      .catch(async () => {
-        setIsSubmitting(false);
+      .catch((err) => {
+        console.error(err);
         toast({ variant: "destructive", title: "Failed to Add Category" });
-      });
+      })
+      .finally(() => setIsSubmitting(false));
   };
 
   const deleteCategory = (id: string) => {
     if (!db || !confirm('Delete category?')) return;
     deleteDoc(doc(db, 'categories', id))
       .then(() => toast({ title: "Category Removed" }))
-      .catch(async () => toast({ variant: "destructive", title: "Failed to Remove" }));
+      .catch(() => toast({ variant: "destructive", title: "Failed to Remove" }));
   };
 
   if (!isAuthenticated) {
@@ -456,7 +440,6 @@ export default function AdminPage() {
             </div>
           </TabsContent>
 
-          {/* Other tabs remain largely the same, focusing on non-blocking saves */}
           <TabsContent value="categories" className="max-w-xl mx-auto space-y-6">
             <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
               <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4">
@@ -469,9 +452,12 @@ export default function AdminPage() {
                     value={newCategory.name} 
                     onChange={e => setNewCategory({ name: e.target.value })}
                     className="bg-zinc-800 border-zinc-700"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !isSubmitting) addCategory();
+                    }}
                   />
-                  <Button disabled={isSubmitting} onClick={addCategory} className="bg-amber-500 hover:bg-amber-600 text-zinc-950 rounded-xl font-bold px-6">
-                    Add
+                  <Button disabled={isSubmitting || !newCategory.name} onClick={addCategory} className="bg-amber-500 hover:bg-amber-600 text-zinc-950 rounded-xl font-bold px-6">
+                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add'}
                   </Button>
                 </div>
                 <div className="grid gap-2">
@@ -491,7 +477,7 @@ export default function AdminPage() {
               <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4 flex flex-row items-center justify-between">
                 <CardTitle className="text-lg font-bold text-amber-500">Hero Content</CardTitle>
                 <Button disabled={isSubmitting} onClick={saveHeroSettings} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2">
-                  <Save className="h-4 w-4" /> Save
+                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save
                 </Button>
               </CardHeader>
               <div className="space-y-6">
@@ -544,7 +530,7 @@ export default function AdminPage() {
                         <Utensils className="h-8 w-8 text-zinc-600" />
                       )}
                       <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer">
-                        <Upload className="h-6 w-6 text-white" />
+                        {isSubmitting ? <Loader2 className="h-6 w-6 animate-spin text-white" /> : <Upload className="h-6 w-6 text-white" />}
                         <input type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'logo')} />
                       </label>
                     </div>
@@ -558,7 +544,7 @@ export default function AdminPage() {
                 <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4 flex flex-row items-center justify-between">
                   <CardTitle className="text-lg font-bold text-amber-500">Contact Details</CardTitle>
                   <Button disabled={isSubmitting} onClick={saveStoreSettings} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2">
-                    <Save className="h-4 w-4" /> Sync
+                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Sync
                   </Button>
                 </CardHeader>
                 <div className="grid md:grid-cols-2 gap-6 pt-6">
