@@ -32,7 +32,7 @@ export function Footer() {
     }
   };
 
-  const handleReviewSubmit = async (e: React.FormEvent) => {
+  const handleReviewSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!db || !review.name || !review.comment) {
       toast({ variant: "destructive", title: "Missing Info", description: "Please provide your name and thoughts." });
@@ -47,20 +47,22 @@ export function Footer() {
       createdAt: serverTimestamp()
     };
 
-    try {
-      await addDoc(collection(db, 'reviews'), reviewData);
-      setReview({ name: '', comment: '', rating: 5 });
-      toast({ title: "Sentiment Logged", description: "Thank you for your feedback." });
-    } catch (err) {
-      const permissionError = new FirestorePermissionError({
-        path: 'reviews',
-        operation: 'create',
+    addDoc(collection(db, 'reviews'), reviewData)
+      .then(() => {
+        setReview({ name: '', comment: '', rating: 5 });
+        toast({ title: "Sentiment Logged", description: "Thank you for your feedback." });
+        setIsSubmitting(false);
+      })
+      .catch(async (err) => {
+        const permissionError = new FirestorePermissionError({
+          path: 'reviews',
+          operation: 'create',
+          requestResourceData: reviewData
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        toast({ variant: "destructive", title: "Submission Failed", description: "Could not log your review." });
+        setIsSubmitting(false);
       });
-      errorEmitter.emit('permission-error', permissionError);
-      toast({ variant: "destructive", title: "Submission Failed", description: "Could not log your review." });
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   const phone = storeSettings?.phone || '+961 70 105 152';

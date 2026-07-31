@@ -1,35 +1,39 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 
 export function AmbientSparks() {
+  // Use useMemo to generate spark properties once to avoid hydration mismatch and heavy re-renders
   const [sparks, setSparks] = useState<{ id: number; left: string; duration: string; delay: string; size: string }[]>([]);
 
   useEffect(() => {
-    // Generate a fixed set of sparks on mount to avoid hydration mismatch
-    const newSparks = Array.from({ length: 15 }).map((_, i) => ({
+    // Generate sparks only on the client mount
+    const generatedSparks = Array.from({ length: 12 }).map((_, i) => ({
       id: i,
-      left: `${Math.random() * 100}%`,
-      duration: `${10 + Math.random() * 15}s`,
-      delay: `${Math.random() * 10}s`,
-      size: `${2 + Math.random() * 3}px`,
+      left: `${(i * 8.33) + (Math.random() * 5)}%`, // Distributed across screen
+      duration: `${12 + Math.random() * 10}s`,
+      delay: `${Math.random() * 5}s`,
+      size: `${2 + Math.random() * 2}px`,
     }));
-    setSparks(newSparks);
+    setSparks(generatedSparks);
   }, []);
 
+  if (sparks.length === 0) return null;
+
   return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden z-[5]">
+    <div className="fixed inset-0 pointer-events-none overflow-hidden z-[5] select-none">
       {sparks.map((spark) => (
         <div
           key={spark.id}
-          className="absolute bottom-0 animate-spark rounded-full bg-gradient-to-t from-amber-500 to-red-500 blur-[1px]"
+          className="absolute bottom-[-20px] animate-spark rounded-full bg-gradient-to-t from-amber-500 to-red-600 blur-[1px] will-change-transform"
           style={{
             left: spark.left,
             width: spark.size,
             height: spark.size,
             animationDuration: spark.duration,
             animationDelay: spark.delay,
-            boxShadow: '0 0 10px rgba(245, 158, 11, 0.8)',
+            boxShadow: '0 0 12px rgba(245, 158, 11, 0.6)',
+            opacity: 0.4
           }}
         />
       ))}

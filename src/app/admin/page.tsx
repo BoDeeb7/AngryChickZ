@@ -110,60 +110,66 @@ export default function AdminPage() {
     }
   };
 
-  const saveStoreSettings = useCallback(async () => {
+  const saveStoreSettings = useCallback(() => {
     if (!db || !localStoreSettings) return;
     setIsSubmitting(true);
-    try {
-      await setDoc(doc(db, 'settings', 'store'), localStoreSettings, { merge: true });
-      toast({ title: "Store Info Updated" });
-    } catch (err) {
-      toast({ variant: "destructive", title: "Error Saving Info" });
-    } finally {
-      setIsSubmitting(false);
-    }
+    setDoc(doc(db, 'settings', 'store'), localStoreSettings, { merge: true })
+      .then(() => {
+        toast({ title: "Store Info Updated" });
+        setIsSubmitting(false);
+      })
+      .catch(async (err) => {
+        const permissionError = new FirestorePermissionError({ path: 'settings/store', operation: 'update' });
+        errorEmitter.emit('permission-error', permissionError);
+        setIsSubmitting(false);
+      });
   }, [db, localStoreSettings, toast]);
 
-  const saveHeroSettings = useCallback(async () => {
+  const saveHeroSettings = useCallback(() => {
     if (!db || !localHeroSettings) return;
     setIsSubmitting(true);
-    try {
-      await setDoc(doc(db, 'settings', 'hero'), localHeroSettings, { merge: true });
-      toast({ title: "Hero Settings Updated" });
-    } catch (err) {
-      toast({ variant: "destructive", title: "Error Saving Visuals" });
-    } finally {
-      setIsSubmitting(false);
-    }
+    setDoc(doc(db, 'settings', 'hero'), localHeroSettings, { merge: true })
+      .then(() => {
+        toast({ title: "Hero Settings Updated" });
+        setIsSubmitting(false);
+      })
+      .catch(async (err) => {
+        const permissionError = new FirestorePermissionError({ path: 'settings/hero', operation: 'update' });
+        errorEmitter.emit('permission-error', permissionError);
+        setIsSubmitting(false);
+      });
   }, [db, localHeroSettings, toast]);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'product' | 'heroBg' | 'heroBanner' | 'logo') => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'product' | 'heroBg' | 'heroBanner' | 'logo') => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsSubmitting(true);
     const reader = new FileReader();
-    reader.onloadend = async () => {
+    reader.onloadend = () => {
       const base64 = reader.result as string;
       if (target === 'product') {
         setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, base64] }));
         setIsSubmitting(false);
       } else if (db) {
-        try {
-          if (target === 'heroBg') await setDoc(doc(db, 'settings', 'hero'), { bgImage: base64 }, { merge: true });
-          if (target === 'heroBanner') await setDoc(doc(db, 'settings', 'hero'), { bannerImage: base64 }, { merge: true });
-          if (target === 'logo') await setDoc(doc(db, 'settings', 'store'), { logo: base64 }, { merge: true });
-          toast({ title: "Upload Success" });
-        } catch (err) {
-          toast({ variant: "destructive", title: "Upload Failed" });
-        } finally {
-          setIsSubmitting(false);
-        }
+        const docRef = target === 'logo' ? doc(db, 'settings', 'store') : doc(db, 'settings', 'hero');
+        const updateData = target === 'heroBg' ? { bgImage: base64 } : target === 'heroBanner' ? { bannerImage: base64 } : { logo: base64 };
+        
+        setDoc(docRef, updateData, { merge: true })
+          .then(() => {
+            toast({ title: "Upload Success" });
+            setIsSubmitting(false);
+          })
+          .catch(async () => {
+            setIsSubmitting(false);
+            toast({ variant: "destructive", title: "Upload Failed" });
+          });
       }
     };
     reader.readAsDataURL(file);
   };
 
-  const handleSaveProduct = async () => {
+  const handleSaveProduct = () => {
     if (!formData.name || !formData.price || !formData.category || !db) {
       toast({ variant: "destructive", title: "Required", description: "Missing essential info." });
       return;
@@ -180,23 +186,25 @@ export default function AdminPage() {
       createdAt: isEditing ? (products.find(p => p.id === isEditing)?.createdAt || serverTimestamp()) : serverTimestamp()
     };
 
-    try {
-      if (isEditing) {
-        await setDoc(doc(db, 'products', isEditing), productData, { merge: true });
-      } else {
-        await addDoc(collection(db, 'products'), productData);
-      }
-      resetForm();
-      toast({ title: "Product Saved Successfully" });
-    } catch (err) {
-      const permissionError = new FirestorePermissionError({
-        path: isEditing ? `products/${isEditing}` : 'products',
-        operation: isEditing ? 'update' : 'create',
+    const mutationPromise = isEditing 
+      ? setDoc(doc(db, 'products', isEditing), productData, { merge: true })
+      : addDoc(collection(db, 'products'), productData);
+
+    mutationPromise
+      .then(() => {
+        resetForm();
+        toast({ title: "Product Saved Successfully" });
+        setIsSubmitting(false);
+      })
+      .catch(async (err) => {
+        const permissionError = new FirestorePermissionError({
+          path: isEditing ? `products/${isEditing}` : 'products',
+          operation: isEditing ? 'update' : 'create',
+          requestResourceData: productData
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        setIsSubmitting(false);
       });
-      errorEmitter.emit('permission-error', permissionError);
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   const resetForm = () => {
@@ -216,39 +224,34 @@ export default function AdminPage() {
     setIsEditing(product.id);
   };
 
-  const deleteProduct = async (id: string) => {
+  const deleteProduct = (id: string) => {
     if (!db || !confirm('Delete permanently?')) return;
-    try {
-      await deleteDoc(doc(db, 'products', id));
-      toast({ title: "Item Deleted" });
-    } catch (err) {
-      toast({ variant: "destructive", title: "Delete Failed" });
-    }
+    deleteDoc(doc(db, 'products', id))
+      .then(() => toast({ title: "Item Deleted" }))
+      .catch(async () => toast({ variant: "destructive", title: "Delete Failed" }));
   };
 
-  const addCategory = async () => {
+  const addCategory = () => {
     if (!newCategory.name || !db) return;
     setIsSubmitting(true);
     const slug = newCategory.name.toLowerCase().replace(/\s+/g, '-');
-    try {
-      await addDoc(collection(db, 'categories'), { name: newCategory.name, slug });
-      setNewCategory({ name: '' });
-      toast({ title: "Category Added" });
-    } catch (err) {
-      toast({ variant: "destructive", title: "Failed to Add Category" });
-    } finally {
-      setIsSubmitting(false);
-    }
+    addDoc(collection(db, 'categories'), { name: newCategory.name, slug })
+      .then(() => {
+        setNewCategory({ name: '' });
+        toast({ title: "Category Added" });
+        setIsSubmitting(false);
+      })
+      .catch(async () => {
+        setIsSubmitting(false);
+        toast({ variant: "destructive", title: "Failed to Add Category" });
+      });
   };
 
-  const deleteCategory = async (id: string) => {
+  const deleteCategory = (id: string) => {
     if (!db || !confirm('Delete category?')) return;
-    try {
-      await deleteDoc(doc(db, 'categories', id));
-      toast({ title: "Category Removed" });
-    } catch (err) {
-      toast({ variant: "destructive", title: "Failed to Remove" });
-    }
+    deleteDoc(doc(db, 'categories', id))
+      .then(() => toast({ title: "Category Removed" }))
+      .catch(async () => toast({ variant: "destructive", title: "Failed to Remove" }));
   };
 
   if (!isAuthenticated) {
