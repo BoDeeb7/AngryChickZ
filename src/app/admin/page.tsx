@@ -39,7 +39,7 @@ export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   
-  // COMPLETELY INDEPENDENT LOADING STATES
+  // INDEPENDENT LOADING STATES FOR EACH BUTTON/SECTION
   const [isProductSaving, setIsProductSaving] = useState(false);
   const [isCategoryAdding, setIsCategoryAdding] = useState(false);
   const [isVisualsSaving, setIsVisualsSaving] = useState(false);
@@ -89,7 +89,7 @@ export default function AdminPage() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoginLoading(true);
-    // Simple mock auth for prototype
+    // Mock auth for rapid testing
     if (loginForm.username === 'Ali@AngryChickZ' && loginForm.password === 'AngryChickZ@DeebData#79') {
       setIsAuthenticated(true);
       toast({ title: "Authorized", description: "Welcome back, Ali." });
@@ -104,7 +104,7 @@ export default function AdminPage() {
     setIsEditing(null);
   }, []);
 
-  const handleSaveProduct = async (e: React.FormEvent) => {
+  const handleSaveProduct = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.price || !formData.category || !db) {
       toast({ variant: "destructive", title: "Required", description: "Please fill essential fields." });
@@ -112,66 +112,56 @@ export default function AdminPage() {
     }
 
     setIsProductSaving(true);
-    try {
-      const productData = {
-        name: formData.name.trim(),
-        description: formData.description.trim(),
-        price: parseFloat(formData.price),
-        category: formData.category,
-        imageUrls: formData.imageUrls,
-        badges: formData.badges,
-        createdAt: isEditing ? (products.find(p => p.id === isEditing)?.createdAt || serverTimestamp()) : serverTimestamp()
-      };
+    const productData = {
+      name: formData.name.trim(),
+      description: formData.description.trim(),
+      price: parseFloat(formData.price),
+      category: formData.category,
+      imageUrls: formData.imageUrls,
+      badges: formData.badges,
+      createdAt: isEditing ? (products.find(p => p.id === isEditing)?.createdAt || serverTimestamp()) : serverTimestamp()
+    };
 
-      if (isEditing) {
-        setDoc(doc(db, 'products', isEditing), productData, { merge: true })
-          .then(() => {
-            toast({ title: "Updated", description: "Product has been updated successfully." });
-            resetForm();
-          })
-          .catch((err) => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `products/${isEditing}`, operation: 'update', requestResourceData: productData }));
-          })
-          .finally(() => setIsProductSaving(false));
-      } else {
-        addDoc(collection(db, 'products'), productData)
-          .then(() => {
-            toast({ title: "Created", description: "New product added to menu." });
-            resetForm();
-          })
-          .catch((err) => {
-             errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'products', operation: 'create', requestResourceData: productData }));
-          })
-          .finally(() => setIsProductSaving(false));
-      }
-    } catch (err: any) {
-      setIsProductSaving(false);
-      toast({ variant: "destructive", title: "Form Error", description: err.message });
-    }
+    const action = isEditing 
+      ? setDoc(doc(db, 'products', isEditing), productData, { merge: true })
+      : addDoc(collection(db, 'products'), productData);
+
+    action
+      .then(() => {
+        toast({ title: isEditing ? "Updated" : "Created", description: "Item successfully pushed to cloud." });
+        resetForm();
+      })
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ 
+          path: isEditing ? `products/${isEditing}` : 'products', 
+          operation: isEditing ? 'update' : 'create', 
+          requestResourceData: productData 
+        }));
+      })
+      .finally(() => setIsProductSaving(false));
   };
 
-  const addCategory = async (e: React.FormEvent) => {
+  const addCategory = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCategoryName || !db) return;
     
     setIsCategoryAdding(true);
-    try {
-      const slug = newCategoryName.toLowerCase().trim().replace(/\s+/g, '-');
-      const catData = { name: newCategoryName.trim(), slug };
-      
-      addDoc(collection(db, 'categories'), catData)
-        .then(() => {
-          setNewCategoryName('');
-          toast({ title: "Category Added", description: `"${catData.name}" is now available.` });
-        })
-        .catch((err) => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'categories', operation: 'create', requestResourceData: catData }));
-        })
-        .finally(() => setIsCategoryAdding(false));
-    } catch (err: any) {
-      setIsCategoryAdding(false);
-      toast({ variant: "destructive", title: "Error", description: err.message });
-    }
+    const slug = newCategoryName.toLowerCase().trim().replace(/\s+/g, '-');
+    const catData = { name: newCategoryName.trim(), slug };
+    
+    addDoc(collection(db, 'categories'), catData)
+      .then(() => {
+        setNewCategoryName('');
+        toast({ title: "Category Added", description: `"${catData.name}" is now live.` });
+      })
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ 
+          path: 'categories', 
+          operation: 'create', 
+          requestResourceData: catData 
+        }));
+      })
+      .finally(() => setIsCategoryAdding(false));
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'product' | 'heroBg' | 'heroBanner' | 'logo') => {
@@ -190,16 +180,12 @@ export default function AdminPage() {
         const updateData = target === 'heroBg' ? { bgImage: base64 } : target === 'heroBanner' ? { bannerImage: base64 } : { logo: base64 };
         
         setDoc(docRef, updateData, { merge: true })
-          .then(() => toast({ title: "Visual Updated", description: "Changes reflected instantly." }))
-          .catch((err) => {
+          .then(() => toast({ title: "Visual Updated" }))
+          .catch(async (err) => {
              errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update', requestResourceData: updateData }));
           })
           .finally(() => setIsUploading(false));
       }
-    };
-    reader.onerror = () => {
-      setIsUploading(false);
-      toast({ variant: "destructive", title: "Error", description: "Failed to read file." });
     };
     reader.readAsDataURL(file);
   };
@@ -207,18 +193,9 @@ export default function AdminPage() {
   const deleteProduct = (id: string) => {
     if (!db || !confirm('Permanently delete this item?')) return;
     deleteDoc(doc(db, 'products', id))
-      .then(() => toast({ title: "Deleted", description: "Item removed from menu." }))
-      .catch((err) => {
+      .then(() => toast({ title: "Deleted" }))
+      .catch(async (err) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `products/${id}`, operation: 'delete' }));
-      });
-  };
-
-  const deleteCategory = (id: string) => {
-    if (!db || !confirm('Remove this category?')) return;
-    deleteDoc(doc(db, 'categories', id))
-      .then(() => toast({ title: "Category Removed" }))
-      .catch((err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `categories/${id}`, operation: 'delete' }));
       });
   };
 
@@ -232,9 +209,9 @@ export default function AdminPage() {
     
     setDoc(doc(db, 'settings', target), data, { merge: true })
       .then(() => {
-        toast({ title: "Synced", description: `${target === 'store' ? 'Store' : 'Visual'} settings pushed to cloud.` });
+        toast({ title: "Settings Synced", description: "Changes are now live globally." });
       })
-      .catch((err) => {
+      .catch(async (err) => {
          errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `settings/${target}`, operation: 'update', requestResourceData: data }));
       })
       .finally(() => {

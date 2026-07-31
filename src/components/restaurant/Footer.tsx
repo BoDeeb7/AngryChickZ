@@ -11,6 +11,8 @@ import { useFirestore, useDoc } from '@/firebase';
 import { collection, addDoc, serverTimestamp, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { StoreSettings } from '@/types/restaurant';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export function Footer() {
   const db = useFirestore();
@@ -28,7 +30,7 @@ export function Footer() {
     }
   };
 
-  const handleReviewSubmit = async (e: React.FormEvent) => {
+  const handleReviewSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!db || !review.name || !review.comment) {
       toast({ variant: "destructive", title: "Required", description: "Name and comment please." });
@@ -36,23 +38,30 @@ export function Footer() {
     }
     
     setIsSubmitting(true);
-    try {
-      const reviewData = {
-        customerName: review.name,
-        comment: review.comment,
-        rating: review.rating,
-        createdAt: serverTimestamp()
-      };
+    const reviewData = {
+      customerName: review.name.trim(),
+      comment: review.comment.trim(),
+      rating: review.rating,
+      createdAt: serverTimestamp()
+    };
 
-      await addDoc(collection(db, 'reviews'), reviewData);
-      setReview({ name: '', comment: '', rating: 5 });
-      toast({ title: "Sentiment Sent", description: "Thank you for the heat!" });
-    } catch (err) {
-      console.error(err);
-      toast({ variant: "destructive", title: "Submission Failed" });
-    } finally {
-      setIsSubmitting(false);
-    }
+    // Non-blocking Firestore write to ensure UI responsiveness
+    addDoc(collection(db, 'reviews'), reviewData)
+      .then(() => {
+        setReview({ name: '', comment: '', rating: 5 });
+        toast({ title: "Sentiment Sent", description: "Thank you for the heat!" });
+      })
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: 'reviews',
+          operation: 'create',
+          requestResourceData: reviewData
+        }));
+      })
+      .finally(() => {
+        // This ensures the button always unlocks
+        setIsSubmitting(false);
+      });
   };
 
   const phone = storeSettings?.phone || '+961 70 105 152';
