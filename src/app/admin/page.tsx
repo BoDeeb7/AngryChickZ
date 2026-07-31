@@ -20,7 +20,8 @@ import {
   X,
   Palette,
   Save,
-  MessageSquare
+  MessageSquare,
+  Sparkles
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -93,7 +94,8 @@ export default function AdminPage() {
     setIsEditing(null);
   }, []);
 
-  const handleSaveProduct = async () => {
+  const handleSaveProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!formData.name || !formData.price || !formData.category || !db) {
       toast({ variant: "destructive", title: "Required", description: "Missing essential info." });
       return;
@@ -127,7 +129,8 @@ export default function AdminPage() {
     }
   };
 
-  const addCategory = async () => {
+  const addCategory = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!newCategory.name || !db) return;
     setIsSubmitting(true);
     try {
@@ -159,15 +162,19 @@ export default function AdminPage() {
           const docRef = target === 'logo' ? doc(db, 'settings', 'store') : doc(db, 'settings', 'hero');
           const updateData = target === 'heroBg' ? { bgImage: base64 } : target === 'heroBanner' ? { bannerImage: base64 } : { logo: base64 };
           await setDoc(docRef, updateData, { merge: true });
-          toast({ title: "Image Uploaded" });
+          toast({ title: "Image Uploaded Successfully" });
         }
       } catch (err) {
+        console.error(err);
         toast({ variant: "destructive", title: "Upload Failed" });
       } finally {
         setIsSubmitting(false);
       }
     };
-    reader.onerror = () => setIsSubmitting(false);
+    reader.onerror = () => {
+      setIsSubmitting(false);
+      toast({ variant: "destructive", title: "Reader Error" });
+    };
     reader.readAsDataURL(file);
   };
 
@@ -186,44 +193,54 @@ export default function AdminPage() {
 
   const deleteProduct = async (id: string) => {
     if (!db || !confirm('Delete permanently?')) return;
+    setIsSubmitting(true);
     try {
       await deleteDoc(doc(db, 'products', id));
       toast({ title: "Item Deleted" });
     } catch (err) {
       toast({ variant: "destructive", title: "Delete Failed" });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const deleteCategory = async (id: string) => {
     if (!db || !confirm('Delete category?')) return;
+    setIsSubmitting(true);
     try {
       await deleteDoc(doc(db, 'categories', id));
       toast({ title: "Category Removed" });
     } catch (err) {
       toast({ variant: "destructive", title: "Failed to Remove" });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const saveStoreSettings = async () => {
+  const saveStoreSettings = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!db || !localStoreSettings) return;
     setIsSubmitting(true);
     try {
       await setDoc(doc(db, 'settings', 'store'), localStoreSettings, { merge: true });
       toast({ title: "Store Settings Updated" });
     } catch (err) {
+      console.error(err);
       toast({ variant: "destructive", title: "Update Failed" });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const saveHeroSettings = async () => {
+  const saveHeroSettings = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!db || !localHeroSettings) return;
     setIsSubmitting(true);
     try {
       await setDoc(doc(db, 'settings', 'hero'), localHeroSettings, { merge: true });
       toast({ title: "Hero Settings Updated" });
     } catch (err) {
+      console.error(err);
       toast({ variant: "destructive", title: "Sync Failed" });
     } finally {
       setIsSubmitting(false);
@@ -249,6 +266,7 @@ export default function AdminPage() {
                   onChange={e => setLoginForm(p => ({ ...p, username: e.target.value }))}
                   className="bg-zinc-800 border-zinc-700 text-white rounded-xl h-12"
                   placeholder="Username"
+                  autoComplete="username"
                 />
               </div>
               <div className="space-y-2">
@@ -259,10 +277,11 @@ export default function AdminPage() {
                   onChange={e => setLoginForm(p => ({ ...p, password: e.target.value }))}
                   className="bg-zinc-800 border-zinc-700 text-white rounded-xl h-12"
                   placeholder="••••••••"
+                  autoComplete="current-password"
                 />
               </div>
-              <Button type="submit" className="w-full h-14 bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold rounded-xl uppercase tracking-widest">
-                Login Terminal
+              <Button disabled={isSubmitting} type="submit" className="w-full h-14 bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold rounded-xl uppercase tracking-widest">
+                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Login Terminal'}
               </Button>
             </form>
           </CardContent>
@@ -316,70 +335,76 @@ export default function AdminPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold text-zinc-500 uppercase">Item Name</Label>
-                  <Input 
-                    value={formData.name} 
-                    onChange={e => setFormData(f => ({ ...f, name: e.target.value }))} 
-                    className="bg-zinc-800 border-zinc-700 rounded-xl text-white"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold text-zinc-500 uppercase">Description</Label>
-                  <Textarea 
-                    value={formData.description} 
-                    onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} 
-                    className="bg-zinc-800 border-zinc-700 rounded-xl min-h-[80px]"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+                <form onSubmit={handleSaveProduct} className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Price ($)</Label>
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Item Name</Label>
                     <Input 
-                      type="number" 
-                      value={formData.price} 
-                      onChange={e => setFormData(f => ({ ...f, price: e.target.value }))} 
-                      className="bg-zinc-800 border-zinc-700 rounded-xl"
+                      required
+                      value={formData.name} 
+                      onChange={e => setFormData(f => ({ ...f, name: e.target.value }))} 
+                      className="bg-zinc-800 border-zinc-700 rounded-xl text-white"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Category</Label>
-                    <select 
-                      className="w-full h-10 px-3 bg-zinc-800 border border-zinc-700 rounded-xl text-sm text-white"
-                      value={formData.category}
-                      onChange={e => setFormData(f => ({ ...f, category: e.target.value }))}
-                    >
-                      <option value="">Select...</option>
-                      {categories.map(c => <option key={c.id} value={c.slug}>{c.name}</option>)}
-                    </select>
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Description</Label>
+                    <Textarea 
+                      value={formData.description} 
+                      onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} 
+                      className="bg-zinc-800 border-zinc-700 rounded-xl min-h-[80px]"
+                    />
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold text-zinc-500 uppercase">Photo</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {formData.imageUrls.map((url, i) => (
-                      <div key={i} className="relative h-16 w-16 rounded-lg overflow-hidden border border-zinc-700 group">
-                        <Image src={url} alt="preview" fill className="object-cover" />
-                        <button onClick={() => setFormData(f => ({ ...f, imageUrls: f.imageUrls.filter((_, idx) => idx !== i) }))} className="absolute inset-0 bg-red-500/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4" /></button>
-                      </div>
-                    ))}
-                    <label className="h-16 w-16 flex flex-col items-center justify-center bg-zinc-800 border-2 border-dashed border-zinc-700 rounded-lg cursor-pointer hover:border-amber-500">
-                      {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5 text-zinc-500" />}
-                      <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'product')} />
-                    </label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold text-zinc-500 uppercase">Price ($)</Label>
+                      <Input 
+                        required
+                        type="number" 
+                        step="0.01"
+                        value={formData.price} 
+                        onChange={e => setFormData(f => ({ ...f, price: e.target.value }))} 
+                        className="bg-zinc-800 border-zinc-700 rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold text-zinc-500 uppercase">Category</Label>
+                      <select 
+                        required
+                        className="w-full h-10 px-3 bg-zinc-800 border border-zinc-700 rounded-xl text-sm text-white"
+                        value={formData.category}
+                        onChange={e => setFormData(f => ({ ...f, category: e.target.value }))}
+                      >
+                        <option value="">Select...</option>
+                        {categories.map(c => <option key={c.id} value={c.slug}>{c.name}</option>)}
+                      </select>
+                    </div>
                   </div>
-                </div>
-                <div className="flex gap-2 pt-4">
-                  <Button disabled={isSubmitting} onClick={handleSaveProduct} className="flex-grow bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold rounded-xl uppercase tracking-widest text-xs h-11">
-                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                    {isEditing ? 'Update Item' : 'Save Item'}
-                  </Button>
-                  {isEditing && (
-                    <Button variant="ghost" onClick={resetForm} className="bg-zinc-800 hover:bg-zinc-700 rounded-xl h-11 w-11 p-0">
-                      <X className="h-5 w-5" />
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Photo</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {formData.imageUrls.map((url, i) => (
+                        <div key={i} className="relative h-16 w-16 rounded-lg overflow-hidden border border-zinc-700 group">
+                          <Image src={url} alt="preview" fill className="object-cover" />
+                          <button type="button" onClick={() => setFormData(f => ({ ...f, imageUrls: f.imageUrls.filter((_, idx) => idx !== i) }))} className="absolute inset-0 bg-red-500/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4" /></button>
+                        </div>
+                      ))}
+                      <label className="h-16 w-16 flex flex-col items-center justify-center bg-zinc-800 border-2 border-dashed border-zinc-700 rounded-lg cursor-pointer hover:border-amber-500">
+                        {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5 text-zinc-500" />}
+                        <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'product')} />
+                      </label>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-4">
+                    <Button disabled={isSubmitting} type="submit" className="flex-grow bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold rounded-xl uppercase tracking-widest text-xs h-11">
+                      {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                      {isEditing ? 'Update Item' : 'Save Item'}
                     </Button>
-                  )}
-                </div>
+                    {isEditing && (
+                      <Button type="button" variant="ghost" onClick={resetForm} className="bg-zinc-800 hover:bg-zinc-700 rounded-xl h-11 w-11 p-0">
+                        <X className="h-5 w-5" />
+                      </Button>
+                    )}
+                  </div>
+                </form>
               </CardContent>
             </Card>
 
@@ -418,20 +443,18 @@ export default function AdminPage() {
                 <CardTitle className="text-lg font-bold text-amber-500">Categories</CardTitle>
               </CardHeader>
               <div className="space-y-6">
-                <div className="flex gap-3">
+                <form onSubmit={addCategory} className="flex gap-3">
                   <Input 
+                    required
                     placeholder="Category Name" 
                     value={newCategory.name} 
                     onChange={e => setNewCategory({ name: e.target.value })}
                     className="bg-zinc-800 border-zinc-700"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !isSubmitting) addCategory();
-                    }}
                   />
-                  <Button disabled={isSubmitting || !newCategory.name} onClick={addCategory} className="bg-amber-500 hover:bg-amber-600 text-zinc-950 rounded-xl font-bold px-6">
+                  <Button disabled={isSubmitting || !newCategory.name} type="submit" className="bg-amber-500 hover:bg-amber-600 text-zinc-950 rounded-xl font-bold px-6">
                     {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add'}
                   </Button>
-                </div>
+                </form>
                 <div className="grid gap-2">
                   {categories.map(cat => (
                     <div key={cat.id} className="flex items-center justify-between p-4 bg-zinc-800/50 border border-zinc-800 rounded-xl">
@@ -448,12 +471,12 @@ export default function AdminPage() {
             <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
               <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4 flex flex-row items-center justify-between">
                 <CardTitle className="text-lg font-bold text-amber-500">Global Visuals</CardTitle>
-                <Button disabled={isSubmitting} onClick={saveHeroSettings} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2">
+                <Button disabled={isSubmitting} onClick={(e) => saveHeroSettings(e)} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2">
                   {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save
                 </Button>
               </CardHeader>
-              <div className="space-y-6">
-                 <div className="grid md:grid-cols-2 gap-6 pt-4">
+              <div className="space-y-6 pt-4">
+                 <div className="grid md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold text-zinc-500 uppercase">Headline</Label>
                       <Input value={localHeroSettings?.bannerHeadline || ''} onChange={e => setLocalHeroSettings((p: any) => ({ ...p, bannerHeadline: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
@@ -497,7 +520,7 @@ export default function AdminPage() {
              <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
                 <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4 flex flex-row items-center justify-between">
                   <CardTitle className="text-lg font-bold text-amber-500">Contact Details</CardTitle>
-                  <Button disabled={isSubmitting} onClick={saveStoreSettings} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2">
+                  <Button disabled={isSubmitting} onClick={(e) => saveStoreSettings(e)} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2">
                     {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Sync Cloud
                   </Button>
                 </CardHeader>
