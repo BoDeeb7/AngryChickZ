@@ -17,7 +17,6 @@ export function Footer() {
   const db = useFirestore();
   const { toast } = useToast();
   const [review, setReview] = useState({ name: '', comment: '', rating: 5 });
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const storeSettingsRef = useMemo(() => db ? doc(db, 'settings', 'store') : null, [db]);
   const { data: storeSettings } = useDoc<StoreSettings>(storeSettingsRef);
@@ -30,12 +29,8 @@ export function Footer() {
 
   const handleReviewSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!db || !review.name || !review.comment) {
-      toast({ variant: "destructive", title: "Required", description: "Name and comment please." });
-      return;
-    }
+    if (!db || !review.name || !review.comment) return;
     
-    setIsSubmitting(true);
     const reviewData = {
       customerName: review.name.trim(),
       comment: review.comment.trim(),
@@ -43,21 +38,19 @@ export function Footer() {
       createdAt: serverTimestamp()
     };
 
-    addDoc(collection(db, 'reviews'), reviewData)
-      .then(() => {
-        setReview({ name: '', comment: '', rating: 5 });
-        toast({ title: "Sent", description: "Thanks for your feedback!" });
-      })
-      .catch((err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: 'reviews',
-          operation: 'create',
-          requestResourceData: reviewData
-        }));
-      })
-      .finally(() => {
-        setIsSubmitting(false);
-      });
+    const colRef = collection(db, 'reviews');
+    
+    // NON-BLOCKING MUTATION: UI resets immediately
+    addDoc(colRef, reviewData).catch(async (err) => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: 'reviews',
+        operation: 'create',
+        requestResourceData: reviewData
+      }));
+    });
+
+    toast({ title: "Sent!", description: "Thanks for your feedback." });
+    setReview({ name: '', comment: '', rating: 5 });
   };
 
   return (
@@ -131,8 +124,8 @@ export function Footer() {
                 onChange={e => setReview(r => ({ ...r, comment: e.target.value }))}
                 className="h-24 bg-background border-foreground/10 rounded-2xl text-[10px] font-black tracking-widest pt-5 text-foreground" 
               />
-              <Button disabled={isSubmitting} type="submit" className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground rounded-2xl text-[10px] font-black uppercase tracking-[0.3em]">
-                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : 'Submit'}
+              <Button type="submit" className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground rounded-2xl text-[10px] font-black uppercase tracking-[0.3em]">
+                Submit
               </Button>
             </form>
           </div>
