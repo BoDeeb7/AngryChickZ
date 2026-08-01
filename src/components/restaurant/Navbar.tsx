@@ -40,17 +40,17 @@ export function Navbar() {
     <>
       <nav className={`fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300 ${isScrolled ? 'py-2 px-4' : 'py-6 px-4 md:px-8'}`}>
         <div className={`container mx-auto max-w-5xl rounded-[2rem] px-6 py-3 flex items-center justify-between shadow-2xl transition-all duration-300 ${isScrolled ? 'glass-header shadow-lg' : 'bg-transparent'}`}>
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="relative h-10 w-10 flex items-center justify-center">
+          <Link href="/" className="flex items-center gap-4 group">
+            <div className="relative h-12 w-12 flex items-center justify-center">
               {storeSettings?.logo ? (
-                <Image src={storeSettings.logo} alt="Logo" fill className="object-contain" priority sizes="40px" />
+                <Image src={storeSettings.logo} alt="Logo" fill className="object-contain" priority sizes="48px" />
               ) : (
                 <div className="h-full w-full bg-amber-500/10 rounded-full flex items-center justify-center border border-amber-500/20">
-                   <span className="text-[10px] font-black text-amber-500 italic">AC</span>
+                   <span className="text-[12px] font-black text-amber-500 italic">AC</span>
                 </div>
               )}
             </div>
-            <span className="text-xl md:text-2xl font-black uppercase italic bg-gradient-to-r from-amber-400 to-red-600 bg-clip-text text-transparent">
+            <span className="text-2xl md:text-4xl font-black uppercase italic bg-gradient-to-r from-amber-400 to-red-600 bg-clip-text text-transparent tracking-tighter transition-all duration-300 group-hover:scale-105">
               ANGRY <span className="text-foreground">CHICKZ</span>
             </span>
           </Link>

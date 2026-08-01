@@ -10,7 +10,7 @@ import { doc } from 'firebase/firestore';
 export function Hero() {
   const db = useFirestore();
   const heroSettingsRef = useMemo(() => db ? doc(db, 'settings', 'hero') : null, [db]);
-  const { data: heroSettings, loading } = useDoc<any>(heroSettingsRef);
+  const { data: heroSettings } = useDoc<any>(heroSettingsRef);
 
   const scrollToMenu = () => {
     const menuSection = document.getElementById('menu');
@@ -55,7 +55,7 @@ export function Hero() {
             <Button size="lg" className="h-16 px-10 rounded-2xl bg-primary hover:bg-primary/90 text-white font-black uppercase italic text-lg shadow-xl transition-all active:scale-95" onClick={scrollToMenu}>
               Order Now <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
-            <Button size="lg" variant="outline" className="h-16 px-10 rounded-2xl border-white/20 text-white hover:bg-white/5 uppercase italic backdrop-blur-sm transition-all active:scale-95" onClick={scrollToMenu}>
+            <Button size="lg" variant="outline" className="h-16 px-10 rounded-2xl border-white/10 bg-white/10 text-white hover:bg-white/20 uppercase italic backdrop-blur-md transition-all active:scale-95 shadow-xl" onClick={scrollToMenu}>
               Explore Menu
             </Button>
           </div>
