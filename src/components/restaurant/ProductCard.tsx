@@ -24,14 +24,15 @@ export function ProductCard({ product }: { product: Product }) {
   const mainImage = product.imageUrls?.[0] || 'https://picsum.photos/seed/food/800/800';
 
   return (
-    <div className="group bg-zinc-900/90 border border-zinc-800/80 rounded-2xl p-4 flex flex-col h-full hover:border-zinc-700 transition-all duration-300 shadow-lg">
-      <div className="relative aspect-square rounded-xl overflow-hidden mb-4 bg-zinc-800">
+    <div className="group bg-zinc-900/90 border border-zinc-800/80 rounded-2xl p-4 flex flex-col h-full hover:border-zinc-700 transition-all duration-300 shadow-lg will-change-transform transform-gpu">
+      <div className="relative aspect-square rounded-xl overflow-hidden mb-4 bg-zinc-800 will-change-transform">
         <Image 
           src={mainImage} 
           alt={product.name} 
           fill 
           className="object-cover transition-transform duration-500 group-hover:scale-105"
-          sizes="(max-width: 768px) 50vw, 33vw"
+          sizes="(max-width: 768px) 45vw, (max-width: 1024px) 30vw, 20vw"
+          loading="lazy"
         />
         <div className="absolute top-2 left-2 flex flex-col gap-2 z-10">
           {product.badges?.slice(0, 1).map((badge, idx) => (
@@ -48,23 +49,23 @@ export function ProductCard({ product }: { product: Product }) {
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500 mb-1">
             {product.category.replace('-', ' ')}
           </span>
-          <h3 className="text-lg font-bold text-zinc-100 group-hover:text-amber-500 transition-colors leading-tight">
+          <h3 className="text-lg font-bold text-zinc-100 group-hover:text-amber-500 transition-colors leading-tight italic uppercase tracking-tighter">
             {product.name}
           </h3>
         </div>
         
-        <p className="text-xs text-zinc-400 line-clamp-2 mb-4 leading-relaxed">
+        <p className="text-xs text-zinc-400 line-clamp-2 mb-4 leading-relaxed font-medium">
           {product.description}
         </p>
         
         <div className="mt-auto flex items-center justify-between gap-4">
-          <span className="text-xl font-bold text-amber-400">
+          <span className="text-xl font-bold text-amber-400 italic">
             ${product.price.toFixed(2)}
           </span>
           <Button 
             onClick={handleAdd}
             size="sm"
-            className="h-10 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold transition-all gap-2"
+            className="h-10 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-zinc-950 font-black transition-all gap-2 active:scale-90"
           >
             <Plus className="h-4 w-4" /> Add
           </Button>

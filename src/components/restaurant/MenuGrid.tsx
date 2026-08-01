@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -14,9 +13,6 @@ export function MenuGrid() {
   const db = useFirestore();
   const [activeCategory, setActiveCategory] = useState('all');
   
-  /**
-   * STABLE QUERIES: Strictly memoized to prevent infinite loops.
-   */
   const productsQuery = useMemo(() => {
     if (!db) return null;
     return query(collection(db, 'products'), orderBy('createdAt', 'desc'));
@@ -50,13 +46,13 @@ export function MenuGrid() {
           </div>
 
           <div className="w-full max-w-4xl">
-            <div className="flex flex-row overflow-x-auto no-scrollbar gap-8 justify-start md:justify-center py-4 items-center px-4">
+            <div className="flex flex-row overflow-x-auto no-scrollbar gap-8 justify-start md:justify-center py-4 items-center px-4 -webkit-overflow-scrolling-touch">
               {displayCategories.map(cat => (
                 <button
                   key={cat.id}
                   onClick={() => setActiveCategory(cat.slug)}
                   className={cn(
-                    "relative text-[11px] md:text-[13px] font-bold uppercase tracking-[0.2em] transition-all duration-300 pb-2 whitespace-nowrap outline-none",
+                    "relative text-[11px] md:text-[13px] font-bold uppercase tracking-[0.2em] transition-all duration-300 pb-2 whitespace-nowrap outline-none active:opacity-70",
                     activeCategory === cat.slug 
                       ? "text-primary scale-105" 
                       : "text-zinc-500 hover:text-zinc-300"
@@ -76,22 +72,22 @@ export function MenuGrid() {
           <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-8">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
               <div key={i} className="space-y-4">
-                <Skeleton className="aspect-square w-full rounded-2xl bg-zinc-900" />
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-2/3 bg-zinc-900" />
-                  <Skeleton className="h-4 w-full bg-zinc-900" />
+                <Skeleton className="aspect-square w-full rounded-2xl bg-zinc-900/50" />
+                <div className="space-y-2 px-2">
+                  <Skeleton className="h-4 w-2/3 bg-zinc-900/50" />
+                  <Skeleton className="h-3 w-full bg-zinc-900/50" />
                 </div>
               </div>
             ))}
           </div>
         ) : filteredProducts.length > 0 ? (
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-8">
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-8 animate-in fade-in duration-500">
             {filteredProducts.map(product => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
         ) : (
-          <div className="text-center py-24 bg-zinc-900/50 rounded-3xl border border-dashed border-zinc-800">
+          <div className="text-center py-24 bg-zinc-900/50 rounded-[3rem] border border-dashed border-zinc-800">
             <Utensils className="h-16 w-16 mx-auto mb-6 text-zinc-800" />
             <h3 className="text-xl font-bold text-zinc-100 uppercase italic mb-2">Menu Coming Soon</h3>
             <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Elite heat is on the way.</p>
