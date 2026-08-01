@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Instagram, Facebook, Twitter, Phone, MapPin, ArrowUp, UtensilsCrossed, Star, Loader2 } from 'lucide-react';
+import { Instagram, Facebook, Phone, MapPin, ArrowUp, UtensilsCrossed, Star, Loader2, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,13 @@ import { useToast } from '@/hooks/use-toast';
 import { StoreSettings } from '@/types/restaurant';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+
+// Inline TikTok icon since lucide doesn't have it
+const TikTokIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1.04-.1z"/>
+  </svg>
+);
 
 export function Footer() {
   const db = useFirestore();
@@ -49,7 +56,6 @@ export function Footer() {
         }));
       });
 
-    // Instant unlock and reset
     setIsSubmitting(false);
     setReview({ name: '', comment: '', rating: 5 });
     toast({ title: "Sent!", description: "Thanks for your feedback." });
@@ -74,28 +80,47 @@ export function Footer() {
               Premium Fried Chicken. Ultra-Modern Experience.
             </p>
             <div className="flex gap-4">
-              {[
-                { Icon: Instagram, url: storeSettings?.instagram },
-                { Icon: Facebook, url: storeSettings?.facebook },
-                { Icon: Twitter, url: storeSettings?.tiktok }
-              ].map((social, idx) => (
-                <Link key={idx} href={social.url || '#'} className="h-12 w-12 rounded-2xl bg-foreground/5 border border-foreground/5 flex items-center justify-center hover:bg-primary transition-all duration-500 group">
-                  <social.Icon className="h-5 w-5 text-foreground/40 group-hover:text-primary-foreground" />
+              {storeSettings?.instagram && (
+                <Link href={storeSettings.instagram} target="_blank" className="h-12 w-12 rounded-2xl bg-foreground/5 border border-foreground/5 flex items-center justify-center hover:bg-primary transition-all duration-500 group">
+                  <Instagram className="h-5 w-5 text-foreground/40 group-hover:text-primary-foreground" />
                 </Link>
-              ))}
+              )}
+              {storeSettings?.facebook && (
+                <Link href={storeSettings.facebook} target="_blank" className="h-12 w-12 rounded-2xl bg-foreground/5 border border-foreground/5 flex items-center justify-center hover:bg-primary transition-all duration-500 group">
+                  <Facebook className="h-5 w-5 text-foreground/40 group-hover:text-primary-foreground" />
+                </Link>
+              )}
+              {storeSettings?.tiktok && (
+                <Link href={storeSettings.tiktok} target="_blank" className="h-12 w-12 rounded-2xl bg-foreground/5 border border-foreground/5 flex items-center justify-center hover:bg-primary transition-all duration-500 group">
+                  <TikTokIcon className="h-5 w-5 text-foreground/40 group-hover:text-primary-foreground" />
+                </Link>
+              )}
             </div>
           </div>
 
           <div>
-            <h4 className="text-[10px] font-black uppercase tracking-[0.5em] mb-12 text-primary">Location</h4>
-            <ul className="space-y-10 text-foreground/60">
+            <h4 className="text-[10px] font-black uppercase tracking-[0.5em] mb-12 text-primary">Contact Us</h4>
+            <ul className="space-y-8 text-foreground/60">
               <li className="flex gap-5">
                 <MapPin className="h-5 w-5 text-primary shrink-0" /> 
-                <span className="text-[10px] uppercase tracking-[0.3em] font-black leading-loose">{storeSettings?.address || 'City Center'}</span>
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-black text-foreground/20 uppercase tracking-widest mb-1">Our Location</span>
+                  <span className="text-[10px] uppercase tracking-[0.2em] font-black leading-relaxed">{storeSettings?.address || 'City Center, Lebanon'}</span>
+                </div>
               </li>
               <li className="flex items-center gap-5">
                 <Phone className="h-5 w-5 text-primary shrink-0" /> 
-                <span className="text-[10px] uppercase tracking-[0.3em] font-black">{storeSettings?.phone || 'Contact Support'}</span>
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-black text-foreground/20 uppercase tracking-widest mb-1">Support Line</span>
+                  <span className="text-[10px] uppercase tracking-[0.3em] font-black">{storeSettings?.phone || 'Contact Support'}</span>
+                </div>
+              </li>
+              <li className="flex items-center gap-5">
+                <MessageCircle className="h-5 w-5 text-green-500 shrink-0" /> 
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-black text-foreground/20 uppercase tracking-widest mb-1">Direct WhatsApp</span>
+                  <span className="text-[10px] uppercase tracking-[0.3em] font-black text-green-500">{storeSettings?.whatsappNumber || 'Live Order'}</span>
+                </div>
               </li>
             </ul>
           </div>

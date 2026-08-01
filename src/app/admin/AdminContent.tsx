@@ -14,6 +14,12 @@ import {
   MessageSquare,
   ShieldCheck,
   Upload,
+  Instagram,
+  Facebook,
+  Twitter,
+  MapPin,
+  Phone,
+  MessageCircle,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -142,7 +148,6 @@ export default function AdminContent() {
       }));
     });
 
-    // INSTANT UNLOCK
     setIsProductSaving(false);
     setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
     setIsEditing(null);
@@ -171,7 +176,6 @@ export default function AdminContent() {
       }));
     });
 
-    // INSTANT UNLOCK
     setIsCategoryAdding(false);
     setNewCategoryName('');
     toast({ title: "Created", description: "Category synchronized." });
@@ -188,7 +192,6 @@ export default function AdminContent() {
       }));
     });
 
-    // INSTANT UNLOCK
     setDeletingId(null);
     toast({ title: "Removed", description: "Item deleted from cloud." });
   };
@@ -207,7 +210,6 @@ export default function AdminContent() {
       }));
     });
 
-    // INSTANT UNLOCK
     setter(false);
     toast({ title: "Synced", description: `${target} settings updated.` });
   };
@@ -266,7 +268,7 @@ export default function AdminContent() {
             <TabTriggerStyled value="categories">Categories</TabTriggerStyled>
             <TabTriggerStyled value="reviews" icon={MessageSquare}>Reviews</TabTriggerStyled>
             <TabTriggerStyled value="visuals">Branding</TabTriggerStyled>
-            <TabTriggerStyled value="storeinfo">Contact</TabTriggerStyled>
+            <TabTriggerStyled value="storeinfo">Contact & Social</TabTriggerStyled>
           </TabsListStyled>
 
           <TabsContent value="products" className="grid lg:grid-cols-12 gap-8">
@@ -362,7 +364,6 @@ export default function AdminContent() {
             </div>
           </TabsContent>
 
-          {/* Other tabs content remains stable */}
           <TabsContent value="categories" className="max-w-xl mx-auto space-y-8">
             <Card className="bg-zinc-900 border-zinc-800 rounded-[2.5rem] p-10 shadow-2xl">
               <form onSubmit={addCategory} className="flex flex-col sm:flex-row gap-4 mb-8">
@@ -439,22 +440,57 @@ export default function AdminContent() {
             </Card>
           </TabsContent>
           
-          <TabsContent value="storeinfo" className="max-w-2xl mx-auto">
+          <TabsContent value="storeinfo" className="max-w-4xl mx-auto">
              <Card className="bg-zinc-900 border-zinc-800 rounded-[2.5rem] p-10 shadow-2xl">
                 <div className="flex justify-between items-center mb-10">
-                  <h3 className="text-xl font-black text-amber-500 uppercase italic tracking-tighter">Global Contact</h3>
+                  <h3 className="text-xl font-black text-amber-500 uppercase italic tracking-tighter">Global Store Settings</h3>
                   <Button disabled={isStoreSaving} onClick={() => saveSettings('store')} className="h-14 bg-amber-500 text-zinc-950 font-black rounded-2xl px-10 uppercase italic text-xs shadow-xl">
                     {isStoreSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Push Updates'}
                   </Button>
                 </div>
-                <div className="grid md:grid-cols-2 gap-8">
+                
+                <div className="grid md:grid-cols-2 gap-8 mb-12">
                   <div className="space-y-3">
-                    <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">WhatsApp Direct</Label>
-                    <Input value={localStoreSettings?.whatsappNumber || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, whatsappNumber: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-14 rounded-2xl font-bold" />
+                    <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                      <MessageCircle className="h-3 w-3" /> WhatsApp Number
+                    </Label>
+                    <Input placeholder="+961..." value={localStoreSettings?.whatsappNumber || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, whatsappNumber: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-14 rounded-2xl font-bold" />
                   </div>
                   <div className="space-y-3">
-                    <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Support Line</Label>
-                    <Input value={localStoreSettings?.phone || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, phone: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-14 rounded-2xl font-bold" />
+                    <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                      <Phone className="h-3 w-3" /> Support Phone
+                    </Label>
+                    <Input placeholder="01 123 456" value={localStoreSettings?.phone || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, phone: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-14 rounded-2xl font-bold" />
+                  </div>
+                  <div className="space-y-3 md:col-span-2">
+                    <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                      <MapPin className="h-3 w-3" /> Store Address
+                    </Label>
+                    <Input placeholder="Street, City, Country" value={localStoreSettings?.address || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, address: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-14 rounded-2xl font-bold" />
+                  </div>
+                </div>
+
+                <div className="space-y-8 border-t border-zinc-800 pt-10">
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Social Media Links</h4>
+                  <div className="grid md:grid-cols-3 gap-6">
+                    <div className="space-y-3">
+                      <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                        <Instagram className="h-3 w-3" /> Instagram URL
+                      </Label>
+                      <Input placeholder="https://instagram.com/..." value={localStoreSettings?.instagram || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, instagram: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl text-xs" />
+                    </div>
+                    <div className="space-y-3">
+                      <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                        <Facebook className="h-3 w-3" /> Facebook URL
+                      </Label>
+                      <Input placeholder="https://facebook.com/..." value={localStoreSettings?.facebook || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, facebook: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl text-xs" />
+                    </div>
+                    <div className="space-y-3">
+                      <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                        <Twitter className="h-3 w-3" /> TikTok URL
+                      </Label>
+                      <Input placeholder="https://tiktok.com/@..." value={localStoreSettings?.tiktok || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, tiktok: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl text-xs" />
+                    </div>
                   </div>
                 </div>
              </Card>
