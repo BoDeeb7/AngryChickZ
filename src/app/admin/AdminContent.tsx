@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Plus, 
@@ -18,7 +18,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/tabs-ui';
@@ -26,7 +25,6 @@ import { Product, Category, StoreSettings, Review } from '@/types/restaurant';
 import { useFirestore, useCollection, useDoc } from '@/firebase';
 import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 
-// Sub-components to keep code clean and manageable
 const TabsListStyled = ({ children }: { children: React.ReactNode }) => (
   <TabsList className="bg-zinc-900/50 border border-zinc-800 p-1.5 rounded-2xl h-auto w-full flex-wrap justify-start gap-1">
     {children}
@@ -44,14 +42,12 @@ export default function AdminContent() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   
-  // Independent loading states for each operation to prevent button locking
-  const [loadingStates, setLoadingStates] = useState({
-    products: false,
-    categories: false,
-    hero: false,
-    store: false,
-    deleting: null as string | null,
-  });
+  // Independent loading states
+  const [isProductSaving, setIsProductSaving] = useState(false);
+  const [isCategoryAdding, setIsCategoryAdding] = useState(false);
+  const [isHeroSaving, setIsHeroSaving] = useState(false);
+  const [isStoreSaving, setIsStoreSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const { toast } = useToast();
   const db = useFirestore();
@@ -94,14 +90,10 @@ export default function AdminContent() {
     }
   };
 
-  const setOpLoading = (key: keyof typeof loadingStates, val: any) => {
-    setLoadingStates(prev => ({ ...prev, [key]: val }));
-  };
-
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!db || loadingStates.products) return;
-    setOpLoading('products', true);
+    if (!db || isProductSaving) return;
+    setIsProductSaving(true);
 
     const productData = {
       ...formData,
@@ -121,14 +113,14 @@ export default function AdminContent() {
     } catch (err) {
       toast({ variant: 'destructive', title: "Error", description: "Save failed." });
     } finally {
-      setOpLoading('products', false);
+      setIsProductSaving(false);
     }
   };
 
   const addCategory = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCategoryName || !db || loadingStates.categories) return;
-    setOpLoading('categories', true);
+    if (!newCategoryName || !db || isCategoryAdding) return;
+    setIsCategoryAdding(true);
     
     const catData = { 
       name: newCategoryName.trim(), 
@@ -142,40 +134,33 @@ export default function AdminContent() {
     } catch (err) {
       toast({ variant: 'destructive', title: "Error", description: "Creation failed." });
     } finally {
-      setOpLoading('categories', false);
+      setIsCategoryAdding(false);
     }
   };
 
   const deleteItem = async (id: string, coll: string) => {
-    if (!db || loadingStates.deleting) return;
-    setOpLoading('deleting', id);
+    if (!db || deletingId) return;
+    setDeletingId(id);
     try {
       await deleteDoc(doc(db, coll, id));
       toast({ title: "Removed", description: "Item deleted." });
     } catch (err) {
       toast({ variant: 'destructive', title: "Error", description: "Delete failed." });
     } finally {
-      setOpLoading('deleting', null);
+      setDeletingId(null);
     }
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, reader.result as string] }));
-    reader.readAsDataURL(file);
   };
 
   const saveSettings = async (target: 'store' | 'hero') => {
     if (!db) return;
-    setOpLoading(target, true);
+    const setter = target === 'store' ? setIsStoreSaving : setIsHeroSaving;
+    setter(true);
     const data = target === 'store' ? localStoreSettings : localHeroSettings;
     try {
       await setDoc(doc(db, 'settings', target), data, { merge: true });
       toast({ title: "Synced", description: `${target} settings updated.` });
     } finally {
-      setOpLoading(target, false);
+      setter(false);
     }
   };
 
@@ -262,27 +247,9 @@ export default function AdminContent() {
                       </select>
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Image Content</Label>
-                    <div className="flex flex-wrap gap-3">
-                      {formData.imageUrls.map((url, i) => (
-                        <div key={i} className="relative h-16 w-16 rounded-xl overflow-hidden border border-zinc-700 group shadow-lg">
-                          <Image src={url} alt="p" fill className="object-cover" />
-                          <button type="button" onClick={() => setFormData(f => ({ ...f, imageUrls: f.imageUrls.filter((_, idx) => idx !== i) }))} className="absolute inset-0 bg-red-600/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><X className="h-5 w-5" /></button>
-                        </div>
-                      ))}
-                      <label className="h-16 w-16 flex items-center justify-center bg-zinc-800 border-2 border-dashed border-zinc-700 rounded-xl cursor-pointer hover:border-amber-500/50 transition-all">
-                        <Plus className="h-6 w-6 text-zinc-500" />
-                        <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
-                      </label>
-                    </div>
-                  </div>
-                  <Button disabled={loadingStates.products} type="submit" className="w-full h-14 bg-amber-500 text-zinc-950 font-black rounded-xl uppercase italic text-sm shadow-xl">
-                    {loadingStates.products ? <Loader2 className="h-5 w-5 animate-spin" /> : (isEditing ? 'Execute Sync' : 'Save Item')}
+                  <Button disabled={isProductSaving} type="submit" className="w-full h-14 bg-amber-500 text-zinc-950 font-black rounded-xl uppercase italic text-sm shadow-xl">
+                    {isProductSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : (isEditing ? 'Execute Sync' : 'Save Item')}
                   </Button>
-                  {isEditing && (
-                    <Button type="button" variant="ghost" onClick={() => { setIsEditing(null); setFormData({name:'', description:'', price:'', category:'', imageUrls:[], badges:[]}); }} className="w-full h-12 text-zinc-500 font-bold uppercase italic text-[10px]">Abandon Changes</Button>
-                  )}
                 </form>
               </CardContent>
             </Card>
@@ -290,17 +257,17 @@ export default function AdminContent() {
             <div className="lg:col-span-7 grid sm:grid-cols-2 gap-5">
               {products.map(p => (
                 <div key={p.id} className="bg-zinc-900 border border-zinc-800 p-5 rounded-[1.5rem] flex gap-5 items-center hover:bg-zinc-800/50 transition-all group shadow-xl">
-                  <div className="relative h-14 w-14 rounded-2xl overflow-hidden bg-zinc-800 flex-shrink-0 shadow-lg">
+                  <div className="relative h-14 w-14 rounded-2xl overflow-hidden bg-zinc-800 flex-shrink-0">
                     <Image src={p.imageUrls?.[0] || 'https://picsum.photos/seed/food/200/200'} alt={p.name} fill className="object-cover" />
                   </div>
                   <div className="flex-grow">
                     <h4 className="font-black text-xs uppercase tracking-tight italic">{p.name}</h4>
                     <span className="text-amber-500 text-[10px] font-black">${p.price.toFixed(2)}</span>
                   </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => { setIsEditing(p.id); setFormData({ ...p, price: p.price.toString() }); }} className="p-2.5 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-700"><Edit2 className="h-4 w-4" /></button>
-                    <button disabled={loadingStates.deleting === p.id} onClick={() => deleteItem(p.id, 'products')} className="p-2.5 rounded-lg text-zinc-500 hover:text-red-500 hover:bg-red-500/10">
-                      {loadingStates.deleting === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  <div className="flex gap-1">
+                    <button onClick={() => { setIsEditing(p.id); setFormData({ ...p, price: p.price.toString() }); }} className="p-2.5 rounded-lg text-zinc-500 hover:text-white"><Edit2 className="h-4 w-4" /></button>
+                    <button disabled={deletingId === p.id} onClick={() => deleteItem(p.id, 'products')} className="p-2.5 rounded-lg text-zinc-500 hover:text-red-500">
+                      {deletingId === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                     </button>
                   </div>
                 </div>
@@ -312,16 +279,16 @@ export default function AdminContent() {
             <Card className="bg-zinc-900 border-zinc-800 rounded-[2rem] p-10 shadow-2xl">
               <form onSubmit={addCategory} className="flex flex-col sm:flex-row gap-4 mb-8">
                 <Input required placeholder="Category Identity" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} className="bg-zinc-800 border-zinc-700 h-14 rounded-2xl flex-grow font-bold" />
-                <Button disabled={loadingStates.categories} type="submit" className="bg-amber-500 text-zinc-950 rounded-2xl font-black px-10 h-14 uppercase italic text-xs shadow-xl">
-                  {loadingStates.categories ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Create'}
+                <Button disabled={isCategoryAdding} type="submit" className="bg-amber-500 text-zinc-950 rounded-2xl font-black px-10 h-14 uppercase italic text-xs shadow-xl">
+                  {isCategoryAdding ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Create'}
                 </Button>
               </form>
               <div className="grid gap-3">
                 {categories.map(cat => (
-                  <div key={cat.id} className="flex items-center justify-between p-5 bg-zinc-800/50 border border-zinc-800 rounded-2xl hover:border-amber-500/30 transition-all">
+                  <div key={cat.id} className="flex items-center justify-between p-5 bg-zinc-800/50 border border-zinc-800 rounded-2xl">
                     <span className="font-black text-[10px] uppercase tracking-[0.2em] italic text-zinc-300">{cat.name}</span>
-                    <button disabled={loadingStates.deleting === cat.id} onClick={() => deleteItem(cat.id, 'categories')} className="h-10 w-10 flex items-center justify-center rounded-xl text-zinc-600 hover:text-red-500 hover:bg-red-500/10 transition-all">
-                       {loadingStates.deleting === cat.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    <button disabled={deletingId === cat.id} onClick={() => deleteItem(cat.id, 'categories')} className="h-10 w-10 flex items-center justify-center rounded-xl text-zinc-600 hover:text-red-500">
+                       {deletingId === cat.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                     </button>
                   </div>
                 ))}
@@ -345,26 +312,21 @@ export default function AdminContent() {
                             {[1,2,3,4,5].map(i => <Star key={i} className={`h-3 w-3 ${i <= rev.rating ? 'fill-amber-500 text-amber-500' : 'text-zinc-700'}`} />)}
                           </div>
                         </div>
-                        <p className="text-zinc-400 text-sm italic font-medium leading-relaxed">"{rev.comment}"</p>
+                        <p className="text-zinc-400 text-sm italic font-medium">"{rev.comment}"</p>
                       </div>
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        disabled={loadingStates.deleting === rev.id}
+                        disabled={deletingId === rev.id}
                         onClick={() => deleteItem(rev.id!, 'reviews')}
-                        className="h-12 w-12 rounded-xl text-zinc-700 hover:text-red-500 hover:bg-red-500/10"
+                        className="h-12 w-12 rounded-xl text-zinc-700 hover:text-red-500"
                       >
-                        {loadingStates.deleting === rev.id ? <Loader2 className="h-5 w-5 animate-spin" /> : <Trash2 className="h-5 w-5" />}
+                        {deletingId === rev.id ? <Loader2 className="h-5 w-5 animate-spin" /> : <Trash2 className="h-5 w-5" />}
                       </Button>
                     </div>
                   </CardContent>
                 </Card>
               ))}
-              {reviews.length === 0 && (
-                <div className="text-center py-32 bg-zinc-900/30 rounded-[2.5rem] border-2 border-dashed border-zinc-800">
-                  <p className="text-zinc-600 uppercase text-[10px] font-black tracking-[0.4em]">Awaiting Customer Feedback</p>
-                </div>
-              )}
             </div>
           </TabsContent>
 
@@ -372,8 +334,8 @@ export default function AdminContent() {
             <Card className="bg-zinc-900 border-zinc-800 rounded-[2rem] p-10 shadow-2xl">
               <div className="flex justify-between items-center mb-10">
                 <h3 className="text-xl font-black text-amber-500 uppercase italic tracking-tighter">Visual Override</h3>
-                <Button disabled={loadingStates.hero} onClick={() => saveSettings('hero')} className="h-14 bg-amber-500 text-zinc-950 font-black rounded-2xl px-10 uppercase italic text-xs shadow-xl">
-                  {loadingStates.hero ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Sync Global'}
+                <Button disabled={isHeroSaving} onClick={() => saveSettings('hero')} className="h-14 bg-amber-500 text-zinc-950 font-black rounded-2xl px-10 uppercase italic text-xs shadow-xl">
+                  {isHeroSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Sync Global'}
                 </Button>
               </div>
               <div className="grid md:grid-cols-2 gap-8">
@@ -393,8 +355,8 @@ export default function AdminContent() {
              <Card className="bg-zinc-900 border-zinc-800 rounded-[2rem] p-10 shadow-2xl">
                 <div className="flex justify-between items-center mb-10">
                   <h3 className="text-xl font-black text-amber-500 uppercase italic tracking-tighter">Global Contact</h3>
-                  <Button disabled={loadingStates.store} onClick={() => saveSettings('store')} className="h-14 bg-amber-500 text-zinc-950 font-black rounded-2xl px-10 uppercase italic text-xs shadow-xl">
-                    {loadingStates.store ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Push Updates'}
+                  <Button disabled={isStoreSaving} onClick={() => saveSettings('store')} className="h-14 bg-amber-500 text-zinc-950 font-black rounded-2xl px-10 uppercase italic text-xs shadow-xl">
+                    {isStoreSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Push Updates'}
                   </Button>
                 </div>
                 <div className="grid md:grid-cols-2 gap-8">
@@ -405,10 +367,6 @@ export default function AdminContent() {
                   <div className="space-y-3">
                     <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Support Line</Label>
                     <Input value={localStoreSettings?.phone || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, phone: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-14 rounded-2xl font-bold" />
-                  </div>
-                  <div className="md:col-span-2 space-y-3">
-                    <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Physical Hub Address</Label>
-                    <Input value={localStoreSettings?.address || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, address: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-14 rounded-2xl font-bold" />
                   </div>
                 </div>
              </Card>

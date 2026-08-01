@@ -4,18 +4,13 @@ import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Trophy } from 'lucide-react';
 import Image from 'next/image';
-import { useFirestore, useCollection, useDoc } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
-import { Review } from '@/types/restaurant';
+import { useFirestore, useDoc } from '@/firebase';
+import { doc } from 'firebase/firestore';
 
 export function Hero() {
   const db = useFirestore();
-
-  const reviewsRef = useMemo(() => db ? collection(db, 'reviews') : null, [db]);
-  const { data: reviews = [] } = useCollection<Review>(reviewsRef);
-  
   const heroSettingsRef = useMemo(() => db ? doc(db, 'settings', 'hero') : null, [db]);
-  const { data: heroSettings } = useDoc<any>(heroSettingsRef);
+  const { data: heroSettings, loading } = useDoc<any>(heroSettingsRef);
 
   const scrollToMenu = () => {
     const menuSection = document.getElementById('menu');
@@ -26,22 +21,23 @@ export function Hero() {
   const bannerImage = heroSettings?.bannerImage || bgImage;
 
   return (
-    <section className="relative min-h-[70vh] md:min-h-screen flex items-center pt-24 pb-20 overflow-hidden w-full">
+    <section className="relative min-h-[85vh] flex items-center pt-20 pb-20 overflow-hidden w-full bg-zinc-950">
+      {/* Background with optimized loading */}
       <div className="absolute inset-0 z-0">
         <Image 
           src={bgImage} 
-          alt="Gourmet Feast Background" 
+          alt="Background" 
           fill 
-          className="object-cover opacity-30 md:opacity-50"
+          className="object-cover opacity-40 md:opacity-50 animate-gpu"
           priority
           sizes="100vw"
-          quality={75}
+          quality={60}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/90 via-black/40 to-background" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/40 to-background" />
       </div>
       
       <div className="container mx-auto px-6 grid lg:grid-cols-2 gap-12 items-center relative z-10 w-full">
-        <div className="space-y-6 animate-in fade-in duration-700">
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-5 duration-700">
           <div className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full bg-black/50 border border-amber-500/20 text-amber-500 font-black text-[10px] uppercase tracking-widest backdrop-blur-sm">
             <Trophy className="h-3 w-3" /> Global Heat Record
           </div>
@@ -56,7 +52,7 @@ export function Hero() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 pt-4">
-            <Button size="lg" className="h-16 px-10 rounded-2xl bg-primary hover:bg-primary/90 text-white font-black uppercase italic text-lg shadow-[0_10px_30px_-10px_rgba(225,29,72,0.5)] transition-all active:scale-95" onClick={scrollToMenu}>
+            <Button size="lg" className="h-16 px-10 rounded-2xl bg-primary hover:bg-primary/90 text-white font-black uppercase italic text-lg shadow-xl transition-all active:scale-95" onClick={scrollToMenu}>
               Order Now <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
             <Button size="lg" variant="outline" className="h-16 px-10 rounded-2xl border-white/20 text-white hover:bg-white/5 uppercase italic backdrop-blur-sm transition-all active:scale-95" onClick={scrollToMenu}>
@@ -65,16 +61,16 @@ export function Hero() {
           </div>
         </div>
 
-        <div className="relative hidden lg:flex justify-center items-center w-full will-change-transform">
-          <div className="relative w-full max-w-[500px] aspect-square transform hover:scale-105 transition-transform duration-700">
+        <div className="relative hidden lg:flex justify-center items-center w-full">
+          <div className="relative w-full max-w-[500px] aspect-square animate-in zoom-in duration-1000">
             <Image 
               src={bannerImage} 
-              alt="Angry ChickZ Featured Promo" 
+              alt="Promo" 
               fill 
-              className="object-contain"
+              className="object-contain drop-shadow-2xl animate-gpu"
               priority
               sizes="(max-width: 1024px) 0vw, 500px"
-              quality={85}
+              quality={80}
             />
           </div>
         </div>

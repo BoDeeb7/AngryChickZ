@@ -38,7 +38,7 @@ export function MenuGrid() {
 
   return (
     <section id="menu" className="py-16 md:py-32 relative w-full overflow-hidden bg-zinc-950">
-      <div className="container mx-auto px-4 md:px-6 relative z-10 w-full max-w-full">
+      <div className="container mx-auto px-4 md:px-6 relative z-10 w-full">
         <div className="flex flex-col items-center text-center mb-12 md:mb-20 gap-8">
           <div className="space-y-3">
             <span className="text-primary font-bold uppercase tracking-[0.4em] text-[10px] block">Premium Selection</span>
@@ -52,7 +52,7 @@ export function MenuGrid() {
                   key={cat.id}
                   onClick={() => setActiveCategory(cat.slug)}
                   className={cn(
-                    "relative text-[11px] md:text-[13px] font-bold uppercase tracking-[0.2em] transition-all duration-300 pb-2 whitespace-nowrap outline-none active:opacity-70",
+                    "relative text-[11px] md:text-[13px] font-bold uppercase tracking-[0.2em] transition-all duration-300 pb-2 whitespace-nowrap outline-none animate-gpu",
                     activeCategory === cat.slug 
                       ? "text-primary scale-105" 
                       : "text-zinc-500 hover:text-zinc-300"
@@ -69,25 +69,25 @@ export function MenuGrid() {
         </div>
 
         {productsLoading ? (
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
               <div key={i} className="space-y-4">
-                <Skeleton className="aspect-square w-full rounded-2xl bg-zinc-900/50" />
+                <Skeleton className="aspect-square w-full rounded-2xl bg-zinc-900/40" />
                 <div className="space-y-2 px-2">
-                  <Skeleton className="h-4 w-2/3 bg-zinc-900/50" />
-                  <Skeleton className="h-3 w-full bg-zinc-900/50" />
+                  <Skeleton className="h-4 w-2/3 bg-zinc-900/40" />
+                  <Skeleton className="h-3 w-full bg-zinc-900/40" />
                 </div>
               </div>
             ))}
           </div>
         ) : filteredProducts.length > 0 ? (
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-8 animate-in fade-in duration-500">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8 animate-in fade-in duration-500">
             {filteredProducts.map(product => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
         ) : (
-          <div className="text-center py-24 bg-zinc-900/50 rounded-[3rem] border border-dashed border-zinc-800">
+          <div className="text-center py-24 bg-zinc-900/30 rounded-[3rem] border border-dashed border-zinc-800">
             <Utensils className="h-16 w-16 mx-auto mb-6 text-zinc-800" />
             <h3 className="text-xl font-bold text-zinc-100 uppercase italic mb-2">Menu Coming Soon</h3>
             <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Elite heat is on the way.</p>
