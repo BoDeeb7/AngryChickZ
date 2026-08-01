@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useFirestore, useCollection } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { Product, Category } from '@/types/restaurant';
@@ -12,7 +12,20 @@ import { Skeleton } from '@/components/ui/skeleton';
 export function MenuGrid() {
   const db = useFirestore();
   const [activeCategory, setActiveCategory] = useState('all');
+  const [cachedProducts, setCachedProducts] = useState<Product[]>([]);
   
+  // Load cache immediately on mount to prevent skeletons
+  useEffect(() => {
+    const saved = localStorage.getItem('angry_chickz_menu_cache');
+    if (saved) {
+      try {
+        setCachedProducts(JSON.parse(saved));
+      } catch (e) {
+        console.error('Cache load error', e);
+      }
+    }
+  }, []);
+
   const productsQuery = useMemo(() => {
     if (!db) return null;
     return query(collection(db, 'products'), orderBy('createdAt', 'desc'));
@@ -26,19 +39,30 @@ export function MenuGrid() {
   const { data: products = [], loading: productsLoading } = useCollection<Product>(productsQuery);
   const { data: categories = [] } = useCollection<Category>(categoriesRef);
 
+  // Sync products to cache when they arrive
+  useEffect(() => {
+    if (products.length > 0) {
+      setCachedProducts(products);
+      localStorage.setItem('angry_chickz_menu_cache', JSON.stringify(products));
+    }
+  }, [products]);
+
   const displayCategories = useMemo(() => {
     const base = [{ id: 'all', name: 'All Dishes', slug: 'all' }];
     return [...base, ...categories];
   }, [categories]);
 
+  // Use cached products if live data is still loading
+  const effectiveProducts = products.length > 0 ? products : cachedProducts;
+
   const filteredProducts = useMemo(() => {
-    if (activeCategory === 'all') return products;
-    return products.filter(p => p.category === activeCategory);
-  }, [products, activeCategory]);
+    if (activeCategory === 'all') return effectiveProducts;
+    return effectiveProducts.filter(p => p.category === activeCategory);
+  }, [effectiveProducts, activeCategory]);
 
   return (
     <section id="menu" className="py-16 md:py-32 relative w-full overflow-hidden bg-zinc-950">
-      <div className="container mx-auto px-4 md:px-6 relative z-10 w-full">
+      <div className="container mx-auto px-4 md:px-6 relative z-10 w-full animate-gpu">
         <div className="flex flex-col items-center text-center mb-12 md:mb-20 gap-8">
           <div className="space-y-3">
             <span className="text-primary font-bold uppercase tracking-[0.4em] text-[10px] block">Premium Selection</span>
@@ -68,9 +92,9 @@ export function MenuGrid() {
           </div>
         </div>
 
-        {productsLoading ? (
+        {productsLoading && effectiveProducts.length === 0 ? (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8">
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+            {[1, 2, 3, 4].map((i) => (
               <div key={i} className="space-y-4">
                 <Skeleton className="aspect-square w-full rounded-2xl bg-zinc-900/40" />
                 <div className="space-y-2 px-2">
@@ -81,7 +105,7 @@ export function MenuGrid() {
             ))}
           </div>
         ) : filteredProducts.length > 0 ? (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8 animate-in fade-in duration-500">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8 animate-in fade-in slide-in-from-bottom-5 duration-500 will-change-transform">
             {filteredProducts.map(product => (
               <ProductCard key={product.id} product={product} />
             ))}

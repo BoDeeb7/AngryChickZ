@@ -14,7 +14,6 @@ import {
   MessageSquare,
   ShieldCheck,
   Upload,
-  Image as ImageIconLucide
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -104,21 +103,22 @@ export default function AdminContent() {
     setIsImageUploading(true);
     const storageRef = ref(storage, `products/${Date.now()}-${file.name}`);
 
-    try {
-      const snapshot = await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(snapshot.ref);
-      setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, url] }));
-      toast({ title: "Image Uploaded", description: "File is ready for production." });
-    } catch (error) {
-      toast({ variant: "destructive", title: "Upload Failed", description: "Could not process image file." });
-    } finally {
-      setIsImageUploading(false);
-    }
+    uploadBytes(storageRef, file)
+      .then(async (snapshot) => {
+        const url = await getDownloadURL(snapshot.ref);
+        setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, url] }));
+        setIsImageUploading(false);
+        toast({ title: "Image Uploaded", description: "File is ready for production." });
+      })
+      .catch((error) => {
+        setIsImageUploading(false);
+        toast({ variant: "destructive", title: "Upload Failed", description: "Could not process image file." });
+      });
   };
 
   const handleSaveProduct = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!db || isProductSaving) return;
+    if (!db) return;
     setIsProductSaving(true);
 
     const productData = {
@@ -142,7 +142,7 @@ export default function AdminContent() {
       }));
     });
 
-    // Instant reset & unlock
+    // INSTANT UNLOCK
     setIsProductSaving(false);
     setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
     setIsEditing(null);
@@ -155,7 +155,7 @@ export default function AdminContent() {
 
   const addCategory = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCategoryName || !db || isCategoryAdding) return;
+    if (!newCategoryName || !db) return;
     setIsCategoryAdding(true);
     
     const catData = { 
@@ -171,13 +171,14 @@ export default function AdminContent() {
       }));
     });
 
+    // INSTANT UNLOCK
     setIsCategoryAdding(false);
     setNewCategoryName('');
     toast({ title: "Created", description: "Category synchronized." });
   };
 
   const deleteItem = (id: string, coll: string) => {
-    if (!db || deletingId) return;
+    if (!db) return;
     setDeletingId(id);
 
     deleteDoc(doc(db, coll, id)).catch(async (err) => {
@@ -187,6 +188,7 @@ export default function AdminContent() {
       }));
     });
 
+    // INSTANT UNLOCK
     setDeletingId(null);
     toast({ title: "Removed", description: "Item deleted from cloud." });
   };
@@ -205,6 +207,7 @@ export default function AdminContent() {
       }));
     });
 
+    // INSTANT UNLOCK
     setter(false);
     toast({ title: "Synced", description: `${target} settings updated.` });
   };
@@ -359,6 +362,7 @@ export default function AdminContent() {
             </div>
           </TabsContent>
 
+          {/* Other tabs content remains stable */}
           <TabsContent value="categories" className="max-w-xl mx-auto space-y-8">
             <Card className="bg-zinc-900 border-zinc-800 rounded-[2.5rem] p-10 shadow-2xl">
               <form onSubmit={addCategory} className="flex flex-col sm:flex-row gap-4 mb-8">
