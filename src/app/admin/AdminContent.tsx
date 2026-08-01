@@ -16,7 +16,6 @@ import {
   Upload,
   Instagram,
   Facebook,
-  Twitter,
   MapPin,
   Phone,
   MessageCircle,
@@ -114,11 +113,11 @@ export default function AdminContent() {
         const url = await getDownloadURL(snapshot.ref);
         setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, url] }));
         setIsImageUploading(false);
-        toast({ title: "Image Uploaded", description: "File is ready for production." });
+        toast({ title: "Image Ready", description: "Photo added to the list." });
       })
       .catch((error) => {
         setIsImageUploading(false);
-        toast({ variant: "destructive", title: "Upload Failed", description: "Could not process image file." });
+        toast({ variant: "destructive", title: "Upload Error", description: "Failed to upload file." });
       });
   };
 
@@ -129,34 +128,33 @@ export default function AdminContent() {
 
     const productData = {
       ...formData,
-      price: parseFloat(formData.price),
+      price: parseFloat(formData.price || '0'),
       createdAt: isEditing ? (products.find(p => p.id === isEditing)?.createdAt || serverTimestamp()) : serverTimestamp()
     };
 
     const docRef = isEditing ? doc(db, 'products', isEditing) : null;
     const collRef = collection(db, 'products');
 
-    const operation = isEditing 
-      ? setDoc(docRef!, productData, { merge: true })
-      : addDoc(collRef, productData);
-
-    operation
-      .finally(() => setIsProductSaving(false))
-      .catch(async (err) => {
+    // Initiate write and UNLOCK UI IMMEDIATELY
+    if (isEditing && docRef) {
+      setDoc(docRef, productData, { merge: true }).catch(err => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: isEditing ? `products/${isEditing}` : 'products',
-          operation: isEditing ? 'update' : 'create',
-          requestResourceData: productData
+          path: `products/${isEditing}`, operation: 'update', requestResourceData: productData
         }));
       });
+    } else {
+      addDoc(collRef, productData).catch(err => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: 'products', operation: 'create', requestResourceData: productData
+        }));
+      });
+    }
 
+    // Reset state instantly to avoid infinite loading
+    setIsProductSaving(false);
     setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
     setIsEditing(null);
-    toast({ title: "Success", description: "Menu updated globally." });
-  };
-
-  const removeImage = (index: number) => {
-    setFormData(prev => ({ ...prev, imageUrls: prev.imageUrls.filter((_, i) => i !== index) }));
+    toast({ title: "Sync Successful", description: "Database updated globally." });
   };
 
   const addCategory = (e: React.FormEvent) => {
@@ -169,34 +167,29 @@ export default function AdminContent() {
       slug: newCategoryName.toLowerCase().trim().replace(/\s+/g, '-') 
     };
 
-    addDoc(collection(db, 'categories'), catData)
-      .finally(() => setIsCategoryAdding(false))
-      .catch(async (err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: 'categories',
-          operation: 'create',
-          requestResourceData: catData
-        }));
-      });
+    addDoc(collection(db, 'categories'), catData).catch(err => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: 'categories', operation: 'create', requestResourceData: catData
+      }));
+    });
 
+    setIsCategoryAdding(false);
     setNewCategoryName('');
-    toast({ title: "Created", description: "Category synchronized." });
+    toast({ title: "Category Created", description: "System synchronized." });
   };
 
   const deleteItem = (id: string, coll: string) => {
     if (!db) return;
     setDeletingId(id);
 
-    deleteDoc(doc(db, coll, id))
-      .finally(() => setDeletingId(null))
-      .catch(async (err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: `${coll}/${id}`,
-          operation: 'delete'
-        }));
-      });
+    deleteDoc(doc(db, coll, id)).catch(err => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: `${coll}/${id}`, operation: 'delete'
+      }));
+    });
 
-    toast({ title: "Removed", description: "Item deleted from cloud." });
+    setDeletingId(null);
+    toast({ title: "Action Complete", description: "Item removed from cloud." });
   };
 
   const saveSettings = (target: 'store' | 'hero') => {
@@ -205,17 +198,18 @@ export default function AdminContent() {
     setter(true);
     const data = target === 'store' ? localStoreSettings : localHeroSettings;
     
-    setDoc(doc(db, 'settings', target), data, { merge: true })
-      .finally(() => setter(false))
-      .catch(async (err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: `settings/${target}`,
-          operation: 'update',
-          requestResourceData: data
-        }));
-      });
+    setDoc(doc(db, 'settings', target), data, { merge: true }).catch(err => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: `settings/${target}`, operation: 'update', requestResourceData: data
+      }));
+    });
 
-    toast({ title: "Synced", description: `${target} settings updated.` });
+    setter(false);
+    toast({ title: "Settings Updated", description: "Configuration pushed to production." });
+  };
+
+  const removeImage = (index: number) => {
+    setFormData(prev => ({ ...prev, imageUrls: prev.imageUrls.filter((_, i) => i !== index) }));
   };
 
   if (!isAuthenticated) {
@@ -303,7 +297,7 @@ export default function AdminContent() {
                   </div>
 
                   <div className="space-y-3">
-                    <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Upload Dish Images</Label>
+                    <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Product Media</Label>
                     <div 
                       onClick={() => fileInputRef.current?.click()}
                       className="border-2 border-dashed border-zinc-700 rounded-2xl p-6 flex flex-col items-center justify-center bg-zinc-800/50 cursor-pointer hover:bg-zinc-800 hover:border-amber-500 transition-all group"
@@ -320,7 +314,7 @@ export default function AdminContent() {
                       ) : (
                         <>
                           <Upload className="h-8 w-8 text-zinc-500 group-hover:text-amber-500 mb-2" />
-                          <span className="text-[10px] font-black uppercase text-zinc-500 group-hover:text-zinc-300">Choose from Device</span>
+                          <span className="text-[10px] font-black uppercase text-zinc-500 group-hover:text-zinc-300">Upload Photo</span>
                         </>
                       )}
                     </div>
@@ -341,7 +335,7 @@ export default function AdminContent() {
                   </div>
 
                   <Button disabled={isProductSaving || isImageUploading} type="submit" className="w-full h-14 bg-amber-500 text-zinc-950 font-black rounded-xl uppercase italic text-sm shadow-xl">
-                    {isProductSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : (isEditing ? 'Execute Sync' : 'Save Item')}
+                    {isProductSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : (isEditing ? 'Sync Changes' : 'Save Item')}
                   </Button>
                 </form>
               </CardContent>
@@ -349,7 +343,7 @@ export default function AdminContent() {
 
             <div className="lg:col-span-7 grid sm:grid-cols-2 gap-5">
               {products.map(p => (
-                <div key={p.id} className="bg-zinc-900 border border-zinc-800 p-5 rounded-[2rem] flex gap-5 items-center hover:bg-zinc-800/50 transition-all group shadow-xl will-change-transform transform-gpu">
+                <div key={p.id} className="bg-zinc-900 border border-zinc-800 p-5 rounded-[2rem] flex gap-5 items-center hover:bg-zinc-800/50 transition-all group shadow-xl transform-gpu">
                   <div className="relative h-14 w-14 rounded-2xl overflow-hidden bg-zinc-800 flex-shrink-0">
                     <Image src={p.imageUrls?.[0] || 'https://picsum.photos/seed/food/200/200'} alt={p.name} fill className="object-cover" />
                   </div>
@@ -391,7 +385,7 @@ export default function AdminContent() {
 
           <TabsContent value="reviews" className="max-w-4xl mx-auto space-y-6">
             <h2 className="text-xl font-black text-amber-500 uppercase italic mb-8 flex items-center gap-4">
-              <Star className="h-6 w-6 fill-amber-500 text-amber-500" /> Sentiment Analysis
+              <Star className="h-6 w-6 fill-amber-500 text-amber-500" /> Customer Reviews
             </h2>
             <div className="grid gap-5">
               {reviews.map(rev => (
@@ -407,13 +401,7 @@ export default function AdminContent() {
                         </div>
                         <p className="text-zinc-400 text-sm italic font-medium">"{rev.comment}"</p>
                       </div>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        disabled={deletingId === rev.id}
-                        onClick={() => deleteItem(rev.id!, 'reviews')}
-                        className="h-12 w-12 rounded-xl text-zinc-700 hover:text-red-500"
-                      >
+                      <Button variant="ghost" size="icon" disabled={deletingId === rev.id} onClick={() => deleteItem(rev.id!, 'reviews')} className="h-12 w-12 rounded-xl text-zinc-700 hover:text-red-500">
                         {deletingId === rev.id ? <Loader2 className="h-5 w-5 animate-spin" /> : <Trash2 className="h-5 w-5" />}
                       </Button>
                     </div>
@@ -426,18 +414,18 @@ export default function AdminContent() {
           <TabsContent value="visuals" className="max-w-4xl mx-auto space-y-8">
             <Card className="bg-zinc-900 border-zinc-800 rounded-[2.5rem] p-10 shadow-2xl">
               <div className="flex justify-between items-center mb-10">
-                <h3 className="text-xl font-black text-amber-500 uppercase italic tracking-tighter">Visual Override</h3>
+                <h3 className="text-xl font-black text-amber-500 uppercase italic tracking-tighter">Hero Identity</h3>
                 <Button disabled={isHeroSaving} onClick={() => saveSettings('hero')} className="h-14 bg-amber-500 text-zinc-950 font-black rounded-2xl px-10 uppercase italic text-xs shadow-xl">
-                  {isHeroSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Sync Global'}
+                  {isHeroSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Save Hero'}
                 </Button>
               </div>
               <div className="grid md:grid-cols-2 gap-8">
                 <div className="space-y-3">
-                  <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Master Headline</Label>
+                  <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Main Headline</Label>
                   <Input value={localHeroSettings?.bannerHeadline || ''} onChange={e => setLocalHeroSettings((p: any) => ({ ...p, bannerHeadline: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-14 rounded-2xl font-bold" />
                 </div>
                 <div className="space-y-3">
-                  <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Sub-Text Content</Label>
+                  <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Sub-Text</Label>
                   <Input value={localHeroSettings?.bannerText || ''} onChange={e => setLocalHeroSettings((p: any) => ({ ...p, bannerText: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-14 rounded-2xl font-bold" />
                 </div>
               </div>
@@ -447,53 +435,53 @@ export default function AdminContent() {
           <TabsContent value="storeinfo" className="max-w-4xl mx-auto">
              <Card className="bg-zinc-900 border-zinc-800 rounded-[2.5rem] p-10 shadow-2xl">
                 <div className="flex justify-between items-center mb-10">
-                  <h3 className="text-xl font-black text-amber-500 uppercase italic tracking-tighter">Global Store Settings</h3>
+                  <h3 className="text-xl font-black text-amber-500 uppercase italic tracking-tighter">Contact Config</h3>
                   <Button disabled={isStoreSaving} onClick={() => saveSettings('store')} className="h-14 bg-amber-500 text-zinc-950 font-black rounded-2xl px-10 uppercase italic text-xs shadow-xl">
-                    {isStoreSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Push Updates'}
+                    {isStoreSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Update Info'}
                   </Button>
                 </div>
                 
                 <div className="grid md:grid-cols-2 gap-8 mb-12">
                   <div className="space-y-3">
                     <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
-                      <MessageCircle className="h-3 w-3" /> WhatsApp Number
+                      <MessageCircle className="h-3 w-3" /> WhatsApp
                     </Label>
                     <Input placeholder="+961..." value={localStoreSettings?.whatsappNumber || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, whatsappNumber: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-14 rounded-2xl font-bold" />
                   </div>
                   <div className="space-y-3">
                     <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
-                      <Phone className="h-3 w-3" /> Support Phone
+                      <Phone className="h-3 w-3" /> Phone
                     </Label>
                     <Input placeholder="01 123 456" value={localStoreSettings?.phone || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, phone: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-14 rounded-2xl font-bold" />
                   </div>
                   <div className="space-y-3 md:col-span-2">
                     <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
-                      <MapPin className="h-3 w-3" /> Store Address
+                      <MapPin className="h-3 w-3" /> Address
                     </Label>
-                    <Input placeholder="Street, City, Country" value={localStoreSettings?.address || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, address: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-14 rounded-2xl font-bold" />
+                    <Input placeholder="Street, City" value={localStoreSettings?.address || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, address: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-14 rounded-2xl font-bold" />
                   </div>
                 </div>
 
                 <div className="space-y-8 border-t border-zinc-800 pt-10">
-                  <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Social Media Links</h4>
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Social Connections</h4>
                   <div className="grid md:grid-cols-3 gap-6">
                     <div className="space-y-3">
                       <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
-                        <Instagram className="h-3 w-3" /> Instagram URL
+                        <Instagram className="h-3 w-3" /> Instagram
                       </Label>
-                      <Input placeholder="https://instagram.com/..." value={localStoreSettings?.instagram || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, instagram: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl text-xs" />
+                      <Input placeholder="https://..." value={localStoreSettings?.instagram || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, instagram: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl text-xs" />
                     </div>
                     <div className="space-y-3">
                       <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
-                        <Facebook className="h-3 w-3" /> Facebook URL
+                        <Facebook className="h-3 w-3" /> Facebook
                       </Label>
-                      <Input placeholder="https://facebook.com/..." value={localStoreSettings?.facebook || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, facebook: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl text-xs" />
+                      <Input placeholder="https://..." value={localStoreSettings?.facebook || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, facebook: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl text-xs" />
                     </div>
                     <div className="space-y-3">
                       <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
-                        <Twitter className="h-3 w-3" /> TikTok URL
+                         TikTok
                       </Label>
-                      <Input placeholder="https://tiktok.com/@..." value={localStoreSettings?.tiktok || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, tiktok: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl text-xs" />
+                      <Input placeholder="https://..." value={localStoreSettings?.tiktok || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, tiktok: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl text-xs" />
                     </div>
                   </div>
                 </div>

@@ -13,9 +13,9 @@ export function MenuGrid() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [cachedProducts, setCachedProducts] = useState<Product[]>([]);
   
-  // Load cache immediately on mount - CRITICAL for iOS performance
+  // Load cache immediately to prevent delay on Safari/iOS
   useEffect(() => {
-    const saved = localStorage.getItem('angry_chickz_menu_cache');
+    const saved = localStorage.getItem('angry_chickz_menu_v2');
     if (saved) {
       try {
         setCachedProducts(JSON.parse(saved));
@@ -38,11 +38,11 @@ export function MenuGrid() {
   const { data: products = [] } = useCollection<Product>(productsQuery);
   const { data: categories = [] } = useCollection<Category>(categoriesRef);
 
-  // Silent sync to cache
+  // Sync products to cache silently
   useEffect(() => {
     if (products.length > 0) {
       setCachedProducts(products);
-      localStorage.setItem('angry_chickz_menu_cache', JSON.stringify(products));
+      localStorage.setItem('angry_chickz_menu_v2', JSON.stringify(products));
     }
   }, [products]);
 
@@ -51,7 +51,7 @@ export function MenuGrid() {
     return [...base, ...categories];
   }, [categories]);
 
-  // Priority: live data > cached data
+  // Use products if available, otherwise fallback to cache for instant rendering
   const effectiveProducts = products.length > 0 ? products : cachedProducts;
 
   const filteredProducts = useMemo(() => {
@@ -91,7 +91,7 @@ export function MenuGrid() {
           </div>
         </div>
 
-        {filteredProducts.length > 0 ? (
+        {effectiveProducts.length > 0 ? (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8 animate-in fade-in duration-500 will-change-transform transform-gpu">
             {filteredProducts.map(product => (
               <ProductCard key={product.id} product={product} />
@@ -100,8 +100,8 @@ export function MenuGrid() {
         ) : (
           <div className="text-center py-24 bg-zinc-900/30 rounded-[3rem] border border-dashed border-zinc-800">
             <Utensils className="h-16 w-16 mx-auto mb-6 text-zinc-800" />
-            <h3 className="text-xl font-bold text-zinc-100 uppercase italic mb-2">Menu Loading</h3>
-            <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Preparing the heat...</p>
+            <h3 className="text-xl font-bold text-zinc-100 uppercase italic mb-2">Syncing Menu</h3>
+            <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Connecting to Cloud...</p>
           </div>
         )}
       </div>
