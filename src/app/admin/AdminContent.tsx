@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Plus, 
@@ -13,7 +13,7 @@ import {
   Star,
   MessageSquare,
   ShieldCheck,
-  ImageIcon,
+  Upload,
   Image as ImageIconLucide
 } from 'lucide-react';
 import Image from 'next/image';
@@ -24,8 +24,9 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/tabs-ui';
 import { Product, Category, StoreSettings, Review } from '@/types/restaurant';
-import { useFirestore, useCollection, useDoc } from '@/firebase';
+import { useFirestore, useCollection, useDoc, useStorage } from '@/firebase';
 import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -46,15 +47,17 @@ export default function AdminContent() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   
-  // Independent loading states
   const [isProductSaving, setIsProductSaving] = useState(false);
   const [isCategoryAdding, setIsCategoryAdding] = useState(false);
   const [isHeroSaving, setIsHeroSaving] = useState(false);
   const [isStoreSaving, setIsStoreSaving] = useState(false);
+  const [isImageUploading, setIsImageUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const db = useFirestore();
+  const storage = useStorage();
 
   const productsQuery = useMemo(() => db ? query(collection(db, 'products'), orderBy('createdAt', 'desc')) : null, [db]);
   const categoriesRef = useMemo(() => db ? collection(db, 'categories') : null, [db]);
@@ -79,7 +82,6 @@ export default function AdminContent() {
     imageUrls: [] as string[],
     badges: [] as string[],
   });
-  const [tempImageUrl, setTempImageUrl] = useState('');
   const [newCategoryName, setNewCategoryName] = useState('');
 
   useEffect(() => { if (storeSettings) setLocalStoreSettings(storeSettings); }, [storeSettings]);
@@ -92,6 +94,25 @@ export default function AdminContent() {
       toast({ title: "Authorized", description: "Admin terminal accessed." });
     } else {
       toast({ variant: "destructive", title: "Access Denied", description: "Invalid credentials." });
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !storage) return;
+
+    setIsImageUploading(true);
+    const storageRef = ref(storage, `products/${Date.now()}-${file.name}`);
+
+    try {
+      const snapshot = await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(snapshot.ref);
+      setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, url] }));
+      toast({ title: "Image Uploaded", description: "File is ready for production." });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Upload Failed", description: "Could not process image file." });
+    } finally {
+      setIsImageUploading(false);
     }
   };
 
@@ -109,11 +130,11 @@ export default function AdminContent() {
     const docRef = isEditing ? doc(db, 'products', isEditing) : null;
     const collRef = collection(db, 'products');
 
-    const promise = isEditing 
+    const operation = isEditing 
       ? setDoc(docRef!, productData, { merge: true })
       : addDoc(collRef, productData);
 
-    promise.catch(async (err) => {
+    operation.catch(async (err) => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: isEditing ? `products/${isEditing}` : 'products',
         operation: isEditing ? 'update' : 'create',
@@ -121,18 +142,11 @@ export default function AdminContent() {
       }));
     });
 
-    // Instant unlock and reset
+    // Instant reset & unlock
     setIsProductSaving(false);
     setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
     setIsEditing(null);
-    toast({ title: "Success", description: "Menu updated." });
-  };
-
-  const addImage = () => {
-    if (tempImageUrl.trim()) {
-      setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, tempImageUrl.trim()] }));
-      setTempImageUrl('');
-    }
+    toast({ title: "Success", description: "Menu updated globally." });
   };
 
   const removeImage = (index: number) => {
@@ -157,10 +171,9 @@ export default function AdminContent() {
       }));
     });
 
-    // Instant unlock and reset
     setIsCategoryAdding(false);
     setNewCategoryName('');
-    toast({ title: "Created", description: "Category added." });
+    toast({ title: "Created", description: "Category synchronized." });
   };
 
   const deleteItem = (id: string, coll: string) => {
@@ -174,9 +187,8 @@ export default function AdminContent() {
       }));
     });
 
-    // Instant unlock
     setDeletingId(null);
-    toast({ title: "Removed", description: "Item deleted." });
+    toast({ title: "Removed", description: "Item deleted from cloud." });
   };
 
   const saveSettings = (target: 'store' | 'hero') => {
@@ -193,7 +205,6 @@ export default function AdminContent() {
       }));
     });
 
-    // Instant unlock
     setter(false);
     toast({ title: "Synced", description: `${target} settings updated.` });
   };
@@ -201,7 +212,7 @@ export default function AdminContent() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
-        <Card className="w-full max-w-md bg-zinc-900 border-zinc-800 shadow-2xl rounded-[2rem] overflow-hidden">
+        <Card className="w-full max-w-md bg-zinc-900 border-zinc-800 shadow-2xl rounded-[2.5rem] overflow-hidden">
           <CardHeader className="text-center pt-12">
             <div className="h-20 w-20 bg-amber-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(245,158,11,0.3)]">
               <Lock className="h-10 w-10 text-zinc-950" />
@@ -256,7 +267,7 @@ export default function AdminContent() {
           </TabsListStyled>
 
           <TabsContent value="products" className="grid lg:grid-cols-12 gap-8">
-            <Card className="lg:col-span-5 bg-zinc-900 border-zinc-800 rounded-[2rem] shadow-2xl h-fit overflow-hidden">
+            <Card className="lg:col-span-5 bg-zinc-900 border-zinc-800 rounded-[2.5rem] shadow-2xl h-fit overflow-hidden">
               <CardHeader className="bg-zinc-950/50 p-8 border-b border-zinc-800">
                 <CardTitle className="text-xl font-black text-amber-500 uppercase italic tracking-tighter">
                   {isEditing ? 'Modify Item' : 'New Dish'}
@@ -283,35 +294,44 @@ export default function AdminContent() {
                   </div>
 
                   <div className="space-y-3">
-                    <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Dish Images (URLs)</Label>
-                    <div className="flex gap-2">
-                      <Input 
-                        placeholder="Paste image link here..." 
-                        value={tempImageUrl} 
-                        onChange={e => setTempImageUrl(e.target.value)} 
-                        className="bg-zinc-800 border-zinc-700 h-12 rounded-xl"
+                    <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Upload Dish Images</Label>
+                    <div 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="border-2 border-dashed border-zinc-700 rounded-2xl p-6 flex flex-col items-center justify-center bg-zinc-800/50 cursor-pointer hover:bg-zinc-800 hover:border-amber-500 transition-all group"
+                    >
+                      <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        onChange={handleFileUpload} 
+                        className="hidden" 
+                        accept="image/*"
                       />
-                      <Button type="button" onClick={addImage} size="icon" className="h-12 w-12 rounded-xl bg-amber-500 text-zinc-950">
-                        <Plus className="h-5 w-5" />
-                      </Button>
+                      {isImageUploading ? (
+                        <Loader2 className="h-8 w-8 text-amber-500 animate-spin" />
+                      ) : (
+                        <>
+                          <Upload className="h-8 w-8 text-zinc-500 group-hover:text-amber-500 mb-2" />
+                          <span className="text-[10px] font-black uppercase text-zinc-500 group-hover:text-zinc-300">Choose from Device</span>
+                        </>
+                      )}
                     </div>
-                    <div className="flex flex-wrap gap-2 mt-2">
+                    <div className="flex flex-wrap gap-2 mt-4">
                       {formData.imageUrls.map((url, idx) => (
-                        <div key={idx} className="relative h-16 w-16 rounded-lg overflow-hidden border border-zinc-700 group">
+                        <div key={idx} className="relative h-20 w-20 rounded-xl overflow-hidden border border-zinc-700 group shadow-lg">
                           <Image src={url} alt="Preview" fill className="object-cover" />
                           <button 
                             type="button" 
                             onClick={() => removeImage(idx)}
-                            className="absolute inset-0 bg-red-500/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="absolute inset-0 bg-red-600/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                           >
-                            <X className="h-4 w-4 text-white" />
+                            <X className="h-5 w-5 text-white" />
                           </button>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  <Button disabled={isProductSaving} type="submit" className="w-full h-14 bg-amber-500 text-zinc-950 font-black rounded-xl uppercase italic text-sm shadow-xl">
+                  <Button disabled={isProductSaving || isImageUploading} type="submit" className="w-full h-14 bg-amber-500 text-zinc-950 font-black rounded-xl uppercase italic text-sm shadow-xl">
                     {isProductSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : (isEditing ? 'Execute Sync' : 'Save Item')}
                   </Button>
                 </form>
@@ -320,7 +340,7 @@ export default function AdminContent() {
 
             <div className="lg:col-span-7 grid sm:grid-cols-2 gap-5">
               {products.map(p => (
-                <div key={p.id} className="bg-zinc-900 border border-zinc-800 p-5 rounded-[1.5rem] flex gap-5 items-center hover:bg-zinc-800/50 transition-all group shadow-xl will-change-transform transform-gpu">
+                <div key={p.id} className="bg-zinc-900 border border-zinc-800 p-5 rounded-[2rem] flex gap-5 items-center hover:bg-zinc-800/50 transition-all group shadow-xl will-change-transform transform-gpu">
                   <div className="relative h-14 w-14 rounded-2xl overflow-hidden bg-zinc-800 flex-shrink-0">
                     <Image src={p.imageUrls?.[0] || 'https://picsum.photos/seed/food/200/200'} alt={p.name} fill className="object-cover" />
                   </div>
@@ -340,7 +360,7 @@ export default function AdminContent() {
           </TabsContent>
 
           <TabsContent value="categories" className="max-w-xl mx-auto space-y-8">
-            <Card className="bg-zinc-900 border-zinc-800 rounded-[2rem] p-10 shadow-2xl">
+            <Card className="bg-zinc-900 border-zinc-800 rounded-[2.5rem] p-10 shadow-2xl">
               <form onSubmit={addCategory} className="flex flex-col sm:flex-row gap-4 mb-8">
                 <Input required placeholder="Category Identity" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} className="bg-zinc-800 border-zinc-700 h-14 rounded-2xl flex-grow font-bold" />
                 <Button disabled={isCategoryAdding} type="submit" className="bg-amber-500 text-zinc-950 rounded-2xl font-black px-10 h-14 uppercase italic text-xs shadow-xl">
@@ -395,7 +415,7 @@ export default function AdminContent() {
           </TabsContent>
 
           <TabsContent value="visuals" className="max-w-4xl mx-auto space-y-8">
-            <Card className="bg-zinc-900 border-zinc-800 rounded-[2rem] p-10 shadow-2xl">
+            <Card className="bg-zinc-900 border-zinc-800 rounded-[2.5rem] p-10 shadow-2xl">
               <div className="flex justify-between items-center mb-10">
                 <h3 className="text-xl font-black text-amber-500 uppercase italic tracking-tighter">Visual Override</h3>
                 <Button disabled={isHeroSaving} onClick={() => saveSettings('hero')} className="h-14 bg-amber-500 text-zinc-950 font-black rounded-2xl px-10 uppercase italic text-xs shadow-xl">
@@ -416,7 +436,7 @@ export default function AdminContent() {
           </TabsContent>
           
           <TabsContent value="storeinfo" className="max-w-2xl mx-auto">
-             <Card className="bg-zinc-900 border-zinc-800 rounded-[2rem] p-10 shadow-2xl">
+             <Card className="bg-zinc-900 border-zinc-800 rounded-[2.5rem] p-10 shadow-2xl">
                 <div className="flex justify-between items-center mb-10">
                   <h3 className="text-xl font-black text-amber-500 uppercase italic tracking-tighter">Global Contact</h3>
                   <Button disabled={isStoreSaving} onClick={() => saveSettings('store')} className="h-14 bg-amber-500 text-zinc-950 font-black rounded-2xl px-10 uppercase italic text-xs shadow-xl">
