@@ -1,19 +1,24 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 
+/**
+ * Optimizes sparks for mobile performance to prevent iOS rendering glitches.
+ */
 export function AmbientSparks() {
-  // Use useMemo to generate spark properties once to avoid hydration mismatch and heavy re-renders
   const [sparks, setSparks] = useState<{ id: number; left: string; duration: string; delay: string; size: string }[]>([]);
 
   useEffect(() => {
-    // Generate sparks only on the client mount
-    const generatedSparks = Array.from({ length: 12 }).map((_, i) => ({
+    // Reduce spark count on mobile to save GPU cycles
+    const isMobile = window.innerWidth < 768;
+    const count = isMobile ? 6 : 12;
+
+    const generatedSparks = Array.from({ length: count }).map((_, i) => ({
       id: i,
-      left: `${(i * 8.33) + (Math.random() * 5)}%`, // Distributed across screen
+      left: `${(i * (100 / count)) + (Math.random() * 5)}%`,
       duration: `${12 + Math.random() * 10}s`,
       delay: `${Math.random() * 5}s`,
-      size: `${2 + Math.random() * 2}px`,
+      size: `${1.5 + Math.random() * 2}px`,
     }));
     setSparks(generatedSparks);
   }, []);
@@ -32,8 +37,8 @@ export function AmbientSparks() {
             height: spark.size,
             animationDuration: spark.duration,
             animationDelay: spark.delay,
-            boxShadow: '0 0 12px rgba(245, 158, 11, 0.6)',
-            opacity: 0.4
+            boxShadow: '0 0 10px rgba(245, 158, 11, 0.4)',
+            opacity: 0.3
           }}
         />
       ))}
