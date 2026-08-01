@@ -37,104 +37,40 @@
     --ring: 46 65% 52%;
     --secondary: 46 65% 40%;
   }
-
-  [data-theme='red-black'] {
-    --background: 0 72% 35%;
-    --foreground: 48 100% 98%;
-    --card: 0 72% 25%;
-    --card-foreground: 48 100% 98%;
-    --primary: 0 0% 0%;
-    --primary-foreground: 0 0% 100%;
-    --border: 0 0% 20%;
-    --ring: 0 0% 0%;
-    --secondary: 48 100% 90%;
-  }
-
-  [data-theme='white-gold'] {
-    --background: 210 40% 98%;
-    --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --primary: 45 93% 41%;
-    --primary-foreground: 0 0% 100%;
-    --border: 45 93% 90%;
-    --ring: 45 93% 41%;
-    --secondary: 222 47% 11%;
-  }
-
-  [data-theme='black-orange'] {
-    --background: 240 10% 4%;
-    --foreground: 48 100% 98%;
-    --card: 240 10% 7%;
-    --card-foreground: 48 100% 98%;
-    --primary: 20 83% 47%;
-    --primary-foreground: 0 0% 100%;
-    --border: 20 83% 20%;
-    --ring: 20 83% 47%;
-    --secondary: 48 100% 60%;
-  }
-
-  [data-theme='green-orange'] {
-    --background: 165 86% 16%;
-    --foreground: 48 100% 98%;
-    --card: 165 86% 12%;
-    --card-foreground: 48 100% 98%;
-    --primary: 25 95% 53%;
-    --primary-foreground: 0 0% 100%;
-    --border: 25 95% 30%;
-    --ring: 25 95% 53%;
-    --secondary: 165 86% 80%;
-  }
 }
 
 @layer base {
   * {
     @apply border-border;
   }
-  html, body {
-    @apply w-full max-w-full m-0 p-0;
-  }
   body {
-    @apply bg-background text-foreground antialiased font-body transition-colors duration-500 overflow-x-hidden;
+    @apply bg-background text-foreground antialiased font-body transition-colors duration-300 overflow-x-hidden;
   }
 }
 
 .glass-header {
-  @apply backdrop-blur-xl bg-background/60 border-b border-primary/5;
+  @apply backdrop-blur-md bg-background/60 border-b border-primary/5;
 }
 
 .glass-card {
-  @apply backdrop-blur-2xl bg-card/40 border border-primary/5 shadow-2xl transition-all duration-500;
+  @apply backdrop-blur-lg bg-card/40 border border-primary/5 shadow-xl transition-all duration-300;
 }
 
 .ambient-glow {
-  background: radial-gradient(circle at 20% 30%, hsl(var(--primary) / 0.1) 0%, transparent 40%),
-              radial-gradient(circle at 80% 70%, hsl(var(--secondary) / 0.1) 0%, transparent 40%);
+  background: radial-gradient(circle at 20% 30%, hsl(var(--primary) / 0.05) 0%, transparent 40%),
+              radial-gradient(circle at 80% 70%, hsl(var(--secondary) / 0.05) 0%, transparent 40%);
 }
 
-.mesh-transition {
-  @apply relative overflow-hidden;
+@keyframes spark-float {
+  0% { transform: translateY(0) scale(1); opacity: 0; }
+  10% { opacity: 0.5; }
+  60% { transform: translateY(-30vh) scale(1.1); opacity: 0.6; }
+  100% { transform: translateY(-70vh) scale(0.5); opacity: 0; }
 }
 
-.mesh-transition::after {
-  content: "";
-  @apply absolute bottom-0 left-0 w-full h-64 pointer-events-none;
-  background: linear-gradient(to bottom, transparent, hsl(var(--background)));
-}
-
-.mesh-transition-top::before {
-  content: "";
-  @apply absolute top-0 left-0 w-full h-64 pointer-events-none z-0;
-  background: linear-gradient(to top, transparent, hsl(var(--background)));
-}
-
-@keyframes slow-pulse {
-  0%, 100% { transform: scale(1); opacity: 0.15; }
-  50% { transform: scale(1.1); opacity: 0.25; }
-}
-
-.animate-glow-slow {
-  animation: slow-pulse 10s infinite ease-in-out;
+.animate-spark {
+  animation: spark-float linear infinite;
+  will-change: transform, opacity;
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -143,25 +79,4 @@
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
-}
-
-/* Optimized Fire Spark Animations */
-@keyframes spark-float {
-  0% { transform: translateY(0) translateX(0) scale(1); opacity: 0; }
-  10% { opacity: 0.6; }
-  60% { transform: translateY(-40vh) translateX(15px) scale(1.1); opacity: 0.8; }
-  100% { transform: translateY(-90vh) translateX(-10px) scale(0.5); opacity: 0; }
-}
-
-.animate-spark {
-  animation: spark-float linear infinite;
-  will-change: transform, opacity;
-}
-
-@keyframes shimmer {
-  from { transform: translateX(-100%); }
-  to { transform: translateX(100%); }
-}
-.animate-shimmer {
-  animation: shimmer 3s infinite linear;
 }
