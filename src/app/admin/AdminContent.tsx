@@ -19,6 +19,7 @@ import {
   MapPin,
   Phone,
   MessageCircle,
+  RefreshCw,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -107,16 +108,26 @@ export default function AdminContent() {
     if (!file || !storage) return;
 
     setIsImageUploading(true);
+    
+    // Safety timeout to unlock the UI if something goes wrong
+    const timeoutId = setTimeout(() => {
+      if (isImageUploading) {
+        setIsImageUploading(false);
+        toast({ variant: "destructive", title: "Timeout", description: "Upload taking too long. Resetting..." });
+      }
+    }, 15000);
+
     try {
       const storageRef = ref(storage, `products/${Date.now()}-${file.name}`);
       const snapshot = await uploadBytes(storageRef, file);
       const url = await getDownloadURL(snapshot.ref);
       setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, url] }));
-      toast({ title: "Image Ready", description: "Photo added to the list." });
+      toast({ title: "Image Ready", description: "Photo added." });
     } catch (error) {
       console.error("Upload error:", error);
-      toast({ variant: "destructive", title: "Upload Error", description: "Failed to upload file." });
+      toast({ variant: "destructive", title: "Upload Error", description: "Check network or file size." });
     } finally {
+      clearTimeout(timeoutId);
       setIsImageUploading(false);
     }
   };
@@ -135,6 +146,7 @@ export default function AdminContent() {
     const docRef = isEditing ? doc(db, 'products', isEditing) : null;
     const collRef = collection(db, 'products');
 
+    // Optimistic Reset - Unlock UI immediately
     if (isEditing && docRef) {
       setDoc(docRef, productData, { merge: true }).catch(err => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -149,10 +161,11 @@ export default function AdminContent() {
       });
     }
 
+    // Immediate UI liberation
     setIsProductSaving(false);
     setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
     setIsEditing(null);
-    toast({ title: "Sync Successful", description: "Database updated globally." });
+    toast({ title: "Sync Started", description: "Database updating in background." });
   };
 
   const addCategory = (e: React.FormEvent) => {
@@ -173,21 +186,22 @@ export default function AdminContent() {
 
     setIsCategoryAdding(false);
     setNewCategoryName('');
-    toast({ title: "Category Created", description: "System synchronized." });
+    toast({ title: "Category Queued", description: "Updating database..." });
   };
 
   const deleteItem = (id: string, coll: string) => {
     if (!db) return;
     setDeletingId(id);
 
-    deleteDoc(doc(db, coll, id)).catch(err => {
+    deleteDoc(doc(db, coll, id)).finally(() => {
+      setDeletingId(null);
+    }).catch(err => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: `${coll}/${id}`, operation: 'delete'
       }));
     });
 
-    setDeletingId(null);
-    toast({ title: "Action Complete", description: "Item removed from cloud." });
+    toast({ title: "Removal Initiated", description: "Cloud sync active." });
   };
 
   const saveSettings = (target: 'store' | 'hero') => {
@@ -196,14 +210,15 @@ export default function AdminContent() {
     setter(true);
     const data = target === 'store' ? localStoreSettings : localHeroSettings;
     
-    setDoc(doc(db, 'settings', target), data, { merge: true }).catch(err => {
+    setDoc(doc(db, 'settings', target), data, { merge: true }).finally(() => {
+      setter(false);
+    }).catch(err => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: `settings/${target}`, operation: 'update', requestResourceData: data
       }));
     });
 
-    setter(false);
-    toast({ title: "Settings Updated", description: "Configuration pushed to production." });
+    toast({ title: "Settings Sent", description: "Pushing to production..." });
   };
 
   const removeImage = (index: number) => {
@@ -270,8 +285,9 @@ export default function AdminContent() {
           <TabsContent value="products" className="grid lg:grid-cols-12 gap-8">
             <Card className="lg:col-span-5 bg-zinc-900 border-zinc-800 rounded-[2.5rem] shadow-2xl h-fit overflow-hidden">
               <CardHeader className="bg-zinc-950/50 p-8 border-b border-zinc-800">
-                <CardTitle className="text-xl font-black text-amber-500 uppercase italic tracking-tighter">
-                  {isEditing ? 'Modify Item' : 'New Dish'}
+                <CardTitle className="text-xl font-black text-amber-500 uppercase italic tracking-tighter flex items-center justify-between">
+                  <span>{isEditing ? 'Modify Item' : 'New Dish'}</span>
+                  {(isProductSaving || isImageUploading) && <Loader2 className="h-5 w-5 animate-spin text-amber-500" />}
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-8 space-y-6">
@@ -282,13 +298,13 @@ export default function AdminContent() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Description</Label>
+                    <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest italic">Description / Ingredients</Label>
                     <Textarea 
                       required 
                       value={formData.description} 
                       onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} 
-                      className="bg-zinc-800 border-zinc-700 rounded-xl min-h-[100px] font-bold" 
-                      placeholder="Describe this delicious item..."
+                      className="bg-zinc-800 border-zinc-700 rounded-xl min-h-[120px] font-bold p-4 focus:ring-amber-500" 
+                      placeholder="e.g. 24hr Brined Chicken, Secret Spice Blend, Toasted Brioche..."
                     />
                   </div>
 
@@ -347,15 +363,29 @@ export default function AdminContent() {
                     </div>
                   </div>
 
-                  <Button disabled={isProductSaving || isImageUploading} type="submit" className="w-full h-14 bg-amber-500 text-zinc-950 font-black rounded-xl uppercase italic text-sm shadow-xl">
-                    {isProductSaving ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : (isEditing ? 'Sync Changes' : 'Save Item')}
-                  </Button>
+                  <div className="flex flex-col gap-3">
+                    <Button disabled={isProductSaving || isImageUploading} type="submit" className="w-full h-14 bg-amber-500 text-zinc-950 font-black rounded-xl uppercase italic text-sm shadow-xl active:scale-95 transition-transform">
+                      {isProductSaving ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : (isEditing ? 'Update Cloud' : 'Save Item')}
+                    </Button>
+                    
+                    {isEditing && (
+                      <Button type="button" variant="outline" onClick={() => { setIsEditing(null); setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] }); }} className="w-full h-12 border-zinc-700 text-zinc-400 font-bold rounded-xl uppercase italic text-[10px]">
+                         Cancel Edit
+                      </Button>
+                    )}
+
+                    {isImageUploading && (
+                      <Button type="button" variant="ghost" onClick={() => setIsImageUploading(false)} className="text-[9px] uppercase tracking-widest text-red-500 hover:text-red-400">
+                        Force Reset Upload Spinner
+                      </Button>
+                    )}
+                  </div>
                 </form>
               </CardContent>
             </Card>
 
             <div className="lg:col-span-7 grid sm:grid-cols-2 gap-5">
-              {products.map(p => (
+              {products.length > 0 ? products.map(p => (
                 <div key={p.id} className="bg-zinc-900 border border-zinc-800 p-5 rounded-[2rem] flex gap-5 items-center hover:bg-zinc-800/50 transition-all group shadow-xl transform-gpu">
                   <div className="relative h-14 w-14 rounded-2xl overflow-hidden bg-zinc-800 flex-shrink-0">
                     <Image src={p.imageUrls?.[0] || 'https://picsum.photos/seed/food/200/200'} alt={p.name} fill className="object-cover" />
@@ -365,13 +395,18 @@ export default function AdminContent() {
                     <span className="text-amber-500 text-[10px] font-black">${p.price.toFixed(2)}</span>
                   </div>
                   <div className="flex gap-1">
-                    <button onClick={() => { setIsEditing(p.id); setFormData({ ...p, price: p.price.toString() }); }} className="p-2.5 rounded-lg text-zinc-500 hover:text-white transition-colors"><Edit2 className="h-4 w-4" /></button>
+                    <button onClick={() => { setIsEditing(p.id); setFormData({ ...p, price: p.price.toString() }); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="p-2.5 rounded-lg text-zinc-500 hover:text-white transition-colors"><Edit2 className="h-4 w-4" /></button>
                     <button disabled={deletingId === p.id} onClick={() => deleteItem(p.id, 'products')} className="p-2.5 rounded-lg text-zinc-500 hover:text-red-500 transition-colors">
                       {deletingId === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                     </button>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div className="col-span-full py-20 text-center bg-zinc-900/50 rounded-[2.5rem] border border-dashed border-zinc-800">
+                   <RefreshCw className="h-10 w-10 text-zinc-800 mx-auto mb-4 animate-spin" />
+                   <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Loading Product Catalog...</p>
+                </div>
+              )}
             </div>
           </TabsContent>
 
@@ -415,7 +450,7 @@ export default function AdminContent() {
                         <p className="text-zinc-400 text-sm italic font-medium">"{rev.comment}"</p>
                       </div>
                       <Button variant="ghost" size="icon" disabled={deletingId === rev.id} onClick={() => deleteItem(rev.id!, 'reviews')} className="h-12 w-12 rounded-xl text-zinc-700 hover:text-red-500">
-                        {deletingId === rev.id ? <Loader2 className="h-5 w-5 animate-spin" /> : <Trash2 className="h-5 w-5" />}
+                        {deletingId === rev.id ? <Loader2 className="h-5 w-5 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                       </Button>
                     </div>
                   </CardContent>

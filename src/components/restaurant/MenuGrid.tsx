@@ -5,16 +5,18 @@ import { useFirestore, useCollection } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { Product, Category } from '@/types/restaurant';
 import { ProductCard } from './ProductCard';
-import { Utensils } from 'lucide-react';
+import { Utensils, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function MenuGrid() {
   const db = useFirestore();
   const [activeCategory, setActiveCategory] = useState('all');
   const [cachedProducts, setCachedProducts] = useState<Product[]>([]);
+  const [isClient, setIsClient] = useState(false);
   
-  // Load cache immediately to prevent delay on Safari/iOS
+  // Instant client-side hydration for local cache
   useEffect(() => {
+    setIsClient(true);
     const saved = localStorage.getItem('angry_chickz_menu_v2');
     if (saved) {
       try {
@@ -38,7 +40,7 @@ export function MenuGrid() {
   const { data: products = [] } = useCollection<Product>(productsQuery);
   const { data: categories = [] } = useCollection<Category>(categoriesRef);
 
-  // Sync products to cache silently
+  // Silent background sync to cache
   useEffect(() => {
     if (products.length > 0) {
       setCachedProducts(products);
@@ -51,13 +53,15 @@ export function MenuGrid() {
     return [...base, ...categories];
   }, [categories]);
 
-  // Use products if available, otherwise fallback to cache for instant rendering
+  // Priority logic: Use cloud data if available, fallback to local cache for 0ms load
   const effectiveProducts = products.length > 0 ? products : cachedProducts;
 
   const filteredProducts = useMemo(() => {
     if (activeCategory === 'all') return effectiveProducts;
     return effectiveProducts.filter(p => p.category === activeCategory);
   }, [effectiveProducts, activeCategory]);
+
+  if (!isClient) return null;
 
   return (
     <section id="menu" className="py-16 md:py-32 relative w-full overflow-hidden bg-zinc-950">
@@ -98,10 +102,10 @@ export function MenuGrid() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-24 bg-zinc-900/30 rounded-[3rem] border border-dashed border-zinc-800">
-            <Utensils className="h-16 w-16 mx-auto mb-6 text-zinc-800" />
-            <h3 className="text-xl font-bold text-zinc-100 uppercase italic mb-2">Syncing Menu</h3>
-            <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Connecting to Cloud...</p>
+          <div className="text-center py-24 bg-zinc-900/30 rounded-[3rem] border border-dashed border-zinc-800 flex flex-col items-center justify-center">
+            <RefreshCw className="h-10 w-10 text-zinc-800 mb-4 animate-spin" />
+            <h3 className="text-xl font-bold text-zinc-100 uppercase italic mb-2">Syncing Catalog</h3>
+            <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Updating Live Data...</p>
           </div>
         )}
       </div>
