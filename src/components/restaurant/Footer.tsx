@@ -28,7 +28,7 @@ export function Footer() {
     }
   };
 
-  const handleReviewSubmit = (e: React.FormEvent) => {
+  const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!db || !review.name || !review.comment || isSubmitting) return;
     
@@ -40,21 +40,19 @@ export function Footer() {
       createdAt: serverTimestamp()
     };
 
-    addDoc(collection(db, 'reviews'), reviewData)
-      .then(() => {
-        toast({ title: "Sent!", description: "Thanks for your feedback." });
-        setReview({ name: '', comment: '', rating: 5 });
-      })
-      .catch((err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: 'reviews',
-          operation: 'create',
-          requestResourceData: reviewData
-        }));
-      })
-      .finally(() => {
-        setIsSubmitting(false);
-      });
+    try {
+      await addDoc(collection(db, 'reviews'), reviewData);
+      toast({ title: "Sent!", description: "Thanks for your feedback." });
+      setReview({ name: '', comment: '', rating: 5 });
+    } catch (err) {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: 'reviews',
+        operation: 'create',
+        requestResourceData: reviewData
+      }));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

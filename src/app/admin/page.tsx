@@ -6,14 +6,11 @@ import {
   Plus, 
   Trash2, 
   Edit2, 
-  Upload, 
   Loader2, 
   Utensils, 
   ShieldCheck, 
   ArrowLeft, 
   Lock, 
-  ImageIcon, 
-  Globe, 
   X,
   Save,
 } from 'lucide-react';
@@ -25,18 +22,20 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
 import { Product, Category, StoreSettings } from '@/types/restaurant';
 import { useFirestore, useCollection, useDoc } from '@/firebase';
 import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   
-  // Separate loading states for each specific UI action
+  // Isolated loading states for each operation
   const [isProductSaving, setIsProductSaving] = useState(false);
   const [isCategoryAdding, setIsCategoryAdding] = useState(false);
   const [isVisualsSaving, setIsVisualsSaving] = useState(false);
@@ -96,7 +95,7 @@ export default function AdminPage() {
     setIsEditing(null);
   }, []);
 
-  const handleSaveProduct = (e: React.FormEvent) => {
+  const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.price || !formData.category || !db || isProductSaving) return;
 
@@ -111,24 +110,22 @@ export default function AdminPage() {
       createdAt: isEditing ? (products.find(p => p.id === isEditing)?.createdAt || serverTimestamp()) : serverTimestamp()
     };
 
-    const promise = isEditing 
-      ? setDoc(doc(db, 'products', isEditing), productData, { merge: true })
-      : addDoc(collection(db, 'products'), productData);
-
-    promise
-      .then(() => {
-        toast({ title: isEditing ? "Item Updated" : "Item Added", description: "Cloud sync complete." });
-        resetForm();
-      })
-      .catch((err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'products', operation: 'write', requestResourceData: productData }));
-      })
-      .finally(() => {
-        setIsProductSaving(false);
-      });
+    try {
+      if (isEditing) {
+        await setDoc(doc(db, 'products', isEditing), productData, { merge: true });
+      } else {
+        await addDoc(collection(db, 'products'), productData);
+      }
+      toast({ title: isEditing ? "Item Updated" : "Item Added", description: "Cloud sync complete." });
+      resetForm();
+    } catch (err) {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'products', operation: 'write', requestResourceData: productData }));
+    } finally {
+      setIsProductSaving(false);
+    }
   };
 
-  const addCategory = (e: React.FormEvent) => {
+  const addCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCategoryName || !db || isCategoryAdding) return;
     
@@ -136,31 +133,35 @@ export default function AdminPage() {
     const slug = newCategoryName.toLowerCase().trim().replace(/\s+/g, '-');
     const catData = { name: newCategoryName.trim(), slug };
 
-    addDoc(collection(db, 'categories'), catData)
-      .then(() => {
-        toast({ title: "Category Created", description: `"${catData.name}" is now live.` });
-        setNewCategoryName('');
-      })
-      .catch((err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'categories', operation: 'create', requestResourceData: catData }));
-      })
-      .finally(() => {
-        setIsCategoryAdding(false);
-      });
+    try {
+      await addDoc(collection(db, 'categories'), catData);
+      toast({ title: "Category Created", description: `"${catData.name}" is now live.` });
+      setNewCategoryName('');
+    } catch (err) {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'categories', operation: 'create', requestResourceData: catData }));
+    } finally {
+      setIsCategoryAdding(false);
+    }
   };
 
-  const deleteCategory = (id: string) => {
+  const deleteCategory = async (id: string) => {
     if (!db || !id) return;
-    deleteDoc(doc(db, 'categories', id))
-      .then(() => toast({ title: "Removed", description: "Category deleted from cloud." }))
-      .catch((err) => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `categories/${id}`, operation: 'delete' })));
+    try {
+      await deleteDoc(doc(db, 'categories', id));
+      toast({ title: "Removed", description: "Category deleted from cloud." });
+    } catch (err) {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `categories/${id}`, operation: 'delete' }));
+    }
   };
 
-  const deleteProduct = (id: string) => {
+  const deleteProduct = async (id: string) => {
     if (!db || !id) return;
-    deleteDoc(doc(db, 'products', id))
-      .then(() => toast({ title: "Deleted", description: "Menu item removed permanently." }))
-      .catch((err) => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `products/${id}`, operation: 'delete' })));
+    try {
+      await deleteDoc(doc(db, 'products', id));
+      toast({ title: "Deleted", description: "Menu item removed permanently." });
+    } catch (err) {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `products/${id}`, operation: 'delete' }));
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'product' | 'logo') => {
@@ -169,20 +170,23 @@ export default function AdminPage() {
 
     setIsUploading(true);
     const reader = new FileReader();
-    reader.onloadend = () => {
+    reader.onloadend = async () => {
       const base64 = reader.result as string;
       if (target === 'product') {
         setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, base64] }));
         setIsUploading(false);
       } else if (db) {
-        setDoc(doc(db, 'settings', 'store'), { logo: base64 }, { merge: true })
-          .finally(() => setIsUploading(false));
+        try {
+          await setDoc(doc(db, 'settings', 'store'), { logo: base64 }, { merge: true });
+        } finally {
+          setIsUploading(false);
+        }
       }
     };
     reader.readAsDataURL(file);
   };
 
-  const saveSettings = (target: 'store' | 'hero') => {
+  const saveSettings = async (target: 'store' | 'hero') => {
     if (!db) return;
     const setter = target === 'store' ? setIsContactsSaving : setIsVisualsSaving;
     setter(true);
@@ -190,10 +194,14 @@ export default function AdminPage() {
     const data = target === 'store' ? localStoreSettings : localHeroSettings;
     const docRef = doc(db, 'settings', target);
 
-    setDoc(docRef, data, { merge: true })
-      .then(() => toast({ title: "Synced", description: `${target === 'store' ? 'Contacts' : 'Hero'} updated.` }))
-      .catch((err) => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update', requestResourceData: data })))
-      .finally(() => setter(false));
+    try {
+      await setDoc(docRef, data, { merge: true });
+      toast({ title: "Synced", description: `${target === 'store' ? 'Contacts' : 'Hero'} updated.` });
+    } catch (err) {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update', requestResourceData: data }));
+    } finally {
+      setter(false);
+    }
   };
 
   if (!isAuthenticated) {
