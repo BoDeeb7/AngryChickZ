@@ -38,9 +38,13 @@ export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   
-  // Independent loading states for UI feedback (briefly)
-  const [isUploading, setIsUploading] = useState(false);
+  // Independent loading states for each action
   const [isLoginLoading, setIsLoginLoading] = useState(false);
+  const [isProductSaving, setIsProductSaving] = useState(false);
+  const [isCategoryAdding, setIsCategoryAdding] = useState(false);
+  const [isVisualsSaving, setIsVisualsSaving] = useState(false);
+  const [isContactsSaving, setIsContactsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const { toast } = useToast();
   const db = useFirestore();
@@ -83,10 +87,9 @@ export default function AdminPage() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoginLoading(true);
-    // Simple persistent auth check for prototype session
     if (loginForm.username === 'Ali@AngryChickZ' && loginForm.password === 'AngryChickZ@DeebData#79') {
       setIsAuthenticated(true);
-      toast({ title: "Authorized", description: "Access Granted." });
+      toast({ title: "Authorized", description: "Terminal Access Granted." });
     } else {
       toast({ variant: "destructive", title: "Access Denied", description: "Invalid credentials." });
     }
@@ -98,10 +101,11 @@ export default function AdminPage() {
     setIsEditing(null);
   }, []);
 
-  const handleSaveProduct = (e: React.FormEvent) => {
+  const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.price || !formData.category || !db) return;
+    if (!formData.name || !formData.price || !formData.category || !db || isProductSaving) return;
 
+    setIsProductSaving(true);
     const productData = {
       name: formData.name.trim(),
       description: formData.description.trim(),
@@ -112,45 +116,60 @@ export default function AdminPage() {
       createdAt: isEditing ? (products.find(p => p.id === isEditing)?.createdAt || serverTimestamp()) : serverTimestamp()
     };
 
-    const docRef = isEditing ? doc(db, 'products', isEditing) : null;
-    const colRef = collection(db, 'products');
-
-    // NON-BLOCKING MUTATION: UI updates immediately
-    if (isEditing && docRef) {
-      setDoc(docRef, productData, { merge: true }).catch(async (err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update', requestResourceData: productData }));
-      });
-    } else {
-      addDoc(colRef, productData).catch(async (err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: colRef.path, operation: 'create', requestResourceData: productData }));
-      });
+    try {
+      if (isEditing) {
+        const docRef = doc(db, 'products', isEditing);
+        await setDoc(docRef, productData, { merge: true });
+        toast({ title: "Updated", description: "Product synced successfully." });
+      } else {
+        await addDoc(collection(db, 'products'), productData);
+        toast({ title: "Success", description: "New item added to menu." });
+      }
+      resetForm();
+    } catch (err) {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'products', operation: 'write', requestResourceData: productData }));
+    } finally {
+      setIsProductSaving(false);
     }
-
-    toast({ title: isEditing ? "Updating..." : "Creating...", description: "Changes synced to cloud." });
-    resetForm();
   };
 
-  const addCategory = (e: React.FormEvent) => {
+  const addCategory = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCategoryName || !db) return;
+    if (!newCategoryName || !db || isCategoryAdding) return;
     
+    setIsCategoryAdding(true);
     const slug = newCategoryName.toLowerCase().trim().replace(/\s+/g, '-');
     const catData = { name: newCategoryName.trim(), slug };
-    const colRef = collection(db, 'categories');
-    
-    // NON-BLOCKING MUTATION
-    addDoc(colRef, catData).catch(async (err) => {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'categories', operation: 'create', requestResourceData: catData }));
-    });
 
-    toast({ title: "Success", description: `"${catData.name}" added.` });
-    setNewCategoryName('');
+    try {
+      await addDoc(collection(db, 'categories'), catData);
+      toast({ title: "Category Created", description: `"${catData.name}" is now live.` });
+      setNewCategoryName('');
+    } catch (err) {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'categories', operation: 'create', requestResourceData: catData }));
+    } finally {
+      setIsCategoryAdding(false);
+    }
   };
 
-  const deleteCategory = (id: string) => {
-    if (!db || !confirm('Delete this category?')) return;
-    deleteDoc(doc(db, 'categories', id)).catch((err) => {
+  const deleteCategory = async (id: string) => {
+    if (!db || !id) return;
+    
+    // Non-blocking delete for immediate UI feel
+    deleteDoc(doc(db, 'categories', id)).then(() => {
+      toast({ title: "Deleted", description: "Category removed from cloud." });
+    }).catch((err) => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `categories/${id}`, operation: 'delete' }));
+    });
+  };
+
+  const deleteProduct = async (id: string) => {
+    if (!db || !id) return;
+    
+    deleteDoc(doc(db, 'products', id)).then(() => {
+      toast({ title: "Removed", description: "Menu item permanently deleted." });
+    }).catch((err) => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `products/${id}`, operation: 'delete' }));
     });
   };
 
@@ -170,33 +189,28 @@ export default function AdminPage() {
         const updateData = target === 'heroBg' ? { bgImage: base64 } : target === 'heroBanner' ? { bannerImage: base64 } : { logo: base64 };
         
         setDoc(docRef, updateData, { merge: true })
-          .catch((err) => {
-             errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update', requestResourceData: updateData }));
-          })
           .finally(() => setIsUploading(false));
       }
     };
     reader.readAsDataURL(file);
   };
 
-  const deleteProduct = (id: string) => {
-    if (!db || !confirm('Permanently delete this product?')) return;
-    deleteDoc(doc(db, 'products', id)).catch((err) => {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `products/${id}`, operation: 'delete' }));
-    });
-  };
-
-  const saveSettings = (target: 'store' | 'hero') => {
+  const saveSettings = async (target: 'store' | 'hero') => {
     if (!db) return;
+    const targetLoading = target === 'store' ? setIsContactsSaving : setIsVisualsSaving;
+    targetLoading(true);
+    
     const data = target === 'store' ? localStoreSettings : localHeroSettings;
     const docRef = doc(db, 'settings', target);
 
-    // NON-BLOCKING MUTATION
-    setDoc(docRef, data, { merge: true }).catch((err) => {
-       errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update', requestResourceData: data }));
-    });
-    
-    toast({ title: "Syncing...", description: "Global settings updated." });
+    try {
+      await setDoc(docRef, data, { merge: true });
+      toast({ title: "Synced", description: `${target === 'store' ? 'Contacts' : 'Visuals'} updated globally.` });
+    } catch (err) {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update', requestResourceData: data }));
+    } finally {
+      targetLoading(false);
+    }
   };
 
   if (!isAuthenticated) {
@@ -328,8 +342,8 @@ export default function AdminPage() {
                     </div>
                   </div>
                   <div className="flex gap-2 pt-4">
-                    <Button type="submit" className="flex-grow bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold rounded-xl uppercase tracking-widest text-xs h-11">
-                      {isEditing ? 'Update Item' : 'Save Item'}
+                    <Button disabled={isProductSaving} type="submit" className="flex-grow bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold rounded-xl uppercase tracking-widest text-xs h-11">
+                      {isProductSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : (isEditing ? 'Update Item' : 'Save Item')}
                     </Button>
                     {isEditing && (
                       <Button type="button" variant="ghost" onClick={resetForm} className="bg-zinc-800 hover:bg-zinc-700 rounded-xl h-11 w-11 p-0">
@@ -393,15 +407,17 @@ export default function AdminPage() {
                     onChange={e => setNewCategoryName(e.target.value)}
                     className="bg-zinc-800 border-zinc-700 h-12 rounded-xl"
                   />
-                  <Button disabled={!newCategoryName} type="submit" className="bg-amber-500 hover:bg-amber-600 text-zinc-950 rounded-xl font-bold px-8 h-12 uppercase italic tracking-widest text-xs">
-                    Create
+                  <Button disabled={!newCategoryName || isCategoryAdding} type="submit" className="bg-amber-500 hover:bg-amber-600 text-zinc-950 rounded-xl font-bold px-8 h-12 uppercase italic tracking-widest text-xs">
+                    {isCategoryAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create'}
                   </Button>
                 </form>
                 <div className="grid gap-2">
                   {categories.map(cat => (
                     <div key={cat.id} className="flex items-center justify-between p-4 bg-zinc-800/50 border border-zinc-800 rounded-xl hover:border-amber-500/30 transition-all">
                       <span className="font-bold text-sm uppercase italic text-zinc-300">{cat.name}</span>
-                      <button onClick={() => deleteCategory(cat.id)} className="text-zinc-500 hover:text-red-500 transition-colors"><Trash2 className="h-4 w-4" /></button>
+                      <button onClick={() => deleteCategory(cat.id)} className="text-zinc-500 hover:text-red-500 transition-colors p-2">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -413,8 +429,8 @@ export default function AdminPage() {
             <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
               <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4 flex flex-row items-center justify-between">
                 <CardTitle className="text-lg font-bold text-amber-500 uppercase italic">Visual Content</CardTitle>
-                <Button onClick={() => saveSettings('hero')} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2 rounded-xl h-10 px-6 uppercase italic tracking-widest text-[10px]">
-                  <Save className="h-4 w-4" /> Sync Hero
+                <Button disabled={isVisualsSaving} onClick={() => saveSettings('hero')} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2 rounded-xl h-10 px-6 uppercase italic tracking-widest text-[10px]">
+                  {isVisualsSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Save className="h-4 w-4" /> Sync Hero</>}
                 </Button>
               </CardHeader>
               <div className="space-y-6 pt-4">
@@ -452,8 +468,8 @@ export default function AdminPage() {
              <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
                 <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4 flex flex-row items-center justify-between">
                   <CardTitle className="text-lg font-bold text-amber-500 uppercase italic">Contact Settings</CardTitle>
-                  <Button onClick={() => saveSettings('store')} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2 rounded-xl h-10 px-6 uppercase italic tracking-widest text-[10px]">
-                    <Save className="h-4 w-4" /> Update
+                  <Button disabled={isContactsSaving} onClick={() => saveSettings('store')} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2 rounded-xl h-10 px-6 uppercase italic tracking-widest text-[10px]">
+                    {isContactsSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Save className="h-4 w-4" /> Update</>}
                   </Button>
                 </CardHeader>
                 <div className="grid md:grid-cols-2 gap-6 pt-6">
