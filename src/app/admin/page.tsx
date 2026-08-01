@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -39,7 +38,7 @@ export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   
-  // INDEPENDENT LOADING STATES FOR EACH BUTTON/SECTION
+  // INDEPENDENT LOADING STATES FOR EACH ACTION
   const [isProductSaving, setIsProductSaving] = useState(false);
   const [isCategoryAdding, setIsCategoryAdding] = useState(false);
   const [isVisualsSaving, setIsVisualsSaving] = useState(false);
@@ -50,7 +49,7 @@ export default function AdminPage() {
   const { toast } = useToast();
   const db = useFirestore();
 
-  // STABLE Firestore Queries & Refs
+  // STABLE QUERIES
   const productsQuery = useMemo(() => {
     if (!db) return null;
     return query(collection(db, 'products'), orderBy('createdAt', 'desc'));
@@ -89,10 +88,9 @@ export default function AdminPage() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoginLoading(true);
-    // Mock auth for rapid testing
     if (loginForm.username === 'Ali@AngryChickZ' && loginForm.password === 'AngryChickZ@DeebData#79') {
       setIsAuthenticated(true);
-      toast({ title: "Authorized", description: "Welcome back, Ali." });
+      toast({ title: "Authorized", description: "Access Granted." });
     } else {
       toast({ variant: "destructive", title: "Access Denied", description: "Invalid credentials." });
     }
@@ -107,7 +105,7 @@ export default function AdminPage() {
   const handleSaveProduct = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.price || !formData.category || !db) {
-      toast({ variant: "destructive", title: "Required", description: "Please fill essential fields." });
+      toast({ variant: "destructive", title: "Missing Fields", description: "Please fill all required fields." });
       return;
     }
 
@@ -128,13 +126,13 @@ export default function AdminPage() {
 
     action
       .then(() => {
-        toast({ title: isEditing ? "Updated" : "Created", description: "Item successfully pushed to cloud." });
+        toast({ title: isEditing ? "Updated" : "Created", description: "Product data synced." });
         resetForm();
       })
-      .catch(async (err) => {
+      .catch((err) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({ 
           path: isEditing ? `products/${isEditing}` : 'products', 
-          operation: isEditing ? 'update' : 'create', 
+          operation: 'write', 
           requestResourceData: productData 
         }));
       })
@@ -152,9 +150,9 @@ export default function AdminPage() {
     addDoc(collection(db, 'categories'), catData)
       .then(() => {
         setNewCategoryName('');
-        toast({ title: "Category Added", description: `"${catData.name}" is now live.` });
+        toast({ title: "Category Created", description: `"${catData.name}" added to menu.` });
       })
-      .catch(async (err) => {
+      .catch((err) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({ 
           path: 'categories', 
           operation: 'create', 
@@ -162,6 +160,15 @@ export default function AdminPage() {
         }));
       })
       .finally(() => setIsCategoryAdding(false));
+  };
+
+  const deleteCategory = (id: string) => {
+    if (!db || !confirm('Delete this category?')) return;
+    deleteDoc(doc(db, 'categories', id))
+      .then(() => toast({ title: "Category Removed" }))
+      .catch((err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `categories/${id}`, operation: 'delete' }));
+      });
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'product' | 'heroBg' | 'heroBanner' | 'logo') => {
@@ -180,8 +187,8 @@ export default function AdminPage() {
         const updateData = target === 'heroBg' ? { bgImage: base64 } : target === 'heroBanner' ? { bannerImage: base64 } : { logo: base64 };
         
         setDoc(docRef, updateData, { merge: true })
-          .then(() => toast({ title: "Visual Updated" }))
-          .catch(async (err) => {
+          .then(() => toast({ title: "Image Uploaded" }))
+          .catch((err) => {
              errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update', requestResourceData: updateData }));
           })
           .finally(() => setIsUploading(false));
@@ -191,10 +198,10 @@ export default function AdminPage() {
   };
 
   const deleteProduct = (id: string) => {
-    if (!db || !confirm('Permanently delete this item?')) return;
+    if (!db || !confirm('Permanently delete this product?')) return;
     deleteDoc(doc(db, 'products', id))
-      .then(() => toast({ title: "Deleted" }))
-      .catch(async (err) => {
+      .then(() => toast({ title: "Product Deleted" }))
+      .catch((err) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `products/${id}`, operation: 'delete' }));
       });
   };
@@ -209,9 +216,9 @@ export default function AdminPage() {
     
     setDoc(doc(db, 'settings', target), data, { merge: true })
       .then(() => {
-        toast({ title: "Settings Synced", description: "Changes are now live globally." });
+        toast({ title: "Settings Saved", description: "Site updated globally." });
       })
-      .catch(async (err) => {
+      .catch((err) => {
          errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `settings/${target}`, operation: 'update', requestResourceData: data }));
       })
       .finally(() => {
@@ -228,7 +235,7 @@ export default function AdminPage() {
             <div className="h-16 w-16 bg-amber-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <Lock className="h-8 w-8 text-zinc-950" />
             </div>
-            <CardTitle className="text-xl font-bold text-zinc-100 uppercase tracking-widest">Admin Access</CardTitle>
+            <CardTitle className="text-xl font-bold text-zinc-100 uppercase tracking-widest">Admin Control</CardTitle>
           </CardHeader>
           <CardContent className="p-8">
             <form onSubmit={handleLogin} className="space-y-6">
@@ -238,7 +245,7 @@ export default function AdminPage() {
                   value={loginForm.username} 
                   onChange={e => setLoginForm(p => ({ ...p, username: e.target.value }))}
                   className="bg-zinc-800 border-zinc-700 text-white rounded-xl h-12"
-                  placeholder="Username"
+                  placeholder="Admin"
                 />
               </div>
               <div className="space-y-2">
@@ -252,7 +259,7 @@ export default function AdminPage() {
                 />
               </div>
               <Button disabled={isLoginLoading} type="submit" className="w-full h-14 bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold rounded-xl uppercase tracking-widest">
-                {isLoginLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Login Terminal'}
+                {isLoginLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Enter Terminal'}
               </Button>
             </form>
           </CardContent>
@@ -270,13 +277,13 @@ export default function AdminPage() {
               <ShieldCheck className="h-6 w-6 text-zinc-950" />
             </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight">Admin Terminal</h1>
-              <p className="text-zinc-500 text-[10px] uppercase font-bold tracking-widest">Realtime Cloud Enabled</p>
+              <h1 className="text-xl font-bold tracking-tight uppercase">Dashboard</h1>
+              <p className="text-zinc-500 text-[10px] uppercase font-bold tracking-widest">Cloud Database Connected</p>
             </div>
           </div>
           <Link href="/">
             <Button variant="outline" className="bg-zinc-800 border-zinc-700 hover:bg-zinc-700 rounded-xl">
-              <ArrowLeft className="h-4 w-4 mr-2" /> View Site
+              <ArrowLeft className="h-4 w-4 mr-2" /> Live View
             </Button>
           </Link>
         </header>
@@ -284,23 +291,23 @@ export default function AdminPage() {
         <Tabs defaultValue="products" className="space-y-8">
           <TabsList className="bg-zinc-900 border border-zinc-800 p-1 rounded-xl h-auto w-full overflow-x-auto no-scrollbar justify-start">
             <TabsTrigger value="products" className="px-6 py-3 rounded-lg font-bold text-xs uppercase tracking-widest data-[state=active]:bg-amber-500 data-[state=active]:text-zinc-950 text-zinc-500">
-              <Utensils className="h-4 w-4 mr-2" /> Items
+              <Utensils className="h-4 w-4 mr-2" /> Products
             </TabsTrigger>
             <TabsTrigger value="categories" className="px-6 py-3 rounded-lg font-bold text-xs uppercase tracking-widest data-[state=active]:bg-amber-500 data-[state=active]:text-zinc-950 text-zinc-500">
               <List className="h-4 w-4 mr-2" /> Categories
             </TabsTrigger>
             <TabsTrigger value="visuals" className="px-6 py-3 rounded-lg font-bold text-xs uppercase tracking-widest data-[state=active]:bg-amber-500 data-[state=active]:text-zinc-950 text-zinc-500">
-              <ImageIcon className="h-4 w-4 mr-2" /> Visuals
+              <ImageIcon className="h-4 w-4 mr-2" /> Branding
             </TabsTrigger>
             <TabsTrigger value="storeinfo" className="px-6 py-3 rounded-lg font-bold text-xs uppercase tracking-widest data-[state=active]:bg-amber-500 data-[state=active]:text-zinc-950 text-zinc-500">
-              <Globe className="h-4 w-4 mr-2" /> Store Info
+              <Globe className="h-4 w-4 mr-2" /> Contact
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="products" className="grid lg:grid-cols-12 gap-8">
             <Card className="lg:col-span-5 bg-zinc-900 border-zinc-800 rounded-2xl shadow-xl h-fit">
               <CardHeader className="border-b border-zinc-800">
-                <CardTitle className="text-lg font-bold flex items-center gap-3 text-amber-500 uppercase tracking-tighter italic">
+                <CardTitle className="text-lg font-bold flex items-center gap-3 text-amber-500 uppercase italic">
                   {isEditing ? <Edit2 className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
                   {isEditing ? 'Edit Item' : 'New Item'}
                 </CardTitle>
@@ -334,7 +341,7 @@ export default function AdminPage() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Photo</Label>
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Product Image</Label>
                     <div className="flex flex-wrap gap-2">
                       {formData.imageUrls.map((url, i) => (
                         <div key={i} className="relative h-16 w-16 rounded-lg overflow-hidden border border-zinc-700 group">
@@ -350,8 +357,7 @@ export default function AdminPage() {
                   </div>
                   <div className="flex gap-2 pt-4">
                     <Button disabled={isProductSaving} type="submit" className="flex-grow bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold rounded-xl uppercase tracking-widest text-xs h-11">
-                      {isProductSaving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                      {isEditing ? 'Update Item' : 'Save Item'}
+                      {isProductSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : (isEditing ? 'Update Item' : 'Save Item')}
                     </Button>
                     {isEditing && (
                       <Button type="button" variant="ghost" onClick={resetForm} className="bg-zinc-800 hover:bg-zinc-700 rounded-xl h-11 w-11 p-0">
@@ -365,9 +371,7 @@ export default function AdminPage() {
 
             <div className="lg:col-span-7 space-y-6">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold flex items-center gap-3 text-amber-500 italic uppercase">
-                  <LayoutGrid className="h-5 w-5" /> Active Menu
-                </h2>
+                <h2 className="text-lg font-bold text-amber-500 uppercase italic">Active Menu</h2>
                 <Badge className="bg-zinc-900 border-zinc-800 text-amber-500 px-4 py-1 font-black">{products.length} ITEMS</Badge>
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
@@ -377,7 +381,7 @@ export default function AdminPage() {
                       <Image src={product.imageUrls?.[0] || 'https://picsum.photos/seed/food/200/200'} alt={product.name} fill className="object-cover" />
                     </div>
                     <div className="flex-grow min-w-0">
-                      <h4 className="font-bold text-zinc-100 truncate text-sm uppercase italic">{product.name}</h4>
+                      <h4 className="font-bold text-zinc-100 truncate text-sm uppercase">{product.name}</h4>
                       <div className="flex items-center justify-between mt-1">
                         <span className="font-bold text-amber-500 text-xs">${product.price.toFixed(2)}</span>
                         <div className="flex gap-1">
@@ -406,13 +410,13 @@ export default function AdminPage() {
           <TabsContent value="categories" className="max-w-xl mx-auto space-y-6">
             <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
               <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4">
-                <CardTitle className="text-lg font-bold text-amber-500 italic uppercase">Manage Sections</CardTitle>
+                <CardTitle className="text-lg font-bold text-amber-500 uppercase italic">Menu Categories</CardTitle>
               </CardHeader>
               <div className="space-y-6">
                 <form onSubmit={addCategory} className="flex gap-3">
                   <Input 
                     required 
-                    placeholder="New Section Title" 
+                    placeholder="Category Name" 
                     value={newCategoryName} 
                     onChange={e => setNewCategoryName(e.target.value)}
                     className="bg-zinc-800 border-zinc-700 h-12 rounded-xl"
@@ -436,8 +440,8 @@ export default function AdminPage() {
           <TabsContent value="visuals" className="max-w-4xl mx-auto space-y-6">
             <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
               <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4 flex flex-row items-center justify-between">
-                <CardTitle className="text-lg font-bold text-amber-500 italic uppercase">Digital Visuals</CardTitle>
-                <Button disabled={isVisualsSaving} onClick={() => saveSettings('hero')} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2 rounded-xl h-10 px-6 uppercase italic text-[10px] tracking-widest">
+                <CardTitle className="text-lg font-bold text-amber-500 uppercase italic">Visual Content</CardTitle>
+                <Button disabled={isVisualsSaving} onClick={() => saveSettings('hero')} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2 rounded-xl h-10 px-6 uppercase italic tracking-widest text-[10px]">
                   {isVisualsSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Sync Hero
                 </Button>
               </CardHeader>
@@ -454,7 +458,7 @@ export default function AdminPage() {
                  </div>
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-4">
-                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Logo Brand Mark</Label>
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Store Logo</Label>
                     <div className="relative h-32 w-32 rounded-2xl bg-zinc-800 border-2 border-dashed border-zinc-700 flex items-center justify-center overflow-hidden group mx-auto md:mx-0">
                       {localStoreSettings?.logo ? (
                         <img src={localStoreSettings.logo} alt="Logo" className="h-full w-full object-contain p-4" />
@@ -467,16 +471,6 @@ export default function AdminPage() {
                       </label>
                     </div>
                   </div>
-                  <div className="space-y-4">
-                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Hero Background</Label>
-                    <div className="relative h-48 rounded-xl overflow-hidden border border-zinc-800 group shadow-2xl">
-                      <Image src={localHeroSettings?.bgImage || 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1600&auto=format&fit=crop'} alt="bg" fill className="object-cover" />
-                      <label className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-all">
-                        <Upload className="h-6 w-6 text-white" />
-                        <input type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload(e, 'heroBg')} />
-                      </label>
-                    </div>
-                  </div>
                 </div>
               </div>
             </Card>
@@ -485,31 +479,23 @@ export default function AdminPage() {
           <TabsContent value="storeinfo" className="max-w-2xl mx-auto">
              <Card className="bg-zinc-900 border-zinc-800 rounded-2xl p-6 shadow-xl">
                 <CardHeader className="px-0 pt-0 border-b border-zinc-800 mb-6 pb-4 flex flex-row items-center justify-between">
-                  <CardTitle className="text-lg font-bold text-amber-500 italic uppercase">Cloud Contact Info</CardTitle>
-                  <Button disabled={isStoreInfoSaving} onClick={() => saveSettings('store')} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2 rounded-xl h-10 px-6 uppercase italic text-[10px] tracking-widest">
+                  <CardTitle className="text-lg font-bold text-amber-500 uppercase italic">Contact Settings</CardTitle>
+                  <Button disabled={isStoreInfoSaving} onClick={() => saveSettings('store')} size="sm" className="bg-amber-500 text-zinc-950 font-bold gap-2 rounded-xl h-10 px-6 uppercase italic tracking-widest text-[10px]">
                     {isStoreInfoSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Update
                   </Button>
                 </CardHeader>
                 <div className="grid md:grid-cols-2 gap-6 pt-6">
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">WhatsApp (International)</Label>
-                    <Input value={localStoreSettings?.whatsappNumber || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, whatsappNumber: e.target.value }))} className="bg-zinc-800 border-zinc-700" placeholder="e.g. 96170105152" />
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">WhatsApp</Label>
+                    <Input value={localStoreSettings?.whatsappNumber || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, whatsappNumber: e.target.value }))} className="bg-zinc-800 border-zinc-700" placeholder="International Format" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Landline/Mobile</Label>
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Phone</Label>
                     <Input value={localStoreSettings?.phone || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, phone: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
                   </div>
                   <div className="md:col-span-2 space-y-2">
-                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Physical Address</Label>
+                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Address</Label>
                     <Input value={localStoreSettings?.address || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, address: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">Instagram Link</Label>
-                    <Input value={localStoreSettings?.instagram || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, instagram: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold text-zinc-500 uppercase">TikTok Link</Label>
-                    <Input value={localStoreSettings?.tiktok || ''} onChange={e => setLocalStoreSettings((p: any) => ({ ...p, tiktok: e.target.value }))} className="bg-zinc-800 border-zinc-700" />
                   </div>
                 </div>
              </Card>

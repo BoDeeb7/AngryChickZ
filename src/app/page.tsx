@@ -1,13 +1,11 @@
-
 import { Navbar } from '@/components/restaurant/Navbar';
 import { Hero } from '@/components/restaurant/Hero';
 import { MenuGrid } from '@/components/restaurant/MenuGrid';
 import { Footer } from '@/components/restaurant/Footer';
 
 /**
- * CRITICAL: These settings ensure the page is never statically cached by Next.js.
- * By setting dynamic to 'force-dynamic', we ensure that every visitor sees the
- * latest Firestore data synced across all devices globally.
+ * CRITICAL: These settings ensure the page is never statically cached.
+ * This guarantees real-time cross-device data synchronization.
  */
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

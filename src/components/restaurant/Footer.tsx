@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -20,7 +19,6 @@ export function Footer() {
   const [review, setReview] = useState({ name: '', comment: '', rating: 5 });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // STABLE Firestore References
   const storeSettingsRef = useMemo(() => db ? doc(db, 'settings', 'store') : null, [db]);
   const { data: storeSettings } = useDoc<StoreSettings>(storeSettingsRef);
 
@@ -45,13 +43,12 @@ export function Footer() {
       createdAt: serverTimestamp()
     };
 
-    // Non-blocking Firestore write to ensure UI responsiveness
     addDoc(collection(db, 'reviews'), reviewData)
       .then(() => {
         setReview({ name: '', comment: '', rating: 5 });
-        toast({ title: "Sentiment Sent", description: "Thank you for the heat!" });
+        toast({ title: "Sent", description: "Thanks for your feedback!" });
       })
-      .catch(async (err) => {
+      .catch((err) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: 'reviews',
           operation: 'create',
@@ -59,13 +56,9 @@ export function Footer() {
         }));
       })
       .finally(() => {
-        // This ensures the button always unlocks
         setIsSubmitting(false);
       });
   };
-
-  const phone = storeSettings?.phone || '+961 70 105 152';
-  const address = storeSettings?.address || 'Elite Kitchen, Central District';
 
   return (
     <footer className="bg-background border-t border-foreground/5 text-foreground pt-40 pb-20 overflow-hidden relative mesh-transition-top">
@@ -83,7 +76,7 @@ export function Footer() {
               </span>
             </div>
             <p className="text-foreground/40 leading-relaxed font-bold text-[10px] uppercase tracking-[0.2em]">
-              Premium Fried Chicken. Ultra-Modern Experience. Level 5 Heat.
+              Premium Fried Chicken. Ultra-Modern Experience.
             </p>
             <div className="flex gap-4">
               {[
@@ -103,24 +96,24 @@ export function Footer() {
             <ul className="space-y-10 text-foreground/60">
               <li className="flex gap-5">
                 <MapPin className="h-5 w-5 text-primary shrink-0" /> 
-                <span className="text-[10px] uppercase tracking-[0.3em] font-black leading-loose whitespace-pre-wrap">{address}</span>
+                <span className="text-[10px] uppercase tracking-[0.3em] font-black leading-loose">{storeSettings?.address || 'City Center'}</span>
               </li>
               <li className="flex items-center gap-5">
                 <Phone className="h-5 w-5 text-primary shrink-0" /> 
-                <span className="text-[10px] uppercase tracking-[0.3em] font-black">{phone}</span>
+                <span className="text-[10px] uppercase tracking-[0.3em] font-black">{storeSettings?.phone || 'Contact Support'}</span>
               </li>
             </ul>
           </div>
 
           <div className="lg:col-span-2 bg-foreground/[0.03] p-10 rounded-[3rem] border border-foreground/5 shadow-2xl">
-            <h4 className="text-[10px] font-black uppercase tracking-[0.5em] mb-8 text-primary">Your Sentiment</h4>
+            <h4 className="text-[10px] font-black uppercase tracking-[0.5em] mb-8 text-primary">Your Review</h4>
             <form onSubmit={handleReviewSubmit} className="space-y-5">
               <div className="flex gap-4">
                 <Input 
                   placeholder="FULL NAME" 
                   value={review.name}
                   onChange={e => setReview(r => ({ ...r, name: e.target.value }))}
-                  className="h-14 bg-background border-foreground/10 rounded-2xl text-[10px] outline-none font-black tracking-widest text-foreground" 
+                  className="h-14 bg-background border-foreground/10 rounded-2xl text-[10px] font-black tracking-widest text-foreground" 
                 />
                 <div className="flex items-center gap-2 bg-background px-4 rounded-2xl border border-foreground/10">
                   {[1,2,3,4,5].map(i => (
@@ -133,35 +126,29 @@ export function Footer() {
                 </div>
               </div>
               <Textarea 
-                placeholder="WHAT'S ON YOUR MIND?" 
+                placeholder="MESSAGE" 
                 value={review.comment}
                 onChange={e => setReview(r => ({ ...r, comment: e.target.value }))}
                 className="h-24 bg-background border-foreground/10 rounded-2xl text-[10px] font-black tracking-widest pt-5 text-foreground" 
               />
               <Button disabled={isSubmitting} type="submit" className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground rounded-2xl text-[10px] font-black uppercase tracking-[0.3em]">
-                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : 'Submit Sentiment'}
+                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : 'Submit'}
               </Button>
             </form>
           </div>
         </div>
 
         <div className="pt-24 border-t border-foreground/5 flex flex-col lg:flex-row items-center justify-between gap-16">
-          <p className="text-[9px] text-foreground/20 font-black uppercase tracking-[0.5em]">© 2024 ANGRY CHICKZ ELITE. ALL RIGHTS RESERVED.</p>
+          <p className="text-[9px] text-foreground/20 font-black uppercase tracking-[0.5em]">© 2024 ANGRY CHICKZ. ALL RIGHTS RESERVED.</p>
           
           <button onClick={scrollToTop} className="h-14 w-14 rounded-full bg-foreground/5 border border-foreground/5 flex items-center justify-center hover:bg-primary transition-all duration-700 group">
             <ArrowUp className="h-5 w-5 text-foreground/20 group-hover:text-primary-foreground" />
           </button>
 
           <div className="flex items-center justify-center">
-            <div className="glass-card px-8 py-3 rounded-full border-amber-500/10 bg-white/5 shadow-[0_0_30px_rgba(245,158,11,0.2)] hover:scale-105 transition-all duration-700 group overflow-hidden relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-secondary/0 via-secondary/10 to-primary/0 animate-shimmer" />
-              <span className="text-sm font-black italic tracking-tighter uppercase whitespace-nowrap flex items-center gap-3">
-                <span className="text-foreground/40 text-[10px] tracking-widest not-italic">Powered by</span>
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-secondary to-primary drop-shadow-[0_0_8px_rgba(245,158,11,0.4)]">
-                  Hassan Deeb
-                </span>
-              </span>
-            </div>
+             <span className="text-[10px] font-black uppercase tracking-widest text-foreground/20">
+               Powered by <span className="text-amber-500 italic">Hassan Deeb</span>
+             </span>
           </div>
         </div>
       </div>
