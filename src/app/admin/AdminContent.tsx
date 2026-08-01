@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -92,9 +91,10 @@ export default function AdminContent() {
   const resetForm = useCallback(() => {
     setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
     setIsEditing(null);
+    setIsProductSaving(false);
   }, []);
 
-  const handleSaveProduct = async (e: React.FormEvent) => {
+  const handleSaveProduct = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.price || !formData.category || !db || isProductSaving) return;
 
@@ -109,22 +109,23 @@ export default function AdminContent() {
       createdAt: isEditing ? (products.find(p => p.id === isEditing)?.createdAt || serverTimestamp()) : serverTimestamp()
     };
 
-    try {
-      if (isEditing) {
-        await setDoc(doc(db, 'products', isEditing), productData, { merge: true });
-      } else {
-        await addDoc(collection(db, 'products'), productData);
-      }
-      toast({ title: isEditing ? "Item Updated" : "Item Added", description: "Cloud sync complete." });
-      resetForm();
-    } catch (err) {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'products', operation: 'write', requestResourceData: productData }));
-    } finally {
-      setIsProductSaving(false);
+    if (isEditing) {
+      setDoc(doc(db, 'products', isEditing), productData, { merge: true })
+        .catch(async (err) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `products/${isEditing}`, operation: 'update', requestResourceData: productData }));
+        });
+    } else {
+      addDoc(collection(db, 'products'), productData)
+        .catch(async (err) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'products', operation: 'create', requestResourceData: productData }));
+        });
     }
+
+    toast({ title: isEditing ? "Item Updated" : "Item Added", description: "Cloud sync complete." });
+    resetForm();
   };
 
-  const addCategory = async (e: React.FormEvent) => {
+  const addCategory = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCategoryName || !db || isCategoryAdding) return;
     
@@ -132,41 +133,40 @@ export default function AdminContent() {
     const slug = newCategoryName.toLowerCase().trim().replace(/\s+/g, '-');
     const catData = { name: newCategoryName.trim(), slug };
 
-    try {
-      await addDoc(collection(db, 'categories'), catData);
-      toast({ title: "Category Created", description: `"${catData.name}" is now live.` });
-      setNewCategoryName('');
-    } catch (err) {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'categories', operation: 'create', requestResourceData: catData }));
-    } finally {
-      setIsCategoryAdding(false);
-    }
+    addDoc(collection(db, 'categories'), catData)
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'categories', operation: 'create', requestResourceData: catData }));
+      });
+
+    toast({ title: "Category Created", description: `"${catData.name}" is now live.` });
+    setNewCategoryName('');
+    setIsCategoryAdding(false);
   };
 
-  const deleteCategory = async (id: string) => {
+  const deleteCategory = (id: string) => {
     if (!db || !id || deletingId) return;
     setDeletingId(id);
-    try {
-      await deleteDoc(doc(db, 'categories', id));
-      toast({ title: "Removed", description: "Category deleted from cloud." });
-    } catch (err) {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `categories/${id}`, operation: 'delete' }));
-    } finally {
-      setDeletingId(null);
-    }
+    
+    deleteDoc(doc(db, 'categories', id))
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `categories/${id}`, operation: 'delete' }));
+      });
+
+    toast({ title: "Removed", description: "Category deleted from cloud." });
+    setDeletingId(null);
   };
 
-  const deleteProduct = async (id: string) => {
+  const deleteProduct = (id: string) => {
     if (!db || !id || deletingId) return;
     setDeletingId(id);
-    try {
-      await deleteDoc(doc(db, 'products', id));
-      toast({ title: "Deleted", description: "Menu item removed permanently." });
-    } catch (err) {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `products/${id}`, operation: 'delete' }));
-    } finally {
-      setDeletingId(null);
-    }
+    
+    deleteDoc(doc(db, 'products', id))
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `products/${id}`, operation: 'delete' }));
+      });
+
+    toast({ title: "Deleted", description: "Menu item removed permanently." });
+    setDeletingId(null);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'product' | 'logo') => {
@@ -175,23 +175,21 @@ export default function AdminContent() {
 
     setIsUploading(true);
     const reader = new FileReader();
-    reader.onloadend = async () => {
+    reader.onloadend = () => {
       const base64 = reader.result as string;
       if (target === 'product') {
         setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, base64] }));
         setIsUploading(false);
       } else if (db) {
-        try {
-          await setDoc(doc(db, 'settings', 'store'), { logo: base64 }, { merge: true });
-        } finally {
-          setIsUploading(false);
-        }
+        setDoc(doc(db, 'settings', 'store'), { logo: base64 }, { merge: true })
+          .catch(() => setIsUploading(false));
+        setIsUploading(false);
       }
     };
     reader.readAsDataURL(file);
   };
 
-  const saveSettings = async (target: 'store' | 'hero') => {
+  const saveSettings = (target: 'store' | 'hero') => {
     if (!db) return;
     const setter = target === 'store' ? setIsContactsSaving : setIsVisualsSaving;
     setter(true);
@@ -199,14 +197,13 @@ export default function AdminContent() {
     const data = target === 'store' ? localStoreSettings : localHeroSettings;
     const docRef = doc(db, 'settings', target);
 
-    try {
-      await setDoc(docRef, data, { merge: true });
-      toast({ title: "Synced", description: `${target === 'store' ? 'Contacts' : 'Hero'} updated.` });
-    } catch (err) {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update', requestResourceData: data }));
-    } finally {
-      setter(false);
-    }
+    setDoc(docRef, data, { merge: true })
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: docRef.path, operation: 'update', requestResourceData: data }));
+      });
+
+    toast({ title: "Synced", description: `${target === 'store' ? 'Contacts' : 'Hero'} updated.` });
+    setter(false);
   };
 
   if (!isAuthenticated) {
