@@ -26,6 +26,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/tabs-ui';
 import { Product, Category, StoreSettings, Review } from '@/types/restaurant';
 import { useFirestore, useCollection, useDoc, useStorage } from '@/firebase';
@@ -106,19 +107,18 @@ export default function AdminContent() {
     if (!file || !storage) return;
 
     setIsImageUploading(true);
-    const storageRef = ref(storage, `products/${Date.now()}-${file.name}`);
-
-    uploadBytes(storageRef, file)
-      .then(async (snapshot) => {
-        const url = await getDownloadURL(snapshot.ref);
-        setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, url] }));
-        setIsImageUploading(false);
-        toast({ title: "Image Ready", description: "Photo added to the list." });
-      })
-      .catch((error) => {
-        setIsImageUploading(false);
-        toast({ variant: "destructive", title: "Upload Error", description: "Failed to upload file." });
-      });
+    try {
+      const storageRef = ref(storage, `products/${Date.now()}-${file.name}`);
+      const snapshot = await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(snapshot.ref);
+      setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, url] }));
+      toast({ title: "Image Ready", description: "Photo added to the list." });
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast({ variant: "destructive", title: "Upload Error", description: "Failed to upload file." });
+    } finally {
+      setIsImageUploading(false);
+    }
   };
 
   const handleSaveProduct = (e: React.FormEvent) => {
@@ -135,7 +135,6 @@ export default function AdminContent() {
     const docRef = isEditing ? doc(db, 'products', isEditing) : null;
     const collRef = collection(db, 'products');
 
-    // Initiate write and UNLOCK UI IMMEDIATELY
     if (isEditing && docRef) {
       setDoc(docRef, productData, { merge: true }).catch(err => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -150,7 +149,6 @@ export default function AdminContent() {
       });
     }
 
-    // Reset state instantly to avoid infinite loading
     setIsProductSaving(false);
     setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
     setIsEditing(null);
@@ -282,6 +280,18 @@ export default function AdminContent() {
                     <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Name</Label>
                     <Input required value={formData.name} onChange={e => setFormData(f => ({ ...f, name: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl" />
                   </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Description</Label>
+                    <Textarea 
+                      required 
+                      value={formData.description} 
+                      onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} 
+                      className="bg-zinc-800 border-zinc-700 rounded-xl min-h-[100px] font-bold" 
+                      placeholder="Describe this delicious item..."
+                    />
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Price ($)</Label>
@@ -299,8 +309,8 @@ export default function AdminContent() {
                   <div className="space-y-3">
                     <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Product Media</Label>
                     <div 
-                      onClick={() => fileInputRef.current?.click()}
-                      className="border-2 border-dashed border-zinc-700 rounded-2xl p-6 flex flex-col items-center justify-center bg-zinc-800/50 cursor-pointer hover:bg-zinc-800 hover:border-amber-500 transition-all group"
+                      onClick={() => !isImageUploading && fileInputRef.current?.click()}
+                      className={`border-2 border-dashed border-zinc-700 rounded-2xl p-6 flex flex-col items-center justify-center bg-zinc-800/50 transition-all group ${isImageUploading ? 'cursor-wait opacity-50' : 'cursor-pointer hover:bg-zinc-800 hover:border-amber-500'}`}
                     >
                       <input 
                         type="file" 
@@ -310,7 +320,10 @@ export default function AdminContent() {
                         accept="image/*"
                       />
                       {isImageUploading ? (
-                        <Loader2 className="h-8 w-8 text-amber-500 animate-spin" />
+                        <div className="flex flex-col items-center">
+                          <Loader2 className="h-8 w-8 text-amber-500 animate-spin mb-2" />
+                          <span className="text-[10px] font-black uppercase text-amber-500">Uploading...</span>
+                        </div>
                       ) : (
                         <>
                           <Upload className="h-8 w-8 text-zinc-500 group-hover:text-amber-500 mb-2" />
@@ -335,7 +348,7 @@ export default function AdminContent() {
                   </div>
 
                   <Button disabled={isProductSaving || isImageUploading} type="submit" className="w-full h-14 bg-amber-500 text-zinc-950 font-black rounded-xl uppercase italic text-sm shadow-xl">
-                    {isProductSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : (isEditing ? 'Sync Changes' : 'Save Item')}
+                    {isProductSaving ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : (isEditing ? 'Sync Changes' : 'Save Item')}
                   </Button>
                 </form>
               </CardContent>
@@ -348,12 +361,12 @@ export default function AdminContent() {
                     <Image src={p.imageUrls?.[0] || 'https://picsum.photos/seed/food/200/200'} alt={p.name} fill className="object-cover" />
                   </div>
                   <div className="flex-grow">
-                    <h4 className="font-black text-xs uppercase tracking-tight italic">{p.name}</h4>
+                    <h4 className="font-black text-xs uppercase tracking-tight italic line-clamp-1">{p.name}</h4>
                     <span className="text-amber-500 text-[10px] font-black">${p.price.toFixed(2)}</span>
                   </div>
                   <div className="flex gap-1">
-                    <button onClick={() => { setIsEditing(p.id); setFormData({ ...p, price: p.price.toString() }); }} className="p-2.5 rounded-lg text-zinc-500 hover:text-white"><Edit2 className="h-4 w-4" /></button>
-                    <button disabled={deletingId === p.id} onClick={() => deleteItem(p.id, 'products')} className="p-2.5 rounded-lg text-zinc-500 hover:text-red-500">
+                    <button onClick={() => { setIsEditing(p.id); setFormData({ ...p, price: p.price.toString() }); }} className="p-2.5 rounded-lg text-zinc-500 hover:text-white transition-colors"><Edit2 className="h-4 w-4" /></button>
+                    <button disabled={deletingId === p.id} onClick={() => deleteItem(p.id, 'products')} className="p-2.5 rounded-lg text-zinc-500 hover:text-red-500 transition-colors">
                       {deletingId === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                     </button>
                   </div>
