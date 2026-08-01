@@ -49,9 +49,10 @@ export function Footer() {
         }));
       });
 
-    toast({ title: "Sent!", description: "Thanks for your feedback." });
-    setReview({ name: '', comment: '', rating: 5 });
+    // Instant unlock and reset
     setIsSubmitting(false);
+    setReview({ name: '', comment: '', rating: 5 });
+    toast({ title: "Sent!", description: "Thanks for your feedback." });
   };
 
   return (

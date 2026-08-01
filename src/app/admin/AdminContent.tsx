@@ -12,7 +12,9 @@ import {
   X,
   Star,
   MessageSquare,
-  ShieldCheck
+  ShieldCheck,
+  ImageIcon,
+  Image as ImageIconLucide
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -24,6 +26,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/tabs-ui';
 import { Product, Category, StoreSettings, Review } from '@/types/restaurant';
 import { useFirestore, useCollection, useDoc } from '@/firebase';
 import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const TabsListStyled = ({ children }: { children: React.ReactNode }) => (
   <TabsList className="bg-zinc-900/50 border border-zinc-800 p-1.5 rounded-2xl h-auto w-full flex-wrap justify-start gap-1">
@@ -75,6 +79,7 @@ export default function AdminContent() {
     imageUrls: [] as string[],
     badges: [] as string[],
   });
+  const [tempImageUrl, setTempImageUrl] = useState('');
   const [newCategoryName, setNewCategoryName] = useState('');
 
   useEffect(() => { if (storeSettings) setLocalStoreSettings(storeSettings); }, [storeSettings]);
@@ -90,7 +95,7 @@ export default function AdminContent() {
     }
   };
 
-  const handleSaveProduct = async (e: React.FormEvent) => {
+  const handleSaveProduct = (e: React.FormEvent) => {
     e.preventDefault();
     if (!db || isProductSaving) return;
     setIsProductSaving(true);
@@ -101,23 +106,40 @@ export default function AdminContent() {
       createdAt: isEditing ? (products.find(p => p.id === isEditing)?.createdAt || serverTimestamp()) : serverTimestamp()
     };
 
-    try {
-      if (isEditing) {
-        await setDoc(doc(db, 'products', isEditing), productData, { merge: true });
-      } else {
-        await addDoc(collection(db, 'products'), productData);
-      }
-      toast({ title: "Success", description: "Menu updated." });
-      setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
-      setIsEditing(null);
-    } catch (err) {
-      toast({ variant: 'destructive', title: "Error", description: "Save failed." });
-    } finally {
-      setIsProductSaving(false);
+    const docRef = isEditing ? doc(db, 'products', isEditing) : null;
+    const collRef = collection(db, 'products');
+
+    const promise = isEditing 
+      ? setDoc(docRef!, productData, { merge: true })
+      : addDoc(collRef, productData);
+
+    promise.catch(async (err) => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: isEditing ? `products/${isEditing}` : 'products',
+        operation: isEditing ? 'update' : 'create',
+        requestResourceData: productData
+      }));
+    });
+
+    // Instant unlock and reset
+    setIsProductSaving(false);
+    setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
+    setIsEditing(null);
+    toast({ title: "Success", description: "Menu updated." });
+  };
+
+  const addImage = () => {
+    if (tempImageUrl.trim()) {
+      setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, tempImageUrl.trim()] }));
+      setTempImageUrl('');
     }
   };
 
-  const addCategory = async (e: React.FormEvent) => {
+  const removeImage = (index: number) => {
+    setFormData(prev => ({ ...prev, imageUrls: prev.imageUrls.filter((_, i) => i !== index) }));
+  };
+
+  const addCategory = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCategoryName || !db || isCategoryAdding) return;
     setIsCategoryAdding(true);
@@ -127,41 +149,53 @@ export default function AdminContent() {
       slug: newCategoryName.toLowerCase().trim().replace(/\s+/g, '-') 
     };
 
-    try {
-      await addDoc(collection(db, 'categories'), catData);
-      toast({ title: "Created", description: "Category added." });
-      setNewCategoryName('');
-    } catch (err) {
-      toast({ variant: 'destructive', title: "Error", description: "Creation failed." });
-    } finally {
-      setIsCategoryAdding(false);
-    }
+    addDoc(collection(db, 'categories'), catData).catch(async (err) => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: 'categories',
+        operation: 'create',
+        requestResourceData: catData
+      }));
+    });
+
+    // Instant unlock and reset
+    setIsCategoryAdding(false);
+    setNewCategoryName('');
+    toast({ title: "Created", description: "Category added." });
   };
 
-  const deleteItem = async (id: string, coll: string) => {
+  const deleteItem = (id: string, coll: string) => {
     if (!db || deletingId) return;
     setDeletingId(id);
-    try {
-      await deleteDoc(doc(db, coll, id));
-      toast({ title: "Removed", description: "Item deleted." });
-    } catch (err) {
-      toast({ variant: 'destructive', title: "Error", description: "Delete failed." });
-    } finally {
-      setDeletingId(null);
-    }
+
+    deleteDoc(doc(db, coll, id)).catch(async (err) => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: `${coll}/${id}`,
+        operation: 'delete'
+      }));
+    });
+
+    // Instant unlock
+    setDeletingId(null);
+    toast({ title: "Removed", description: "Item deleted." });
   };
 
-  const saveSettings = async (target: 'store' | 'hero') => {
+  const saveSettings = (target: 'store' | 'hero') => {
     if (!db) return;
     const setter = target === 'store' ? setIsStoreSaving : setIsHeroSaving;
     setter(true);
     const data = target === 'store' ? localStoreSettings : localHeroSettings;
-    try {
-      await setDoc(doc(db, 'settings', target), data, { merge: true });
-      toast({ title: "Synced", description: `${target} settings updated.` });
-    } finally {
-      setter(false);
-    }
+    
+    setDoc(doc(db, 'settings', target), data, { merge: true }).catch(async (err) => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: `settings/${target}`,
+        operation: 'update',
+        requestResourceData: data
+      }));
+    });
+
+    // Instant unlock
+    setter(false);
+    toast({ title: "Synced", description: `${target} settings updated.` });
   };
 
   if (!isAuthenticated) {
@@ -195,7 +229,7 @@ export default function AdminContent() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 pb-20">
       <div className="container mx-auto max-w-6xl p-4 md:p-10">
-        <header className="flex flex-col md:flex-row gap-6 justify-between items-center mb-12 bg-zinc-900 p-8 rounded-[2.5rem] border border-zinc-800 shadow-2xl">
+        <header className="flex flex-col md:flex-row gap-6 justify-between items-center mb-12 bg-zinc-900 p-8 rounded-[2.5rem] border border-zinc-800 shadow-2xl animate-gpu">
           <div className="flex items-center gap-4">
              <div className="h-12 w-12 rounded-2xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
                <ShieldCheck className="text-amber-500 h-6 w-6" />
@@ -247,6 +281,36 @@ export default function AdminContent() {
                       </select>
                     </div>
                   </div>
+
+                  <div className="space-y-3">
+                    <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Dish Images (URLs)</Label>
+                    <div className="flex gap-2">
+                      <Input 
+                        placeholder="Paste image link here..." 
+                        value={tempImageUrl} 
+                        onChange={e => setTempImageUrl(e.target.value)} 
+                        className="bg-zinc-800 border-zinc-700 h-12 rounded-xl"
+                      />
+                      <Button type="button" onClick={addImage} size="icon" className="h-12 w-12 rounded-xl bg-amber-500 text-zinc-950">
+                        <Plus className="h-5 w-5" />
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {formData.imageUrls.map((url, idx) => (
+                        <div key={idx} className="relative h-16 w-16 rounded-lg overflow-hidden border border-zinc-700 group">
+                          <Image src={url} alt="Preview" fill className="object-cover" />
+                          <button 
+                            type="button" 
+                            onClick={() => removeImage(idx)}
+                            className="absolute inset-0 bg-red-500/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="h-4 w-4 text-white" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
                   <Button disabled={isProductSaving} type="submit" className="w-full h-14 bg-amber-500 text-zinc-950 font-black rounded-xl uppercase italic text-sm shadow-xl">
                     {isProductSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : (isEditing ? 'Execute Sync' : 'Save Item')}
                   </Button>
@@ -256,7 +320,7 @@ export default function AdminContent() {
 
             <div className="lg:col-span-7 grid sm:grid-cols-2 gap-5">
               {products.map(p => (
-                <div key={p.id} className="bg-zinc-900 border border-zinc-800 p-5 rounded-[1.5rem] flex gap-5 items-center hover:bg-zinc-800/50 transition-all group shadow-xl">
+                <div key={p.id} className="bg-zinc-900 border border-zinc-800 p-5 rounded-[1.5rem] flex gap-5 items-center hover:bg-zinc-800/50 transition-all group shadow-xl will-change-transform transform-gpu">
                   <div className="relative h-14 w-14 rounded-2xl overflow-hidden bg-zinc-800 flex-shrink-0">
                     <Image src={p.imageUrls?.[0] || 'https://picsum.photos/seed/food/200/200'} alt={p.name} fill className="object-cover" />
                   </div>
