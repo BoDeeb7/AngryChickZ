@@ -7,14 +7,13 @@ import { Product, Category } from '@/types/restaurant';
 import { ProductCard } from './ProductCard';
 import { Utensils } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Skeleton } from '@/components/ui/skeleton';
 
 export function MenuGrid() {
   const db = useFirestore();
   const [activeCategory, setActiveCategory] = useState('all');
   const [cachedProducts, setCachedProducts] = useState<Product[]>([]);
   
-  // Load cache immediately on mount to prevent skeletons
+  // Load cache immediately on mount - CRITICAL for iOS performance
   useEffect(() => {
     const saved = localStorage.getItem('angry_chickz_menu_cache');
     if (saved) {
@@ -36,10 +35,10 @@ export function MenuGrid() {
     return collection(db, 'categories');
   }, [db]);
 
-  const { data: products = [], loading: productsLoading } = useCollection<Product>(productsQuery);
+  const { data: products = [] } = useCollection<Product>(productsQuery);
   const { data: categories = [] } = useCollection<Category>(categoriesRef);
 
-  // Sync products to cache when they arrive
+  // Silent sync to cache
   useEffect(() => {
     if (products.length > 0) {
       setCachedProducts(products);
@@ -52,7 +51,7 @@ export function MenuGrid() {
     return [...base, ...categories];
   }, [categories]);
 
-  // Use cached products if live data is still loading
+  // Priority: live data > cached data
   const effectiveProducts = products.length > 0 ? products : cachedProducts;
 
   const filteredProducts = useMemo(() => {
@@ -92,20 +91,8 @@ export function MenuGrid() {
           </div>
         </div>
 
-        {productsLoading && effectiveProducts.length === 0 ? (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="space-y-4">
-                <Skeleton className="aspect-square w-full rounded-2xl bg-zinc-900/40" />
-                <div className="space-y-2 px-2">
-                  <Skeleton className="h-4 w-2/3 bg-zinc-900/40" />
-                  <Skeleton className="h-3 w-full bg-zinc-900/40" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : filteredProducts.length > 0 ? (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8 animate-in fade-in slide-in-from-bottom-5 duration-500 will-change-transform">
+        {filteredProducts.length > 0 ? (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8 animate-in fade-in duration-500 will-change-transform transform-gpu">
             {filteredProducts.map(product => (
               <ProductCard key={product.id} product={product} />
             ))}
@@ -113,8 +100,8 @@ export function MenuGrid() {
         ) : (
           <div className="text-center py-24 bg-zinc-900/30 rounded-[3rem] border border-dashed border-zinc-800">
             <Utensils className="h-16 w-16 mx-auto mb-6 text-zinc-800" />
-            <h3 className="text-xl font-bold text-zinc-100 uppercase italic mb-2">Menu Coming Soon</h3>
-            <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Elite heat is on the way.</p>
+            <h3 className="text-xl font-bold text-zinc-100 uppercase italic mb-2">Menu Loading</h3>
+            <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Preparing the heat...</p>
           </div>
         )}
       </div>

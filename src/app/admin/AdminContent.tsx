@@ -140,15 +140,16 @@ export default function AdminContent() {
       ? setDoc(docRef!, productData, { merge: true })
       : addDoc(collRef, productData);
 
-    operation.catch(async (err) => {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: isEditing ? `products/${isEditing}` : 'products',
-        operation: isEditing ? 'update' : 'create',
-        requestResourceData: productData
-      }));
-    });
+    operation
+      .finally(() => setIsProductSaving(false))
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: isEditing ? `products/${isEditing}` : 'products',
+          operation: isEditing ? 'update' : 'create',
+          requestResourceData: productData
+        }));
+      });
 
-    setIsProductSaving(false);
     setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
     setIsEditing(null);
     toast({ title: "Success", description: "Menu updated globally." });
@@ -168,15 +169,16 @@ export default function AdminContent() {
       slug: newCategoryName.toLowerCase().trim().replace(/\s+/g, '-') 
     };
 
-    addDoc(collection(db, 'categories'), catData).catch(async (err) => {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: 'categories',
-        operation: 'create',
-        requestResourceData: catData
-      }));
-    });
+    addDoc(collection(db, 'categories'), catData)
+      .finally(() => setIsCategoryAdding(false))
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: 'categories',
+          operation: 'create',
+          requestResourceData: catData
+        }));
+      });
 
-    setIsCategoryAdding(false);
     setNewCategoryName('');
     toast({ title: "Created", description: "Category synchronized." });
   };
@@ -185,14 +187,15 @@ export default function AdminContent() {
     if (!db) return;
     setDeletingId(id);
 
-    deleteDoc(doc(db, coll, id)).catch(async (err) => {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: `${coll}/${id}`,
-        operation: 'delete'
-      }));
-    });
+    deleteDoc(doc(db, coll, id))
+      .finally(() => setDeletingId(null))
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: `${coll}/${id}`,
+          operation: 'delete'
+        }));
+      });
 
-    setDeletingId(null);
     toast({ title: "Removed", description: "Item deleted from cloud." });
   };
 
@@ -202,15 +205,16 @@ export default function AdminContent() {
     setter(true);
     const data = target === 'store' ? localStoreSettings : localHeroSettings;
     
-    setDoc(doc(db, 'settings', target), data, { merge: true }).catch(async (err) => {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: `settings/${target}`,
-        operation: 'update',
-        requestResourceData: data
-      }));
-    });
+    setDoc(doc(db, 'settings', target), data, { merge: true })
+      .finally(() => setter(false))
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: `settings/${target}`,
+          operation: 'update',
+          requestResourceData: data
+        }));
+      });
 
-    setter(false);
     toast({ title: "Synced", description: `${target} settings updated.` });
   };
 
