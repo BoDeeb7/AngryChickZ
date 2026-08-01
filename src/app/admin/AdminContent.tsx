@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -8,7 +9,6 @@ import {
   Edit2, 
   Loader2, 
   Utensils, 
-  ShieldCheck, 
   ArrowLeft, 
   Lock, 
   X,
@@ -116,7 +116,7 @@ export default function AdminContent() {
     }).catch((err) => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'products', operation: 'write', requestResourceData: productData }));
     }).finally(() => {
-      setIsProductSaving(false); // CRITICAL: UNLOCK BUTTON
+      setIsProductSaving(false); 
     });
   };
 
@@ -134,7 +134,7 @@ export default function AdminContent() {
     }).catch((err) => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'categories', operation: 'create', requestResourceData: catData }));
     }).finally(() => {
-      setIsCategoryAdding(false); // CRITICAL: UNLOCK BUTTON
+      setIsCategoryAdding(false); 
     });
   };
 
@@ -147,7 +147,7 @@ export default function AdminContent() {
     }).catch((err) => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `${coll}/${id}`, operation: 'delete' }));
     }).finally(() => {
-      setDeletingId(null); // CRITICAL: UNLOCK BUTTON
+      setDeletingId(null);
     });
   };
 
@@ -181,7 +181,7 @@ export default function AdminContent() {
     setDoc(doc(db, 'settings', target), data, { merge: true }).then(() => {
       toast({ title: "Synced", description: "Settings updated." });
     }).finally(() => {
-      setter(false); // CRITICAL: UNLOCK BUTTON
+      setter(false);
     });
   };
 
@@ -280,6 +280,9 @@ export default function AdminContent() {
                   <Button disabled={isProductSaving} type="submit" className="w-full bg-amber-500 text-zinc-950 font-bold rounded-xl h-11 uppercase">
                     {isProductSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : (isEditing ? 'Update' : 'Save')}
                   </Button>
+                  {isEditing && (
+                    <Button type="button" variant="outline" onClick={resetForm} className="w-full bg-transparent border-zinc-700 text-zinc-400 rounded-xl h-11 uppercase">Cancel</Button>
+                  )}
                 </form>
               </CardContent>
             </Card>

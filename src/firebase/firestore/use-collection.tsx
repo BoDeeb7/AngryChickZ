@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -16,7 +17,6 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   
-  // Use a ref to track if the initial fetch is happening to avoid flickering
   const isInitialFetch = useRef(true);
 
   useEffect(() => {
@@ -25,6 +25,7 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
       return;
     }
 
+    // Set loading only on query change, but keep old data to avoid flickering
     if (isInitialFetch.current) {
       setLoading(true);
     }
@@ -35,13 +36,12 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
         const items = snapshot.docs.map((doc) => ({
           ...doc.data(),
           id: doc.id,
-        }));
+        } as T));
         setData(items);
         setLoading(false);
         isInitialFetch.current = false;
       },
       async (serverError: FirestoreError) => {
-        // Only emit if it's a real permission error
         if (serverError.code === 'permission-denied') {
           const permissionError = new FirestorePermissionError({
             path: 'collection',

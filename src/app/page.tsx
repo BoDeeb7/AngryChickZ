@@ -1,3 +1,4 @@
+
 import { Navbar } from '@/components/restaurant/Navbar';
 import { Hero } from '@/components/restaurant/Hero';
 import { MenuGrid } from '@/components/restaurant/MenuGrid';
