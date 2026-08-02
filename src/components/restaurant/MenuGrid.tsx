@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -5,26 +6,17 @@ import { useFirestore, useCollection } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { Product, Category } from '@/types/restaurant';
 import { ProductCard } from './ProductCard';
-import { Utensils, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { MOCK_PRODUCTS } from '@/lib/mock-data';
 
 export function MenuGrid() {
   const db = useFirestore();
   const [activeCategory, setActiveCategory] = useState('all');
-  const [cachedProducts, setCachedProducts] = useState<Product[]>([]);
   const [isClient, setIsClient] = useState(false);
   
-  // Instant client-side hydration for local cache
   useEffect(() => {
     setIsClient(true);
-    const saved = localStorage.getItem('angry_chickz_menu_v2');
-    if (saved) {
-      try {
-        setCachedProducts(JSON.parse(saved));
-      } catch (e) {
-        console.error('Cache load error', e);
-      }
-    }
   }, []);
 
   const productsQuery = useMemo(() => {
@@ -37,29 +29,25 @@ export function MenuGrid() {
     return collection(db, 'categories');
   }, [db]);
 
-  const { data: products = [] } = useCollection<Product>(productsQuery);
+  const { data: cloudProducts = [] } = useCollection<Product>(productsQuery);
   const { data: categories = [] } = useCollection<Category>(categoriesRef);
 
-  // Silent background sync to cache
-  useEffect(() => {
-    if (products.length > 0) {
-      setCachedProducts(products);
-      localStorage.setItem('angry_chickz_menu_v2', JSON.stringify(products));
-    }
-  }, [products]);
+  // Fallback logic: Use cloud data, otherwise use high-quality mock data for instant load
+  const products = cloudProducts.length > 0 ? cloudProducts : (MOCK_PRODUCTS as any[]);
 
   const displayCategories = useMemo(() => {
     const base = [{ id: 'all', name: 'All Dishes', slug: 'all' }];
-    return [...base, ...categories];
-  }, [categories]);
-
-  // Priority logic: Use cloud data if available, fallback to local cache for 0ms load
-  const effectiveProducts = products.length > 0 ? products : cachedProducts;
+    // If we have categories in cloud, use them, otherwise mock them from products
+    if (categories.length > 0) return [...base, ...categories];
+    
+    const uniqueCats = Array.from(new Set(products.map(p => p.category)));
+    return [...base, ...uniqueCats.map(cat => ({ id: cat, name: cat.charAt(0).toUpperCase() + cat.slice(1), slug: cat }))];
+  }, [categories, products]);
 
   const filteredProducts = useMemo(() => {
-    if (activeCategory === 'all') return effectiveProducts;
-    return effectiveProducts.filter(p => p.category === activeCategory);
-  }, [effectiveProducts, activeCategory]);
+    if (activeCategory === 'all') return products;
+    return products.filter(p => p.category === activeCategory);
+  }, [products, activeCategory]);
 
   if (!isClient) return null;
 
@@ -95,19 +83,11 @@ export function MenuGrid() {
           </div>
         </div>
 
-        {effectiveProducts.length > 0 ? (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8 animate-in fade-in duration-500 will-change-transform transform-gpu">
-            {filteredProducts.map(product => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-24 bg-zinc-900/30 rounded-[3rem] border border-dashed border-zinc-800 flex flex-col items-center justify-center">
-            <RefreshCw className="h-10 w-10 text-zinc-800 mb-4 animate-spin" />
-            <h3 className="text-xl font-bold text-zinc-100 uppercase italic mb-2">Syncing Catalog</h3>
-            <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Updating Live Data...</p>
-          </div>
-        )}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8 animate-in fade-in duration-500 will-change-transform transform-gpu">
+          {filteredProducts.map((product, idx) => (
+            <ProductCard key={product.id || idx} product={product} />
+          ))}
+        </div>
       </div>
     </section>
   );

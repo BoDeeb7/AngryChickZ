@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -22,15 +23,8 @@ export function Navbar() {
   const { data: storeSettings } = useDoc<StoreSettings>(storeSettingsRef);
 
   useEffect(() => {
-    let ticking = false;
     const handleScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          setIsScrolled(window.scrollY > 20);
-          ticking = false;
-        });
-        ticking = true;
-      }
+      setIsScrolled(window.scrollY > 20);
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
@@ -38,34 +32,34 @@ export function Navbar() {
 
   return (
     <>
-      <nav className={`fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300 ${isScrolled ? 'py-2 px-4' : 'py-6 px-4 md:px-8'}`}>
-        <div className={`container mx-auto max-w-5xl rounded-[2.5rem] px-8 py-4 flex items-center justify-between shadow-2xl transition-all duration-300 ${isScrolled ? 'glass-header shadow-lg' : 'bg-transparent'}`}>
-          <Link href="/" className="flex items-center gap-5 group">
-            <div className="relative h-14 w-14 flex items-center justify-center">
+      <nav className={`fixed top-0 left-0 right-0 z-50 w-full transition-all duration-500 ${isScrolled ? 'py-3 px-4' : 'py-8 px-6 md:px-12'}`}>
+        <div className={`container mx-auto max-w-6xl rounded-[2.5rem] px-10 py-5 flex items-center justify-between shadow-2xl transition-all duration-500 ${isScrolled ? 'glass-header bg-background/80 shadow-lg' : 'bg-transparent'}`}>
+          <Link href="/" className="flex items-center gap-6 group">
+            <div className="relative h-16 w-16 md:h-20 md:w-20 flex items-center justify-center">
               {storeSettings?.logo ? (
-                <Image src={storeSettings.logo} alt="Logo" fill className="object-contain" priority sizes="56px" />
+                <Image src={storeSettings.logo} alt="Logo" fill className="object-contain" priority sizes="(max-width: 768px) 64px, 80px" />
               ) : (
-                <div className="h-full w-full bg-amber-500/10 rounded-full flex items-center justify-center border border-amber-500/20">
-                   <span className="text-[14px] font-black text-amber-500 italic">AC</span>
+                <div className="h-full w-full bg-amber-500/20 rounded-3xl flex items-center justify-center border border-amber-500/30 shadow-[0_0_20px_rgba(245,158,11,0.2)]">
+                   <span className="text-xl md:text-2xl font-black text-amber-500 italic">AC</span>
                 </div>
               )}
             </div>
-            <span className="text-3xl md:text-5xl font-black uppercase italic bg-gradient-to-r from-amber-400 to-red-600 bg-clip-text text-transparent tracking-tighter transition-all duration-300 group-hover:scale-105">
+            <span className="text-4xl md:text-6xl font-black uppercase italic bg-gradient-to-r from-amber-400 via-red-500 to-amber-600 bg-clip-text text-transparent tracking-tighter transition-all duration-500 group-hover:scale-105">
               ANGRY <span className="text-foreground">CHICKZ</span>
             </span>
           </Link>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <Link href="/admin">
-              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full bg-foreground/5 hover:bg-primary/10">
-                <Shield className="h-5 w-5 text-foreground/40" />
+              <Button variant="ghost" size="icon" className="h-12 w-12 rounded-full bg-foreground/5 hover:bg-primary/10">
+                <Shield className="h-6 w-6 text-foreground/40" />
               </Button>
             </Link>
             <ThemeSwitcher />
-            <Button className="relative h-12 w-12 md:h-14 md:w-14 rounded-full bg-primary hover:bg-primary/90 text-white shadow-xl" onClick={() => setIsCartOpen(true)}>
-              <ShoppingBag className="h-5 w-5" />
+            <Button className="relative h-14 w-14 md:h-16 md:w-16 rounded-full bg-primary hover:bg-primary/90 text-white shadow-[0_10px_30px_rgba(225,29,72,0.4)] transition-transform active:scale-90" onClick={() => setIsCartOpen(true)}>
+              <ShoppingBag className="h-6 w-6" />
               {itemCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-secondary text-background text-[11px] font-black h-6 w-6 rounded-full flex items-center justify-center border-2 border-background">
+                <span className="absolute -top-1 -right-1 bg-secondary text-background text-xs font-black h-7 w-7 rounded-full flex items-center justify-center border-2 border-background animate-bounce">
                   {itemCount}
                 </span>
               )}
