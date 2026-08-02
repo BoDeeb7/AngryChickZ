@@ -106,29 +106,34 @@ export default function AdminContent() {
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !storage) return;
+    if (!file || !storage) {
+      if (!storage) toast({ variant: "destructive", title: "Error", description: "Storage not initialized." });
+      return;
+    }
 
     setIsImageUploading(true);
     
     // Safety timeout to unlock the UI if something goes wrong
     const timeoutId = setTimeout(() => {
       setIsImageUploading(false);
-      toast({ variant: "destructive", title: "Upload Timeout", description: "Taking too long, resetting button..." });
-    }, 20000);
+      toast({ variant: "destructive", title: "Upload Timeout", description: "Process taking too long, resetting button status." });
+    }, 25000);
 
     try {
-      const storageRef = ref(storage, `products/${Date.now()}-${file.name}`);
+      const storagePath = `products/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+      const storageRef = ref(storage, storagePath);
       const snapshot = await uploadBytes(storageRef, file);
       const url = await getDownloadURL(snapshot.ref);
+      
       setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, url] }));
-      toast({ title: "Upload Success", description: "Image synced to cloud." });
-    } catch (error) {
+      toast({ title: "Upload Success", description: "Image synced to cloud gallery." });
+    } catch (error: any) {
       console.error("Upload error:", error);
-      toast({ variant: "destructive", title: "Upload Failed", description: "Could not upload image to storage." });
+      toast({ variant: "destructive", title: "Upload Failed", description: error.message || "Could not upload image to storage." });
     } finally {
       clearTimeout(timeoutId);
       setIsImageUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = ''; // Reset input so same file can be chosen again
+      if (fileInputRef.current) fileInputRef.current.value = ''; 
     }
   };
 
@@ -146,7 +151,6 @@ export default function AdminContent() {
     const docRef = isEditing ? doc(db, 'products', isEditing) : null;
     const collRef = collection(db, 'products');
 
-    // Optimistic Save
     if (isEditing && docRef) {
       setDoc(docRef, productData, { merge: true }).catch(err => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -161,11 +165,11 @@ export default function AdminContent() {
       });
     }
 
-    // Instant UI Liberation
+    // Immediate UI feedback
     setIsProductSaving(false);
     setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
     setIsEditing(null);
-    toast({ title: "Action Captured", description: "Syncing with cloud in background." });
+    toast({ title: "Action Captured", description: "Data pushed to live database." });
   };
 
   const addCategory = (e: React.FormEvent) => {
@@ -186,7 +190,7 @@ export default function AdminContent() {
 
     setIsCategoryAdding(false);
     setNewCategoryName('');
-    toast({ title: "Category Added", description: "Updating category list..." });
+    toast({ title: "Category Added", description: "New segment created." });
   };
 
   const deleteItem = (id: string, coll: string) => {
@@ -201,7 +205,7 @@ export default function AdminContent() {
       }));
     });
 
-    toast({ title: "Deleting", description: "Removing item from database." });
+    toast({ title: "Deleting", description: "Removing item from production." });
   };
 
   const saveSettings = (target: 'store' | 'hero') => {
@@ -218,7 +222,7 @@ export default function AdminContent() {
       }));
     });
 
-    toast({ title: "Updating Settings", description: "Configuration pushed to production." });
+    toast({ title: "Updating Settings", description: "Global configuration updated." });
   };
 
   const removeImage = (index: number) => {
@@ -297,16 +301,17 @@ export default function AdminContent() {
                     <Input required value={formData.name} onChange={e => setFormData(f => ({ ...f, name: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl" />
                   </div>
                   
-                  <div className="space-y-3 p-4 bg-zinc-950/30 rounded-2xl border border-zinc-800">
-                    <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest italic flex items-center gap-2">
-                       Product Description / Ingredients
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest italic flex items-center justify-between">
+                       <span>Product Description</span>
+                       <span className="text-zinc-600 text-[8px] tracking-tight">Be concise & impactful</span>
                     </Label>
                     <Textarea 
                       required 
                       value={formData.description} 
                       onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} 
-                      className="bg-zinc-800/50 border-zinc-700 rounded-xl min-h-[150px] font-bold p-4 focus:ring-amber-500 text-sm" 
-                      placeholder="e.g. 24hr Brined Chicken, Secret Spice Blend, Toasted Brioche, Angry Sauce, Pickles..."
+                      className="bg-zinc-800/50 border-zinc-700 rounded-xl min-h-[120px] font-bold p-4 focus:ring-amber-500 text-sm" 
+                      placeholder="Ingredients, spice level, or special prep details..."
                     />
                   </div>
 
@@ -343,7 +348,7 @@ export default function AdminContent() {
                       {isImageUploading ? (
                         <div className="flex flex-col items-center">
                           <Loader2 className="h-10 w-10 text-amber-500 animate-spin mb-3" />
-                          <span className="text-[10px] font-black uppercase text-amber-500">Processing Cloud Upload...</span>
+                          <span className="text-[10px] font-black uppercase text-amber-500">Syncing to Cloud...</span>
                         </div>
                       ) : (
                         <>
@@ -381,7 +386,7 @@ export default function AdminContent() {
 
                     {(isImageUploading || isProductSaving) && (
                       <Button type="button" variant="ghost" onClick={() => { setIsImageUploading(false); setIsProductSaving(false); }} className="text-[8px] uppercase tracking-widest text-red-500/50 hover:text-red-500">
-                        Emergency Reset Spinner
+                        Emergency Reset Status
                       </Button>
                     )}
                   </div>
