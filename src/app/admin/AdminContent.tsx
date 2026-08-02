@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Plus, 
@@ -11,12 +11,14 @@ import {
   ArrowLeft, 
   Lock, 
   X,
-  Star,
   MessageSquare,
   ShieldCheck,
   UploadCloud,
   Database,
   RefreshCw,
+  Settings,
+  Globe,
+  Layout
 } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -24,8 +26,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/tabs-ui';
-import { Product, Category, StoreSettings, Review } from '@/types/restaurant';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Product, Category, StoreSettings } from '@/types/restaurant';
 import { useFirestore, useCollection, useDoc, useStorage } from '@/firebase';
 import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -33,19 +35,6 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { MOCK_PRODUCTS, MOCK_CATEGORIES } from '@/lib/mock-data';
 import Link from 'next/link';
-
-const TabsListStyled = ({ children }: { children: React.ReactNode }) => (
-  <TabsList className="bg-zinc-900/50 border border-zinc-800 p-1.5 rounded-2xl h-auto w-full flex-wrap justify-start gap-1">
-    {children}
-  </TabsList>
-);
-
-const TabTriggerStyled = ({ value, children, icon: Icon }: { value: string, children: React.ReactNode, icon?: any }) => (
-  <TabsTrigger value={value} className="px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-amber-500 data-[state=active]:text-zinc-950 transition-all">
-    {Icon && <Icon className="h-3.5 w-3.5 mr-2" />}
-    {children}
-  </TabsTrigger>
-);
 
 export default function AdminContent() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -62,13 +51,14 @@ export default function AdminContent() {
   const db = useFirestore();
   const storage = useStorage();
 
+  // Queries
   const productsQuery = useMemo(() => db ? query(collection(db, 'products'), orderBy('createdAt', 'desc')) : null, [db]);
   const categoriesRef = useMemo(() => db ? collection(db, 'categories') : null, [db]);
-  const reviewsQuery = useMemo(() => db ? query(collection(db, 'reviews'), orderBy('createdAt', 'desc')) : null, [db]);
+  const storeSettingsRef = useMemo(() => db ? doc(db, 'settings', 'store') : null, [db]);
 
   const { data: products = [] } = useCollection<Product>(productsQuery);
   const { data: categories = [] } = useCollection<Category>(categoriesRef);
-  const { data: reviews = [] } = useCollection<Review>(reviewsQuery);
+  const { data: storeSettings } = useDoc<StoreSettings>(storeSettingsRef);
 
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -79,18 +69,22 @@ export default function AdminContent() {
     imageUrls: [] as string[],
     badges: [] as string[],
   });
+
+  const [settingsForm, setSettingsForm] = useState<Partial<StoreSettings>>({});
   const [newCategoryName, setNewCategoryName] = useState('');
 
+  // Handle Login
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (loginForm.username === 'Ali@AngryChickZ' && loginForm.password === 'AngryChickZ@DeebData#79') {
       setIsAuthenticated(true);
-      toast({ title: "Authorized", description: "Admin terminal accessed." });
+      toast({ title: "Authorized", description: "Terminal Unlocked." });
     } else {
       toast({ variant: "destructive", title: "Access Denied", description: "Invalid credentials." });
     }
   };
 
+  // Seed Data
   const seedInitialData = async () => {
     if (!db) return;
     setIsSeeding(true);
@@ -104,30 +98,30 @@ export default function AdminContent() {
           createdAt: serverTimestamp()
         });
       }
-      toast({ title: "Success", description: "Mock data seeded to cloud." });
+      toast({ title: "Success", description: "Database seeded with items." });
     } catch (e) {
-      toast({ variant: "destructive", title: "Seed Failed", description: "Could not seed data." });
+      toast({ variant: "destructive", title: "Seed Failed" });
     } finally {
       setIsSeeding(false);
     }
   };
 
+  // Upload Logic - REBUILT CLEAN
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !storage) return;
 
     setIsImageUploading(true);
-    const storagePath = `products/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
-    const storageRef = ref(storage, storagePath);
+    const storageRef = ref(storage, `products/${Date.now()}-${file.name}`);
 
     uploadBytes(storageRef, file)
       .then(async (snapshot) => {
         const url = await getDownloadURL(snapshot.ref);
         setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, url] }));
-        toast({ title: "Image Uploaded", description: "File synced to cloud." });
+        toast({ title: "Image Ready", description: "File uploaded successfully." });
       })
       .catch((err) => {
-        toast({ variant: "destructive", title: "Upload Failed", description: "Could not sync image." });
+        toast({ variant: "destructive", title: "Upload Failed" });
       })
       .finally(() => {
         setIsImageUploading(false);
@@ -135,6 +129,7 @@ export default function AdminContent() {
       });
   };
 
+  // Save Product
   const handleSaveProduct = (e: React.FormEvent) => {
     e.preventDefault();
     if (!db) return;
@@ -165,11 +160,19 @@ export default function AdminContent() {
         setIsProductSaving(false);
         setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
         setIsEditing(null);
+        toast({ title: "Sync Complete", description: "Product data stored." });
       });
-
-    toast({ title: "Task Captured", description: "Cloud sync initiated." });
   };
 
+  // Save Settings
+  const handleSaveSettings = () => {
+    if (!db) return;
+    setDoc(doc(db, 'settings', 'store'), settingsForm, { merge: true })
+      .then(() => toast({ title: "Settings Saved" }))
+      .catch(() => toast({ variant: "destructive", title: "Update Failed" }));
+  };
+
+  // Delete Logic
   const deleteItem = (id: string, coll: string) => {
     if (!db) return;
     setDeletingId(id);
@@ -182,12 +185,20 @@ export default function AdminContent() {
       .finally(() => setDeletingId(null));
   };
 
+  // Forced Reset
+  const forceReset = () => {
+    setIsImageUploading(false);
+    setIsProductSaving(false);
+    setIsCategoryAdding(false);
+    toast({ title: "Status Reset", description: "All locks released." });
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
-        <Card className="w-full max-w-md bg-zinc-900 border-zinc-800 shadow-2xl rounded-[2.5rem] overflow-hidden">
+        <Card className="w-full max-w-md bg-zinc-900 border-zinc-800 shadow-2xl rounded-[2.5rem]">
           <CardHeader className="text-center pt-12">
-            <div className="h-20 w-20 bg-amber-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(245,158,11,0.3)]">
+            <div className="h-20 w-20 bg-amber-500 rounded-3xl flex items-center justify-center mx-auto mb-6">
               <Lock className="h-10 w-10 text-zinc-950" />
             </div>
             <CardTitle className="text-2xl font-black text-zinc-100 uppercase italic tracking-tighter">Terminal Access</CardTitle>
@@ -202,7 +213,7 @@ export default function AdminContent() {
                 <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Password</Label>
                 <Input type="password" value={loginForm.password} onChange={e => setLoginForm(p => ({ ...p, password: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-14 rounded-2xl" />
               </div>
-              <Button type="submit" className="w-full h-16 bg-amber-500 hover:bg-amber-600 text-zinc-950 font-black rounded-2xl uppercase italic text-lg shadow-xl">Auth Credentials</Button>
+              <Button type="submit" className="w-full h-16 bg-amber-500 hover:bg-amber-600 text-zinc-950 font-black rounded-2xl uppercase italic text-lg">Auth Credentials</Button>
             </form>
           </CardContent>
         </Card>
@@ -224,16 +235,15 @@ export default function AdminContent() {
              </div>
           </div>
           <div className="flex gap-4">
-            <Button 
-              onClick={seedInitialData} 
-              disabled={isSeeding} 
-              className="h-12 bg-blue-600 hover:bg-blue-700 rounded-xl px-6 font-bold uppercase italic text-[10px]"
-            >
+            <Button onClick={forceReset} variant="outline" className="h-12 border-red-500/20 text-red-500 hover:bg-red-500/10 text-[10px] uppercase font-black italic">
+              Emergency Reset
+            </Button>
+            <Button onClick={seedInitialData} disabled={isSeeding} className="h-12 bg-blue-600 hover:bg-blue-700 text-[10px] font-bold uppercase italic">
               {isSeeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4 mr-2" />}
-              Seed Mock Data
+              Seed Data
             </Button>
             <Link href="/">
-              <Button variant="outline" className="h-12 bg-zinc-800 border-zinc-700 hover:bg-zinc-700 rounded-xl px-6 font-bold uppercase italic text-[10px]">
+              <Button variant="outline" className="h-12 bg-zinc-800 border-zinc-700 rounded-xl px-6 font-bold uppercase italic text-[10px]">
                 <ArrowLeft className="h-4 w-4 mr-2" /> Live Portal
               </Button>
             </Link>
@@ -241,18 +251,18 @@ export default function AdminContent() {
         </header>
 
         <Tabs defaultValue="products" className="space-y-10">
-          <TabsListStyled>
-            <TabTriggerStyled value="products">Products</TabTriggerStyled>
-            <TabTriggerStyled value="categories">Categories</TabTriggerStyled>
-            <TabTriggerStyled value="reviews" icon={MessageSquare}>Reviews</TabTriggerStyled>
-          </TabsListStyled>
+          <TabsList className="bg-zinc-900 border border-zinc-800 p-1.5 rounded-2xl h-auto w-full flex-wrap justify-start gap-1">
+            <TabsTrigger value="products" className="px-6 py-3 rounded-xl font-black text-[10px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-zinc-950">Products</TabsTrigger>
+            <TabsTrigger value="categories" className="px-6 py-3 rounded-xl font-black text-[10px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-zinc-950">Categories</TabsTrigger>
+            <TabsTrigger value="contact" className="px-6 py-3 rounded-xl font-black text-[10px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-zinc-950">Contact & Social</TabsTrigger>
+          </TabsList>
 
           <TabsContent value="products" className="grid lg:grid-cols-12 gap-8">
             <Card className="lg:col-span-5 bg-zinc-900 border-zinc-800 rounded-[2.5rem] shadow-2xl h-fit overflow-hidden">
               <CardHeader className="bg-zinc-950/50 p-8 border-b border-zinc-800">
                 <CardTitle className="text-xl font-black text-amber-500 uppercase italic tracking-tighter flex items-center justify-between">
                   <span>{isEditing ? 'Modify Item' : 'New Dish'}</span>
-                  {(isProductSaving || isImageUploading) && <Loader2 className="h-5 w-5 animate-spin text-amber-500" />}
+                  {(isProductSaving || isImageUploading) && <RefreshCw className="h-5 w-5 animate-spin text-amber-500" />}
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-8 space-y-6">
@@ -263,12 +273,13 @@ export default function AdminContent() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest italic">Product Description (Compact)</Label>
+                    <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Product Description</Label>
                     <Textarea 
                       required 
                       value={formData.description} 
                       onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} 
-                      className="bg-zinc-800/50 border-zinc-700 rounded-xl min-h-[80px] font-bold p-4 text-sm" 
+                      placeholder="Ingredients, heat level, etc..."
+                      className="bg-zinc-800/50 border-zinc-700 rounded-xl min-h-[120px] font-bold p-4 text-sm" 
                     />
                   </div>
 
@@ -287,17 +298,14 @@ export default function AdminContent() {
                   </div>
 
                   <div className="space-y-3">
-                    <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center justify-between">
-                      <span>Media</span>
-                      {isImageUploading && <RefreshCw className="h-3 w-3 animate-spin text-amber-500" />}
-                    </Label>
+                    <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Media</Label>
                     <div 
                       onClick={() => !isImageUploading && fileInputRef.current?.click()}
-                      className="border-2 border-dashed border-zinc-700 rounded-2xl p-6 flex flex-col items-center justify-center bg-zinc-800/50 cursor-pointer hover:border-amber-500 transition-all"
+                      className={`border-2 border-dashed rounded-2xl p-6 flex flex-col items-center justify-center bg-zinc-800/50 cursor-pointer transition-all ${isImageUploading ? 'opacity-50 cursor-not-allowed border-amber-500' : 'border-zinc-700 hover:border-amber-500'}`}
                     >
-                      <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
-                      <UploadCloud className="h-8 w-8 mb-2 text-zinc-500" />
-                      <span className="text-[8px] font-black uppercase text-zinc-500">Tap to Upload</span>
+                      <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" disabled={isImageUploading} />
+                      {isImageUploading ? <RefreshCw className="h-8 w-8 mb-2 animate-spin text-amber-500" /> : <UploadCloud className="h-8 w-8 mb-2 text-zinc-500" />}
+                      <span className="text-[8px] font-black uppercase text-zinc-500">{isImageUploading ? 'Processing File...' : 'Tap to Upload'}</span>
                     </div>
                     <div className="flex flex-wrap gap-2 mt-4">
                       {formData.imageUrls.map((url, idx) => (
@@ -311,8 +319,8 @@ export default function AdminContent() {
                     </div>
                   </div>
 
-                  <Button disabled={isProductSaving || isImageUploading} type="submit" className="w-full h-14 bg-amber-500 text-zinc-950 font-black rounded-xl uppercase italic text-sm shadow-xl active:scale-95 transition-transform">
-                    {isProductSaving ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : (isEditing ? 'Update Item' : 'Save Dish')}
+                  <Button disabled={isProductSaving || isImageUploading} type="submit" className="w-full h-14 bg-amber-500 text-zinc-950 font-black rounded-xl uppercase italic text-sm shadow-xl active:scale-95">
+                    {isProductSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : (isEditing ? 'Update Item' : 'Save Dish')}
                   </Button>
                 </form>
               </CardContent>
@@ -320,23 +328,84 @@ export default function AdminContent() {
 
             <div className="lg:col-span-7 grid sm:grid-cols-2 gap-4">
               {products.map(p => (
-                <div key={p.id} className="bg-zinc-900 border border-zinc-800 p-4 rounded-[1.5rem] flex gap-4 items-center hover:bg-zinc-800/50 transition-all group shadow-xl">
-                  <div className="relative h-12 w-12 rounded-xl overflow-hidden bg-zinc-800 flex-shrink-0">
+                <div key={p.id} className="bg-zinc-900 border border-zinc-800 p-4 rounded-[1.5rem] flex gap-4 items-center hover:bg-zinc-800/50 transition-all shadow-xl">
+                  <div className="relative h-12 w-12 rounded-xl overflow-hidden bg-zinc-800">
                     <Image src={p.imageUrls?.[0] || 'https://picsum.photos/seed/food/200/200'} alt={p.name} fill className="object-cover" />
                   </div>
                   <div className="flex-grow">
-                    <h4 className="font-black text-[10px] uppercase italic line-clamp-1">{p.name}</h4>
+                    <h4 className="font-black text-[10px] uppercase italic">{p.name}</h4>
                     <span className="text-amber-500 text-[10px] font-black">${p.price.toFixed(2)}</span>
                   </div>
                   <div className="flex gap-1">
-                    <button onClick={() => { setIsEditing(p.id); setFormData({ ...p, price: p.price.toString() }); }} className="p-2 rounded-lg text-zinc-500 hover:text-white"><Edit2 className="h-3 w-3" /></button>
-                    <button disabled={deletingId === p.id} onClick={() => deleteItem(p.id, 'products')} className="p-2 rounded-lg text-zinc-500 hover:text-red-500">
+                    <button onClick={() => { setIsEditing(p.id); setFormData({ ...p, price: p.price.toString() }); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="p-2 text-zinc-500 hover:text-white"><Edit2 className="h-3 w-3" /></button>
+                    <button disabled={deletingId === p.id} onClick={() => deleteItem(p.id, 'products')} className="p-2 text-zinc-500 hover:text-red-500">
                       {deletingId === p.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
                     </button>
                   </div>
                 </div>
               ))}
             </div>
+          </TabsContent>
+
+          <TabsContent value="contact" className="max-w-2xl mx-auto space-y-8">
+            <Card className="bg-zinc-900 border-zinc-800 rounded-[2.5rem] p-10 shadow-2xl">
+              <div className="space-y-6">
+                 <div className="flex items-center gap-3 mb-4">
+                   <Globe className="text-amber-500 h-5 w-5" />
+                   <h3 className="font-black uppercase italic text-lg">Identity & Links</h3>
+                 </div>
+
+                 <div className="grid sm:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black text-zinc-500 uppercase">WhatsApp (Order Link)</Label>
+                      <Input 
+                        placeholder="e.g. 96170123456" 
+                        value={settingsForm.whatsappNumber || storeSettings?.whatsappNumber || ''} 
+                        onChange={e => setSettingsForm(s => ({ ...s, whatsappNumber: e.target.value }))}
+                        className="bg-zinc-800 border-zinc-700 h-12 rounded-xl" 
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black text-zinc-500 uppercase">Contact Phone</Label>
+                      <Input 
+                        placeholder="+961 70 123 456" 
+                        value={settingsForm.phone || storeSettings?.phone || ''} 
+                        onChange={e => setSettingsForm(s => ({ ...s, phone: e.target.value }))}
+                        className="bg-zinc-800 border-zinc-700 h-12 rounded-xl" 
+                      />
+                    </div>
+                 </div>
+
+                 <div className="space-y-2">
+                    <Label className="text-[10px] font-black text-zinc-500 uppercase">Physical Address</Label>
+                    <Input 
+                      placeholder="Beirut, City Center Mall" 
+                      value={settingsForm.address || storeSettings?.address || ''} 
+                      onChange={e => setSettingsForm(s => ({ ...s, address: e.target.value }))}
+                      className="bg-zinc-800 border-zinc-700 h-12 rounded-xl" 
+                    />
+                 </div>
+
+                 <div className="grid sm:grid-cols-3 gap-6">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black text-zinc-500 uppercase">TikTok URL</Label>
+                      <Input value={settingsForm.tiktok || storeSettings?.tiktok || ''} onChange={e => setSettingsForm(s => ({ ...s, tiktok: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black text-zinc-500 uppercase">Instagram URL</Label>
+                      <Input value={settingsForm.instagram || storeSettings?.instagram || ''} onChange={e => setSettingsForm(s => ({ ...s, instagram: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black text-zinc-500 uppercase">Facebook URL</Label>
+                      <Input value={settingsForm.facebook || storeSettings?.facebook || ''} onChange={e => setSettingsForm(s => ({ ...s, facebook: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl" />
+                    </div>
+                 </div>
+
+                 <Button onClick={handleSaveSettings} className="w-full h-14 bg-amber-500 text-zinc-950 font-black rounded-xl uppercase italic shadow-xl">
+                   Update Brand Profile
+                 </Button>
+              </div>
+            </Card>
           </TabsContent>
 
           <TabsContent value="categories" className="max-w-xl mx-auto space-y-8">
@@ -361,7 +430,7 @@ export default function AdminContent() {
               <div className="grid gap-3">
                 {categories.map(cat => (
                   <div key={cat.id} className="flex items-center justify-between p-4 bg-zinc-800/50 border border-zinc-800 rounded-xl">
-                    <span className="font-black text-[10px] uppercase tracking-[0.2em] italic text-zinc-300">{cat.name}</span>
+                    <span className="font-black text-[10px] uppercase italic text-zinc-300">{cat.name}</span>
                     <button disabled={deletingId === cat.id} onClick={() => deleteItem(cat.id, 'categories')} className="text-zinc-600 hover:text-red-500">
                        {deletingId === cat.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                     </button>

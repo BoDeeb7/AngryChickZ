@@ -28,7 +28,7 @@ export function Hero() {
           src={bgImage} 
           alt="Background" 
           fill 
-          className="object-cover opacity-50 animate-gpu"
+          className="object-cover opacity-50"
           priority
           sizes="100vw"
           quality={60}
@@ -55,7 +55,7 @@ export function Hero() {
             <Button size="lg" className="h-16 px-12 rounded-2xl bg-primary hover:bg-primary/90 text-white font-black uppercase italic text-xl shadow-2xl active:scale-95 transition-all" onClick={scrollToMenu}>
               Order Now <ArrowRight className="ml-2 h-6 w-6" />
             </Button>
-            <Button size="lg" variant="outline" className="h-16 px-12 rounded-2xl border-white/20 bg-white/10 text-white hover:bg-white/20 uppercase italic backdrop-blur-xl transition-all active:scale-95 shadow-2xl" onClick={scrollToMenu}>
+            <Button size="lg" variant="outline" className="h-16 px-12 rounded-2xl border-white/20 bg-white/5 text-white hover:bg-white/10 uppercase italic backdrop-blur-xl transition-all active:scale-95 shadow-2xl" onClick={scrollToMenu}>
               Explore Menu
             </Button>
           </div>
@@ -68,7 +68,7 @@ export function Hero() {
               src={bannerImage} 
               alt="Promo" 
               fill 
-              className="object-contain drop-shadow-[0_0_50px_rgba(245,158,11,0.4)] animate-gpu"
+              className="object-contain drop-shadow-[0_0_50px_rgba(245,158,11,0.4)]"
               priority
             />
           </div>
