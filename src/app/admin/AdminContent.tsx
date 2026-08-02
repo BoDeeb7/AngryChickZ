@@ -20,9 +20,9 @@ import {
   Phone,
   MessageCircle,
   RefreshCw,
+  UploadCloud,
 } from 'lucide-react';
 import Image from 'next/image';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,6 +35,7 @@ import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp, query, ord
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import Link from 'next/link';
 
 const TabsListStyled = ({ children }: { children: React.ReactNode }) => (
   <TabsList className="bg-zinc-900/50 border border-zinc-800 p-1.5 rounded-2xl h-auto w-full flex-wrap justify-start gap-1">
@@ -111,24 +112,23 @@ export default function AdminContent() {
     
     // Safety timeout to unlock the UI if something goes wrong
     const timeoutId = setTimeout(() => {
-      if (isImageUploading) {
-        setIsImageUploading(false);
-        toast({ variant: "destructive", title: "Timeout", description: "Upload taking too long. Resetting..." });
-      }
-    }, 15000);
+      setIsImageUploading(false);
+      toast({ variant: "destructive", title: "Upload Timeout", description: "Taking too long, resetting button..." });
+    }, 20000);
 
     try {
       const storageRef = ref(storage, `products/${Date.now()}-${file.name}`);
       const snapshot = await uploadBytes(storageRef, file);
       const url = await getDownloadURL(snapshot.ref);
       setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, url] }));
-      toast({ title: "Image Ready", description: "Photo added." });
+      toast({ title: "Upload Success", description: "Image synced to cloud." });
     } catch (error) {
       console.error("Upload error:", error);
-      toast({ variant: "destructive", title: "Upload Error", description: "Check network or file size." });
+      toast({ variant: "destructive", title: "Upload Failed", description: "Could not upload image to storage." });
     } finally {
       clearTimeout(timeoutId);
       setIsImageUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = ''; // Reset input so same file can be chosen again
     }
   };
 
@@ -146,7 +146,7 @@ export default function AdminContent() {
     const docRef = isEditing ? doc(db, 'products', isEditing) : null;
     const collRef = collection(db, 'products');
 
-    // Optimistic Reset - Unlock UI immediately
+    // Optimistic Save
     if (isEditing && docRef) {
       setDoc(docRef, productData, { merge: true }).catch(err => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -161,11 +161,11 @@ export default function AdminContent() {
       });
     }
 
-    // Immediate UI liberation
+    // Instant UI Liberation
     setIsProductSaving(false);
     setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
     setIsEditing(null);
-    toast({ title: "Sync Started", description: "Database updating in background." });
+    toast({ title: "Action Captured", description: "Syncing with cloud in background." });
   };
 
   const addCategory = (e: React.FormEvent) => {
@@ -186,7 +186,7 @@ export default function AdminContent() {
 
     setIsCategoryAdding(false);
     setNewCategoryName('');
-    toast({ title: "Category Queued", description: "Updating database..." });
+    toast({ title: "Category Added", description: "Updating category list..." });
   };
 
   const deleteItem = (id: string, coll: string) => {
@@ -201,7 +201,7 @@ export default function AdminContent() {
       }));
     });
 
-    toast({ title: "Removal Initiated", description: "Cloud sync active." });
+    toast({ title: "Deleting", description: "Removing item from database." });
   };
 
   const saveSettings = (target: 'store' | 'hero') => {
@@ -218,7 +218,7 @@ export default function AdminContent() {
       }));
     });
 
-    toast({ title: "Settings Sent", description: "Pushing to production..." });
+    toast({ title: "Updating Settings", description: "Configuration pushed to production." });
   };
 
   const removeImage = (index: number) => {
@@ -297,14 +297,16 @@ export default function AdminContent() {
                     <Input required value={formData.name} onChange={e => setFormData(f => ({ ...f, name: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl" />
                   </div>
                   
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest italic">Description / Ingredients</Label>
+                  <div className="space-y-3 p-4 bg-zinc-950/30 rounded-2xl border border-zinc-800">
+                    <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest italic flex items-center gap-2">
+                       Product Description / Ingredients
+                    </Label>
                     <Textarea 
                       required 
                       value={formData.description} 
                       onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} 
-                      className="bg-zinc-800 border-zinc-700 rounded-xl min-h-[120px] font-bold p-4 focus:ring-amber-500" 
-                      placeholder="e.g. 24hr Brined Chicken, Secret Spice Blend, Toasted Brioche..."
+                      className="bg-zinc-800/50 border-zinc-700 rounded-xl min-h-[150px] font-bold p-4 focus:ring-amber-500 text-sm" 
+                      placeholder="e.g. 24hr Brined Chicken, Secret Spice Blend, Toasted Brioche, Angry Sauce, Pickles..."
                     />
                   </div>
 
@@ -323,10 +325,13 @@ export default function AdminContent() {
                   </div>
 
                   <div className="space-y-3">
-                    <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Product Media</Label>
+                    <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center justify-between">
+                      <span>Product Media</span>
+                      {isImageUploading && <span className="text-amber-500 animate-pulse font-black">Uploading...</span>}
+                    </Label>
                     <div 
                       onClick={() => !isImageUploading && fileInputRef.current?.click()}
-                      className={`border-2 border-dashed border-zinc-700 rounded-2xl p-6 flex flex-col items-center justify-center bg-zinc-800/50 transition-all group ${isImageUploading ? 'cursor-wait opacity-50' : 'cursor-pointer hover:bg-zinc-800 hover:border-amber-500'}`}
+                      className={`border-2 border-dashed border-zinc-700 rounded-2xl p-8 flex flex-col items-center justify-center bg-zinc-800/50 transition-all group ${isImageUploading ? 'cursor-wait opacity-50' : 'cursor-pointer hover:bg-zinc-800 hover:border-amber-500'}`}
                     >
                       <input 
                         type="file" 
@@ -337,13 +342,13 @@ export default function AdminContent() {
                       />
                       {isImageUploading ? (
                         <div className="flex flex-col items-center">
-                          <Loader2 className="h-8 w-8 text-amber-500 animate-spin mb-2" />
-                          <span className="text-[10px] font-black uppercase text-amber-500">Uploading...</span>
+                          <Loader2 className="h-10 w-10 text-amber-500 animate-spin mb-3" />
+                          <span className="text-[10px] font-black uppercase text-amber-500">Processing Cloud Upload...</span>
                         </div>
                       ) : (
                         <>
-                          <Upload className="h-8 w-8 text-zinc-500 group-hover:text-amber-500 mb-2" />
-                          <span className="text-[10px] font-black uppercase text-zinc-500 group-hover:text-zinc-300">Upload Photo</span>
+                          <UploadCloud className="h-10 w-10 text-zinc-500 group-hover:text-amber-500 mb-3 transition-transform group-hover:scale-110" />
+                          <span className="text-[10px] font-black uppercase text-zinc-500 group-hover:text-zinc-300">Tap to Upload Photo</span>
                         </>
                       )}
                     </div>
@@ -365,18 +370,18 @@ export default function AdminContent() {
 
                   <div className="flex flex-col gap-3">
                     <Button disabled={isProductSaving || isImageUploading} type="submit" className="w-full h-14 bg-amber-500 text-zinc-950 font-black rounded-xl uppercase italic text-sm shadow-xl active:scale-95 transition-transform">
-                      {isProductSaving ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : (isEditing ? 'Update Cloud' : 'Save Item')}
+                      {isProductSaving ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : (isEditing ? 'Update Cloud Item' : 'Save New Item')}
                     </Button>
                     
                     {isEditing && (
                       <Button type="button" variant="outline" onClick={() => { setIsEditing(null); setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] }); }} className="w-full h-12 border-zinc-700 text-zinc-400 font-bold rounded-xl uppercase italic text-[10px]">
-                         Cancel Edit
+                         Cancel Modification
                       </Button>
                     )}
 
-                    {isImageUploading && (
-                      <Button type="button" variant="ghost" onClick={() => setIsImageUploading(false)} className="text-[9px] uppercase tracking-widest text-red-500 hover:text-red-400">
-                        Force Reset Upload Spinner
+                    {(isImageUploading || isProductSaving) && (
+                      <Button type="button" variant="ghost" onClick={() => { setIsImageUploading(false); setIsProductSaving(false); }} className="text-[8px] uppercase tracking-widest text-red-500/50 hover:text-red-500">
+                        Emergency Reset Spinner
                       </Button>
                     )}
                   </div>
