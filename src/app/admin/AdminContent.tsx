@@ -106,18 +106,14 @@ export default function AdminContent() {
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !storage) {
-      if (!storage) toast({ variant: "destructive", title: "Error", description: "Storage not initialized." });
+    if (!file) return;
+
+    if (!storage) {
+      toast({ variant: "destructive", title: "Config Error", description: "Storage service not found." });
       return;
     }
 
     setIsImageUploading(true);
-    
-    // Safety timeout to unlock the UI if something goes wrong
-    const timeoutId = setTimeout(() => {
-      setIsImageUploading(false);
-      toast({ variant: "destructive", title: "Upload Timeout", description: "Process taking too long, resetting button status." });
-    }, 25000);
 
     try {
       const storagePath = `products/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
@@ -126,12 +122,11 @@ export default function AdminContent() {
       const url = await getDownloadURL(snapshot.ref);
       
       setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, url] }));
-      toast({ title: "Upload Success", description: "Image synced to cloud gallery." });
+      toast({ title: "Image Ready", description: "File synced to cloud." });
     } catch (error: any) {
       console.error("Upload error:", error);
-      toast({ variant: "destructive", title: "Upload Failed", description: error.message || "Could not upload image to storage." });
+      toast({ variant: "destructive", title: "Upload Failed", description: "Could not sync image. Try a smaller file." });
     } finally {
-      clearTimeout(timeoutId);
       setIsImageUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = ''; 
     }
@@ -165,11 +160,11 @@ export default function AdminContent() {
       });
     }
 
-    // Immediate UI feedback
+    // Unblock immediately
     setIsProductSaving(false);
     setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
     setIsEditing(null);
-    toast({ title: "Action Captured", description: "Data pushed to live database." });
+    toast({ title: "Action Captured", description: "Syncing with cloud database..." });
   };
 
   const addCategory = (e: React.FormEvent) => {
@@ -190,7 +185,7 @@ export default function AdminContent() {
 
     setIsCategoryAdding(false);
     setNewCategoryName('');
-    toast({ title: "Category Added", description: "New segment created." });
+    toast({ title: "Category Created", description: "New segment added." });
   };
 
   const deleteItem = (id: string, coll: string) => {
@@ -204,8 +199,6 @@ export default function AdminContent() {
         path: `${coll}/${id}`, operation: 'delete'
       }));
     });
-
-    toast({ title: "Deleting", description: "Removing item from production." });
   };
 
   const saveSettings = (target: 'store' | 'hero') => {
@@ -222,7 +215,7 @@ export default function AdminContent() {
       }));
     });
 
-    toast({ title: "Updating Settings", description: "Global configuration updated." });
+    toast({ title: "System Updated", description: "Branding settings synced." });
   };
 
   const removeImage = (index: number) => {
@@ -260,7 +253,7 @@ export default function AdminContent() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 pb-20">
       <div className="container mx-auto max-w-6xl p-4 md:p-10">
-        <header className="flex flex-col md:flex-row gap-6 justify-between items-center mb-12 bg-zinc-900 p-8 rounded-[2.5rem] border border-zinc-800 shadow-2xl animate-gpu">
+        <header className="flex flex-col md:flex-row gap-6 justify-between items-center mb-12 bg-zinc-900 p-8 rounded-[2.5rem] border border-zinc-800 shadow-2xl">
           <div className="flex items-center gap-4">
              <div className="h-12 w-12 rounded-2xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
                <ShieldCheck className="text-amber-500 h-6 w-6" />
@@ -302,16 +295,13 @@ export default function AdminContent() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest italic flex items-center justify-between">
-                       <span>Product Description</span>
-                       <span className="text-zinc-600 text-[8px] tracking-tight">Be concise & impactful</span>
-                    </Label>
+                    <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest italic">Product Description</Label>
                     <Textarea 
                       required 
                       value={formData.description} 
                       onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} 
-                      className="bg-zinc-800/50 border-zinc-700 rounded-xl min-h-[120px] font-bold p-4 focus:ring-amber-500 text-sm" 
-                      placeholder="Ingredients, spice level, or special prep details..."
+                      className="bg-zinc-800/50 border-zinc-700 rounded-xl min-h-[100px] font-bold p-4 focus:ring-amber-500 text-sm" 
+                      placeholder="Brief details..."
                     />
                   </div>
 
@@ -332,40 +322,21 @@ export default function AdminContent() {
                   <div className="space-y-3">
                     <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center justify-between">
                       <span>Product Media</span>
-                      {isImageUploading && <span className="text-amber-500 animate-pulse font-black">Uploading...</span>}
+                      {isImageUploading && <span className="text-amber-500 animate-pulse font-black">Syncing...</span>}
                     </Label>
                     <div 
                       onClick={() => !isImageUploading && fileInputRef.current?.click()}
-                      className={`border-2 border-dashed border-zinc-700 rounded-2xl p-8 flex flex-col items-center justify-center bg-zinc-800/50 transition-all group ${isImageUploading ? 'cursor-wait opacity-50' : 'cursor-pointer hover:bg-zinc-800 hover:border-amber-500'}`}
+                      className={`border-2 border-dashed border-zinc-700 rounded-2xl p-6 flex flex-col items-center justify-center bg-zinc-800/50 transition-all ${isImageUploading ? 'cursor-wait opacity-50' : 'cursor-pointer hover:border-amber-500'}`}
                     >
-                      <input 
-                        type="file" 
-                        ref={fileInputRef} 
-                        onChange={handleFileUpload} 
-                        className="hidden" 
-                        accept="image/*"
-                      />
-                      {isImageUploading ? (
-                        <div className="flex flex-col items-center">
-                          <Loader2 className="h-10 w-10 text-amber-500 animate-spin mb-3" />
-                          <span className="text-[10px] font-black uppercase text-amber-500">Syncing to Cloud...</span>
-                        </div>
-                      ) : (
-                        <>
-                          <UploadCloud className="h-10 w-10 text-zinc-500 group-hover:text-amber-500 mb-3 transition-transform group-hover:scale-110" />
-                          <span className="text-[10px] font-black uppercase text-zinc-500 group-hover:text-zinc-300">Tap to Upload Photo</span>
-                        </>
-                      )}
+                      <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
+                      <UploadCloud className={`h-10 w-10 mb-2 ${isImageUploading ? 'text-amber-500 animate-bounce' : 'text-zinc-500'}`} />
+                      <span className="text-[10px] font-black uppercase text-zinc-500">Tap to Upload Photo</span>
                     </div>
                     <div className="flex flex-wrap gap-2 mt-4">
                       {formData.imageUrls.map((url, idx) => (
                         <div key={idx} className="relative h-20 w-20 rounded-xl overflow-hidden border border-zinc-700 group shadow-lg">
                           <Image src={url} alt="Preview" fill className="object-cover" />
-                          <button 
-                            type="button" 
-                            onClick={() => removeImage(idx)}
-                            className="absolute inset-0 bg-red-600/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
+                          <button type="button" onClick={() => removeImage(idx)} className="absolute inset-0 bg-red-600/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                             <X className="h-5 w-5 text-white" />
                           </button>
                         </div>
@@ -375,18 +346,12 @@ export default function AdminContent() {
 
                   <div className="flex flex-col gap-3">
                     <Button disabled={isProductSaving || isImageUploading} type="submit" className="w-full h-14 bg-amber-500 text-zinc-950 font-black rounded-xl uppercase italic text-sm shadow-xl active:scale-95 transition-transform">
-                      {isProductSaving ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : (isEditing ? 'Update Cloud Item' : 'Save New Item')}
+                      {isProductSaving ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : (isEditing ? 'Update Item' : 'Save Dish')}
                     </Button>
                     
                     {isEditing && (
                       <Button type="button" variant="outline" onClick={() => { setIsEditing(null); setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] }); }} className="w-full h-12 border-zinc-700 text-zinc-400 font-bold rounded-xl uppercase italic text-[10px]">
                          Cancel Modification
-                      </Button>
-                    )}
-
-                    {(isImageUploading || isProductSaving) && (
-                      <Button type="button" variant="ghost" onClick={() => { setIsImageUploading(false); setIsProductSaving(false); }} className="text-[8px] uppercase tracking-widest text-red-500/50 hover:text-red-500">
-                        Emergency Reset Status
                       </Button>
                     )}
                   </div>
@@ -396,7 +361,7 @@ export default function AdminContent() {
 
             <div className="lg:col-span-7 grid sm:grid-cols-2 gap-5">
               {products.length > 0 ? products.map(p => (
-                <div key={p.id} className="bg-zinc-900 border border-zinc-800 p-5 rounded-[2rem] flex gap-5 items-center hover:bg-zinc-800/50 transition-all group shadow-xl transform-gpu">
+                <div key={p.id} className="bg-zinc-900 border border-zinc-800 p-5 rounded-[2rem] flex gap-5 items-center hover:bg-zinc-800/50 transition-all group shadow-xl">
                   <div className="relative h-14 w-14 rounded-2xl overflow-hidden bg-zinc-800 flex-shrink-0">
                     <Image src={p.imageUrls?.[0] || 'https://picsum.photos/seed/food/200/200'} alt={p.name} fill className="object-cover" />
                   </div>
@@ -405,8 +370,8 @@ export default function AdminContent() {
                     <span className="text-amber-500 text-[10px] font-black">${p.price.toFixed(2)}</span>
                   </div>
                   <div className="flex gap-1">
-                    <button onClick={() => { setIsEditing(p.id); setFormData({ ...p, price: p.price.toString() }); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="p-2.5 rounded-lg text-zinc-500 hover:text-white transition-colors"><Edit2 className="h-4 w-4" /></button>
-                    <button disabled={deletingId === p.id} onClick={() => deleteItem(p.id, 'products')} className="p-2.5 rounded-lg text-zinc-500 hover:text-red-500 transition-colors">
+                    <button onClick={() => { setIsEditing(p.id); setFormData({ ...p, price: p.price.toString() }); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="p-2.5 rounded-lg text-zinc-500 hover:text-white"><Edit2 className="h-4 w-4" /></button>
+                    <button disabled={deletingId === p.id} onClick={() => deleteItem(p.id, 'products')} className="p-2.5 rounded-lg text-zinc-500 hover:text-red-500">
                       {deletingId === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                     </button>
                   </div>
