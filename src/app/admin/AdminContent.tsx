@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Plus, 
@@ -16,12 +16,11 @@ import {
   Database,
   RefreshCw,
   Globe,
-  Layout,
-  Instagram,
-  Facebook,
   Phone,
   MapPin,
-  MessageCircle
+  MessageCircle,
+  Instagram,
+  Facebook
 } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -85,33 +84,15 @@ export default function AdminContent() {
     }
   };
 
-  const seedInitialData = async () => {
-    if (!db) return;
-    setIsSeeding(true);
-    try {
-      for (const cat of MOCK_CATEGORIES) {
-        await addDoc(collection(db, 'categories'), cat);
-      }
-      for (const prod of MOCK_PRODUCTS) {
-        await addDoc(collection(db, 'products'), {
-          ...prod,
-          createdAt: serverTimestamp()
-        });
-      }
-      toast({ title: "Success", description: "Database seeded." });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Seed Failed" });
-    } finally {
-      setIsSeeding(false);
-    }
-  };
-
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !storage) return;
 
     setIsImageUploading(true);
     const storageRef = ref(storage, `products/${Date.now()}-${file.name}`);
+
+    // Safety timeout to prevent infinite spin
+    const timeout = setTimeout(() => setIsImageUploading(false), 15000);
 
     uploadBytes(storageRef, file)
       .then(async (snapshot) => {
@@ -121,6 +102,7 @@ export default function AdminContent() {
       })
       .catch(() => toast({ variant: "destructive", title: "Upload Failed" }))
       .finally(() => {
+        clearTimeout(timeout);
         setIsImageUploading(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
       });
@@ -162,9 +144,26 @@ export default function AdminContent() {
 
   const handleSaveSettings = () => {
     if (!db) return;
-    setDoc(doc(db, 'settings', 'store'), settingsForm, { merge: true })
+    const finalSettings = { ...storeSettings, ...settingsForm };
+    setDoc(doc(db, 'settings', 'store'), finalSettings, { merge: true })
       .then(() => toast({ title: "Profile Updated" }))
       .catch(() => toast({ variant: "destructive", title: "Update Failed" }));
+  };
+
+  const seedInitialData = async () => {
+    if (!db) return;
+    setIsSeeding(true);
+    try {
+      for (const cat of MOCK_CATEGORIES) {
+        await addDoc(collection(db, 'categories'), cat);
+      }
+      for (const prod of MOCK_PRODUCTS) {
+        await addDoc(collection(db, 'products'), { ...prod, createdAt: serverTimestamp() });
+      }
+      toast({ title: "Database Seeded" });
+    } finally {
+      setIsSeeding(false);
+    }
   };
 
   const deleteItem = (id: string, coll: string) => {
@@ -177,13 +176,6 @@ export default function AdminContent() {
         }));
       })
       .finally(() => setDeletingId(null));
-  };
-
-  const forceReset = () => {
-    setIsImageUploading(false);
-    setIsProductSaving(false);
-    setIsCategoryAdding(false);
-    toast({ title: "Status Reset" });
   };
 
   if (!isAuthenticated) {
@@ -224,14 +216,13 @@ export default function AdminContent() {
              </div>
              <div>
                <h1 className="text-lg font-black tracking-tighter uppercase italic">Control <span className="text-amber-500">Center</span></h1>
-               <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Session Active</p>
+               <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Active</p>
              </div>
           </div>
           <div className="flex gap-2">
-            <Button onClick={forceReset} variant="outline" className="h-10 border-red-500/20 text-red-500 text-[9px] uppercase font-black italic">Reset</Button>
-            <Button onClick={seedInitialData} disabled={isSeeding} className="h-10 bg-blue-600 hover:bg-blue-700 text-[9px] font-bold uppercase italic">
+            <Button onClick={seedInitialData} disabled={isSeeding} className="h-10 bg-blue-600 hover:bg-blue-700 text-[9px] font-bold uppercase italic rounded-xl px-4">
               {isSeeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4 mr-2" />}
-              Seed
+              Seed Data
             </Button>
             <Link href="/">
               <Button variant="outline" className="h-10 bg-zinc-800 border-zinc-700 rounded-xl px-4 font-bold uppercase italic text-[9px]">
@@ -245,7 +236,7 @@ export default function AdminContent() {
           <TabsList className="bg-zinc-900 border border-zinc-800 p-1 rounded-xl h-auto w-full justify-start gap-1 flex-wrap">
             <TabsTrigger value="products" className="px-4 py-2 rounded-lg font-black text-[9px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-black">Products</TabsTrigger>
             <TabsTrigger value="categories" className="px-4 py-2 rounded-lg font-black text-[9px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-black">Categories</TabsTrigger>
-            <TabsTrigger value="contact" className="px-4 py-2 rounded-lg font-black text-[9px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-black">Contact & Branding</TabsTrigger>
+            <TabsTrigger value="contact" className="px-4 py-2 rounded-lg font-black text-[9px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-black">Branding & Social</TabsTrigger>
           </TabsList>
 
           <TabsContent value="products" className="grid lg:grid-cols-12 gap-8">
@@ -264,12 +255,13 @@ export default function AdminContent() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Description (Ingredients / Heat)</Label>
+                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Description</Label>
                     <Textarea 
                       required 
                       value={formData.description} 
                       onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} 
                       className="bg-zinc-800 border-zinc-700 rounded-xl min-h-[100px] text-xs font-bold" 
+                      placeholder="Dish details, spice level..."
                     />
                   </div>
 
@@ -288,30 +280,35 @@ export default function AdminContent() {
                   </div>
 
                   <div className="space-y-3">
-                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Media</Label>
+                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Dish Image</Label>
                     <div 
                       onClick={() => !isImageUploading && fileInputRef.current?.click()}
-                      className={`border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center bg-zinc-800/30 cursor-pointer transition-all ${isImageUploading ? 'opacity-50 border-amber-500' : 'border-zinc-700 hover:border-amber-500'}`}
+                      className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center bg-zinc-800/30 cursor-pointer transition-all ${isImageUploading ? 'opacity-50 border-amber-500' : 'border-zinc-700 hover:border-amber-500'}`}
                     >
                       <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" disabled={isImageUploading} />
-                      {isImageUploading ? <RefreshCw className="h-6 w-6 mb-2 animate-spin text-amber-500" /> : <UploadCloud className="h-6 w-6 mb-2 text-zinc-500" />}
-                      <span className="text-[8px] font-black uppercase text-zinc-500">{isImageUploading ? 'Uploading...' : 'Tap to Upload'}</span>
+                      {isImageUploading ? <Loader2 className="h-6 w-6 mb-2 animate-spin text-amber-500" /> : <UploadCloud className="h-6 w-6 mb-2 text-zinc-500" />}
+                      <span className="text-[8px] font-black uppercase text-zinc-500">{isImageUploading ? 'Uploading...' : 'Click to Upload Image'}</span>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {formData.imageUrls.map((url, idx) => (
-                        <div key={idx} className="relative h-12 w-12 rounded-lg overflow-hidden border border-zinc-700 group">
-                          <Image src={url} alt="Preview" fill className="object-cover" />
-                          <button type="button" onClick={() => setFormData(prev => ({ ...prev, imageUrls: prev.imageUrls.filter((_, i) => i !== idx) }))} className="absolute inset-0 bg-red-600/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <X className="h-3 w-3 text-white" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+                    {formData.imageUrls.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {formData.imageUrls.map((url, idx) => (
+                          <div key={idx} className="relative h-16 w-16 rounded-lg overflow-hidden border border-amber-500 group">
+                            <Image src={url} alt="Preview" fill className="object-cover" />
+                            <button type="button" onClick={() => setFormData(prev => ({ ...prev, imageUrls: prev.imageUrls.filter((_, i) => i !== idx) }))} className="absolute inset-0 bg-red-600/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                              <X className="h-4 w-4 text-white" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <Button disabled={isProductSaving || isImageUploading} type="submit" className="w-full h-12 bg-amber-500 text-black font-black rounded-xl uppercase italic text-xs shadow-lg active:scale-95">
-                    {isProductSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : (isEditing ? 'Update Item' : 'Save Dish')}
+                    {isProductSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : (isEditing ? 'Update Item' : 'Save Item')}
                   </Button>
+                  {isImageUploading && (
+                    <Button type="button" onClick={() => setIsImageUploading(false)} variant="outline" className="w-full h-8 border-red-500/20 text-red-500 text-[8px] uppercase font-black">Force Reset Upload</Button>
+                  )}
                 </form>
               </CardContent>
             </Card>
@@ -319,16 +316,16 @@ export default function AdminContent() {
             <div className="lg:col-span-7 grid sm:grid-cols-2 gap-4">
               {products.map(p => (
                 <div key={p.id} className="bg-zinc-900 border border-zinc-800 p-3 rounded-[1.2rem] flex gap-3 items-center hover:bg-zinc-800/50 transition-all shadow-lg">
-                  <div className="relative h-10 w-10 rounded-lg overflow-hidden bg-zinc-800">
+                  <div className="relative h-12 w-12 rounded-lg overflow-hidden bg-zinc-800">
                     <Image src={p.imageUrls?.[0] || 'https://picsum.photos/seed/food/200/200'} alt={p.name} fill className="object-cover" />
                   </div>
                   <div className="flex-grow">
-                    <h4 className="font-black text-[9px] uppercase italic truncate">{p.name}</h4>
+                    <h4 className="font-black text-[10px] uppercase italic truncate">{p.name}</h4>
                     <span className="text-amber-500 text-[9px] font-black">${p.price.toFixed(2)}</span>
                   </div>
                   <div className="flex gap-1">
-                    <button onClick={() => { setIsEditing(p.id); setFormData({ ...p, price: p.price.toString() }); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="p-1.5 text-zinc-500 hover:text-white"><Edit2 className="h-3 w-3" /></button>
-                    <button disabled={deletingId === p.id} onClick={() => deleteItem(p.id, 'products')} className="p-1.5 text-zinc-500 hover:text-red-500">
+                    <button onClick={() => { setIsEditing(p.id); setFormData({ ...p, price: p.price.toString() }); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="p-1.5 text-zinc-500 hover:text-white transition-colors"><Edit2 className="h-3 w-3" /></button>
+                    <button disabled={deletingId === p.id} onClick={() => deleteItem(p.id, 'products')} className="p-1.5 text-zinc-500 hover:text-red-500 transition-colors">
                       {deletingId === p.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
                     </button>
                   </div>
@@ -342,43 +339,41 @@ export default function AdminContent() {
               <div className="space-y-6">
                  <div className="flex items-center gap-3 mb-2">
                    <Globe className="text-amber-500 h-5 w-5" />
-                   <h3 className="font-black uppercase italic text-base">Branding & Social</h3>
+                   <h3 className="font-black uppercase italic text-base">Brand Profile</h3>
                  </div>
 
                  <div className="space-y-2">
-                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Logo URL (or tap to upload logo icon)</Label>
-                    <div className="flex gap-2">
-                      <Input placeholder="https://..." value={settingsForm.logo || storeSettings?.logo || ''} onChange={e => setSettingsForm(s => ({ ...s, logo: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
-                    </div>
+                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Logo Icon URL</Label>
+                    <Input placeholder="https://..." value={settingsForm.logo || storeSettings?.logo || ''} onChange={e => setSettingsForm(s => ({ ...s, logo: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
                  </div>
 
                  <div className="grid sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-[9px] font-black text-zinc-500 uppercase flex items-center gap-1"><MessageCircle className="h-3 w-3" /> WhatsApp Link</Label>
-                      <Input placeholder="96170123456" value={settingsForm.whatsappNumber || storeSettings?.whatsappNumber || ''} onChange={e => setSettingsForm(s => ({ ...s, whatsappNumber: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                      <Label className="text-[9px] font-black text-zinc-500 uppercase flex items-center gap-1"><MessageCircle className="h-3 w-3" /> WhatsApp (Ex: 96170123456)</Label>
+                      <Input value={settingsForm.whatsappNumber || storeSettings?.whatsappNumber || ''} onChange={e => setSettingsForm(s => ({ ...s, whatsappNumber: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[9px] font-black text-zinc-500 uppercase flex items-center gap-1"><Phone className="h-3 w-3" /> Phone</Label>
-                      <Input placeholder="+961 70 123 456" value={settingsForm.phone || storeSettings?.phone || ''} onChange={e => setSettingsForm(s => ({ ...s, phone: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                      <Label className="text-[9px] font-black text-zinc-500 uppercase flex items-center gap-1"><Phone className="h-3 w-3" /> Support Phone</Label>
+                      <Input value={settingsForm.phone || storeSettings?.phone || ''} onChange={e => setSettingsForm(s => ({ ...s, phone: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
                     </div>
                  </div>
 
                  <div className="space-y-2">
-                    <Label className="text-[9px] font-black text-zinc-500 uppercase flex items-center gap-1"><MapPin className="h-3 w-3" /> Address</Label>
-                    <Input placeholder="Location details..." value={settingsForm.address || storeSettings?.address || ''} onChange={e => setSettingsForm(s => ({ ...s, address: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                    <Label className="text-[9px] font-black text-zinc-500 uppercase flex items-center gap-1"><MapPin className="h-3 w-3" /> Store Address</Label>
+                    <Input value={settingsForm.address || storeSettings?.address || ''} onChange={e => setSettingsForm(s => ({ ...s, address: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
                  </div>
 
                  <div className="grid sm:grid-cols-3 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-[9px] font-black text-zinc-500 uppercase">TikTok</Label>
+                      <Label className="text-[9px] font-black text-zinc-500 uppercase">TikTok URL</Label>
                       <Input value={settingsForm.tiktok || storeSettings?.tiktok || ''} onChange={e => setSettingsForm(s => ({ ...s, tiktok: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[9px] font-black text-zinc-500 uppercase">Instagram</Label>
+                      <Label className="text-[9px] font-black text-zinc-500 uppercase">Instagram URL</Label>
                       <Input value={settingsForm.instagram || storeSettings?.instagram || ''} onChange={e => setSettingsForm(s => ({ ...s, instagram: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[9px] font-black text-zinc-500 uppercase">Facebook</Label>
+                      <Label className="text-[9px] font-black text-zinc-500 uppercase">Facebook URL</Label>
                       <Input value={settingsForm.facebook || storeSettings?.facebook || ''} onChange={e => setSettingsForm(s => ({ ...s, facebook: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
                     </div>
                  </div>

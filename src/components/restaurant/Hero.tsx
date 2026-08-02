@@ -22,7 +22,7 @@ export function Hero() {
   const bannerImage = heroSettings?.bannerImage || bgImage;
 
   return (
-    <section className="relative min-h-screen flex items-center pt-32 pb-20 overflow-hidden w-full bg-zinc-950">
+    <section className="relative min-h-[90vh] flex items-center pt-24 md:pt-32 pb-12 overflow-hidden w-full bg-zinc-950">
       <div className="absolute inset-0 z-0">
         <Image 
           src={bgImage} 
@@ -33,16 +33,16 @@ export function Hero() {
           sizes="100vw"
           quality={75}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/20 to-zinc-950" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/90 via-black/40 to-zinc-950" />
       </div>
       
       <div className="container mx-auto px-6 grid lg:grid-cols-2 gap-12 items-center relative z-10 w-full">
-        <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-10 duration-700">
-          <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-black/60 border border-amber-500/30 text-amber-500 font-black text-[9px] md:text-[10px] uppercase tracking-widest backdrop-blur-md">
+        <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/60 border border-amber-500/30 text-amber-500 font-black text-[8px] md:text-[10px] uppercase tracking-[0.2em] backdrop-blur-md">
             <Trophy className="h-3 w-3" /> #1 Premium Fried Chicken
           </div>
           
-          <h1 className="text-4xl md:text-7xl font-black leading-[1.1] text-white uppercase italic tracking-tighter">
+          <h1 className="text-3xl md:text-6xl lg:text-7xl font-black leading-[1.1] text-white uppercase italic tracking-tighter">
             {heroSettings?.bannerHeadline || (
               <>
                 Crave The <span className="text-amber-500">Heat.</span> <br />
@@ -51,18 +51,18 @@ export function Hero() {
             )}
           </h1>
           
-          <p className="text-base md:text-xl text-white/70 max-w-xl font-medium leading-relaxed">
+          <p className="text-sm md:text-xl text-white/60 max-w-xl font-medium leading-relaxed">
             {heroSettings?.bannerText || "Gourmet chicken redefined. 24-hour brine, signature spice blend, and an elite crunch you won't forget."}
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 pt-4">
-            <Button size="lg" className="h-14 md:h-16 px-8 md:px-12 rounded-2xl bg-amber-500 hover:bg-amber-600 text-black font-black uppercase italic text-lg shadow-2xl shadow-amber-500/20 active:scale-95 transition-all" onClick={scrollToMenu}>
+            <Button size="lg" className="h-14 md:h-16 px-8 md:px-12 rounded-2xl bg-amber-500 hover:bg-amber-600 text-black font-black uppercase italic text-base md:text-lg shadow-2xl shadow-amber-500/20 active:scale-95 transition-all" onClick={scrollToMenu}>
               Order Now <ArrowRight className="ml-2 h-5 w-5 md:h-6 md:w-6" />
             </Button>
             <Button 
               size="lg" 
               variant="outline" 
-              className="h-14 md:h-16 px-8 md:px-12 rounded-2xl border-white/20 bg-white/5 text-white hover:bg-white/10 uppercase italic backdrop-blur-xl transition-all active:scale-95 shadow-2xl glass-card" 
+              className="h-14 md:h-16 px-8 md:px-12 rounded-2xl border-white/10 bg-white/5 text-white hover:bg-white/10 uppercase italic backdrop-blur-xl transition-all active:scale-95 shadow-lg border-2" 
               onClick={scrollToMenu}
             >
               Explore Menu
@@ -71,14 +71,14 @@ export function Hero() {
         </div>
 
         <div className="relative hidden lg:flex justify-center items-center w-full">
-          <div className="relative w-full max-w-[550px] aspect-square animate-in zoom-in duration-1000 delay-300">
-            <div className="absolute inset-0 bg-amber-500/20 blur-[120px] rounded-full animate-pulse" />
+          <div className="relative w-full max-w-[500px] aspect-square animate-in zoom-in duration-1000 delay-300">
+            <div className="absolute inset-0 bg-amber-500/10 blur-[100px] rounded-full animate-pulse" />
             <div className="relative h-full w-full rounded-[3rem] overflow-hidden border border-white/10 shadow-2xl">
               <Image 
                 src={bannerImage} 
                 alt="Promo" 
                 fill 
-                className="object-cover drop-shadow-[0_0_50px_rgba(245,158,11,0.3)] transition-transform duration-700 hover:scale-105"
+                className="object-cover transition-transform duration-700 hover:scale-105"
                 priority
               />
             </div>
