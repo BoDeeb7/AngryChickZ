@@ -8,11 +8,16 @@ import { ProductCard } from './ProductCard';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 
+/**
+ * MenuGrid Component
+ * Fetches products and categories directly from Firestore in real-time.
+ * Ensures that data is persistent and visible to all users globally.
+ */
 export function MenuGrid() {
   const db = useFirestore();
   const [activeCategory, setActiveCategory] = useState('all');
   
-  // Bug 1: Items sync & availability
+  // Real-time queries for products and categories
   const productsQuery = useMemo(() => {
     if (!db) return null;
     return query(
@@ -21,14 +26,23 @@ export function MenuGrid() {
     );
   }, [db]);
 
-  const categoriesQuery = useMemo(() => db ? query(collection(db, 'categories'), orderBy('name', 'asc')) : null, [db]);
+  const categoriesQuery = useMemo(() => {
+    if (!db) return null;
+    return query(collection(db, 'categories'), orderBy('name', 'asc'));
+  }, [db]);
 
+  // Firestore hooks provide real-time data stream
   const { data: cloudProducts = [], loading: productsLoading } = useCollection<Product>(productsQuery);
   const { data: cloudCategories = [] } = useCollection<Category>(categoriesQuery);
 
+  // Dynamically compute display categories based on cloud data
   const displayCategories = useMemo(() => {
     const base = [{ id: 'all', name: 'All Dishes', slug: 'all' }];
-    if (cloudCategories.length > 0) return [...base, ...cloudCategories];
+    
+    // If we have explicit categories, use them. Otherwise, infer from products.
+    if (cloudCategories.length > 0) {
+      return [...base, ...cloudCategories];
+    }
     
     const uniqueCats = Array.from(new Set(cloudProducts.map(p => p.category)));
     return [...base, ...uniqueCats.map(cat => ({ 
@@ -38,10 +52,14 @@ export function MenuGrid() {
     }))];
   }, [cloudCategories, cloudProducts]);
 
+  // Filter products based on active category and availability
   const filteredProducts = useMemo(() => {
-    // Filter by availability if field exists
+    // Show items that are available (isAvailable defaults to true if missing)
     const availableItems = cloudProducts.filter(p => p.isAvailable !== false);
-    if (activeCategory === 'all') return availableItems;
+    
+    if (activeCategory === 'all') {
+      return availableItems;
+    }
     return availableItems.filter(p => p.category === activeCategory);
   }, [cloudProducts, activeCategory]);
 
@@ -77,14 +95,15 @@ export function MenuGrid() {
           </div>
         </div>
 
+        {/* Loading and Empty States */}
         {productsLoading && cloudProducts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4 opacity-40">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            <p className="text-[10px] font-black uppercase tracking-widest italic">Synchronizing Menu...</p>
+            <p className="text-[10px] font-black uppercase tracking-widest italic text-white">Synchronizing Cloud Menu...</p>
           </div>
         ) : filteredProducts.length === 0 ? (
           <div className="text-center py-20 opacity-20">
-             <p className="text-xl font-black uppercase italic">No Dishes Found</p>
+             <p className="text-xl font-black uppercase italic text-white">No Dishes Found In This Category</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8 animate-in fade-in duration-500">
