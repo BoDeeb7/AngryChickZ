@@ -1,32 +1,19 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow public read access to the menu, categories, reviews, and branding settings
-    // This ensures all devices can fetch the latest data immediately.
-    match /products/{productId} {
-      allow read: if true;
-      allow write: if true; // In production, restrict to authenticated admins
+    
+    // Allow public READ and WRITE for menu items & categories
+    match /products/{document=**} {
+      allow read, write: if true;
     }
     
-    match /categories/{categoryId} {
-      allow read: if true;
-      allow write: if true;
+    match /categories/{document=**} {
+      allow read, write: if true;
     }
     
-    match /reviews/{reviewId} {
-      allow read: if true;
-      allow write: if true;
-    }
-    
-    match /settings/{settingId} {
-      allow read: if true;
-      allow write: if true;
-    }
-
-    // Default deny for all other collections
+    // Fallback for all other collections
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if true;
     }
   }
 }
