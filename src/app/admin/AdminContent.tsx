@@ -34,8 +34,11 @@ export default function AdminContent() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   
-  // Minimal loading indicators that don't lock the UI
-  const [isProcessing, setIsProcessing] = useState(false);
+  // States for individual button loading to prevent full-UI lockups
+  const [isProductSaving, setIsProductSaving] = useState(false);
+  const [isCategoryAdding, setIsCategoryAdding] = useState(false);
+  const [isImageUploading, setIsImageUploading] = useState(false);
+  const [isSeeding, setIsSeeding] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -72,7 +75,8 @@ export default function AdminContent() {
     setIsEditing(null);
     setPreviewUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
-    setIsProcessing(false);
+    setIsProductSaving(false);
+    setIsImageUploading(false);
   };
 
   const handleLogin = (e: React.FormEvent) => {
@@ -85,14 +89,14 @@ export default function AdminContent() {
     }
   };
 
-  // INSTANT UPLOAD LOGIC
+  // UPLOAD LOGIC: Immediately sets the imageUrl state upon success
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !storage) return;
 
-    // Show preview immediately
+    // Show local preview immediately for UX
     setPreviewUrl(URL.createObjectURL(file));
-    setIsProcessing(true);
+    setIsImageUploading(true);
 
     try {
       const storageRef = ref(storage, `products/${Date.now()}-${file.name}`);
@@ -100,6 +104,7 @@ export default function AdminContent() {
       const cloudUrl = await getDownloadURL(snapshot.ref);
       
       if (cloudUrl) {
+        // STRICT FIX: Ensure state is updated with the real HTTPS URL immediately
         setFormData(prev => ({ ...prev, imageUrls: [cloudUrl] }));
         setPreviewUrl(cloudUrl);
         toast({ title: "Image Uploaded" });
@@ -107,17 +112,19 @@ export default function AdminContent() {
     } catch (err) {
       toast({ variant: "destructive", title: "Upload Failed" });
     } finally {
-      setIsProcessing(false);
+      setIsImageUploading(false);
     }
   };
 
-  // DIRECT SAVE PRODUCT
+  // SAVE PRODUCT: Uses the already uploaded imageUrl from state
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!db) return;
     
-    setIsProcessing(true);
+    setIsProductSaving(true);
     const priceVal = parseFloat(formData.price || '0');
+    
+    // Check if we have a valid uploaded image, otherwise fallback
     const finalImage = formData.imageUrls[0] || 'https://picsum.photos/seed/food/800/800';
     
     const productData = {
@@ -134,36 +141,39 @@ export default function AdminContent() {
     try {
       if (isEditing) {
         await setDoc(doc(db, 'products', isEditing), productData, { merge: true });
-        toast({ title: "Updated" });
+        toast({ title: "Updated Successfully" });
       } else {
         await addDoc(collection(db, 'products'), {
           ...productData,
           createdAt: serverTimestamp(),
         });
-        toast({ title: "Created" });
+        toast({ title: "Product Created" });
       }
       resetForm();
     } catch (err) {
       toast({ variant: "destructive", title: "Save Error" });
     } finally {
-      setIsProcessing(false);
+      setIsProductSaving(false);
     }
   };
 
-  // DIRECT ADD CATEGORY
+  // ADD CATEGORY: Cleanly reset states in finally block
   const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCategoryName.trim() || !db) return;
     
+    setIsCategoryAdding(true);
     const name = newCategoryName.trim();
     const slug = name.toLowerCase().replace(/\s+/g, '-');
-    setNewCategoryName(''); // Clear instantly
 
     try {
       await addDoc(collection(db, 'categories'), { name, slug });
+      setNewCategoryName(''); // Clear instantly
       toast({ title: "Category Added" });
     } catch (err) {
       toast({ variant: "destructive", title: "Add Error" });
+    } finally {
+      setIsCategoryAdding(false);
     }
   };
 
@@ -179,14 +189,14 @@ export default function AdminContent() {
 
   const handleSeedData = async () => {
     if (!db) return;
-    setIsProcessing(true);
+    setIsSeeding(true);
     try {
       await Promise.all(MOCK_PRODUCTS.map(p => 
         addDoc(collection(db, 'products'), { ...p, isAvailable: true, createdAt: serverTimestamp() })
       ));
       toast({ title: "Data Seeded" });
     } finally {
-      setIsProcessing(false);
+      setIsSeeding(false);
     }
   };
 
@@ -226,8 +236,8 @@ export default function AdminContent() {
              </div>
           </div>
           <div className="flex gap-2">
-            <Button onClick={handleSeedData} variant="outline" className="h-10 border-amber-500/20 bg-amber-500/5 rounded-xl px-4 text-[9px] font-bold uppercase italic text-amber-500 hover:bg-amber-500 hover:text-black">
-              <Database className="h-4 w-4 mr-2" /> Seed Database
+            <Button onClick={handleSeedData} disabled={isSeeding} variant="outline" className="h-10 border-amber-500/20 bg-amber-500/5 rounded-xl px-4 text-[9px] font-bold uppercase italic text-amber-500 hover:bg-amber-500 hover:text-black">
+              {isSeeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Database className="h-4 w-4 mr-2" /> Seed Database</>}
             </Button>
             <Link href="/">
               <Button variant="outline" className="h-10 bg-zinc-800 border-zinc-700 rounded-xl px-4 font-bold uppercase italic text-[9px]">
@@ -287,12 +297,21 @@ export default function AdminContent() {
                   <div className="space-y-3">
                     <Label className="text-[9px] font-black text-zinc-500 uppercase">Media Upload</Label>
                     <div 
-                      onClick={() => fileInputRef.current?.click()}
-                      className="border-2 border-dashed border-zinc-700 rounded-xl p-6 flex flex-col items-center justify-center bg-zinc-800/30 cursor-pointer hover:border-amber-500 transition-all"
+                      onClick={() => !isImageUploading && fileInputRef.current?.click()}
+                      className={`border-2 border-dashed border-zinc-700 rounded-xl p-6 flex flex-col items-center justify-center bg-zinc-800/30 cursor-pointer hover:border-amber-500 transition-all ${isImageUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" />
-                      <UploadCloud className="h-6 w-6 mb-2 text-zinc-500" />
-                      <span className="text-[8px] font-black uppercase text-zinc-500">Pick from Device</span>
+                      {isImageUploading ? (
+                        <div className="flex flex-col items-center">
+                          <Loader2 className="h-6 w-6 animate-spin text-amber-500 mb-2" />
+                          <span className="text-[8px] font-black uppercase text-amber-500">Uploading to Cloud...</span>
+                        </div>
+                      ) : (
+                        <>
+                          <UploadCloud className="h-6 w-6 mb-2 text-zinc-500" />
+                          <span className="text-[8px] font-black uppercase text-zinc-500">Pick from Device</span>
+                        </>
+                      )}
                     </div>
                     {previewUrl && (
                       <div className="relative h-24 w-full rounded-xl overflow-hidden border border-amber-500/30">
@@ -310,8 +329,8 @@ export default function AdminContent() {
                         Cancel
                       </Button>
                     )}
-                    <Button type="submit" className="flex-[2] h-12 bg-amber-500 text-black font-black rounded-xl uppercase italic text-xs">
-                       {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : (isEditing ? 'Update Item' : 'Add to Cloud')}
+                    <Button type="submit" disabled={isProductSaving || isImageUploading} className="flex-[2] h-12 bg-amber-500 text-black font-black rounded-xl uppercase italic text-xs">
+                       {isProductSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : (isEditing ? 'Update Item' : 'Add to Cloud')}
                     </Button>
                   </div>
                 </form>
@@ -343,8 +362,8 @@ export default function AdminContent() {
             <Card className="bg-zinc-900 border-zinc-800 rounded-[2rem] p-8">
               <form onSubmit={handleAddCategory} className="flex flex-col sm:flex-row gap-3 mb-6">
                 <Input required placeholder="Category Name" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl flex-grow font-bold" />
-                <Button type="submit" className="bg-amber-500 text-black rounded-xl font-black px-8 h-12 uppercase italic text-[10px]">
-                  Add Category
+                <Button type="submit" disabled={isCategoryAdding} className="bg-amber-500 text-black rounded-xl font-black px-8 h-12 uppercase italic text-[10px]">
+                  {isCategoryAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add Category'}
                 </Button>
               </form>
               <div className="grid gap-2">
