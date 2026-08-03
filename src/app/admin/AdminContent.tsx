@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Plus, 
@@ -27,6 +27,8 @@ import { Product, Category, StoreSettings, Review } from '@/types/restaurant';
 import { useFirestore, useCollection, useDoc, useStorage } from '@/firebase';
 import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import Link from 'next/link';
 import { MOCK_PRODUCTS } from '@/lib/mock-data';
 
@@ -67,14 +69,12 @@ export default function AdminContent() {
     badges: [] as string[],
   });
 
-  // Bug 4: Local Preview State
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const [settingsForm, setSettingsForm] = useState<Partial<StoreSettings>>({});
   const [newCategoryName, setNewCategoryName] = useState('');
 
-  // Bug 2: Reset Form State
   const resetForm = () => {
     setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
     setIsEditing(null);
@@ -94,7 +94,6 @@ export default function AdminContent() {
     }
   };
 
-  // Bug 4: Image Selection & Preview
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -112,7 +111,6 @@ export default function AdminContent() {
     try {
       let finalImageUrls = [...formData.imageUrls];
 
-      // Bug 4: Upload file if selected
       if (selectedFile && storage) {
         setIsImageUploading(true);
         const storageRef = ref(storage, `products/${Date.now()}-${selectedFile.name}`);
@@ -126,22 +124,39 @@ export default function AdminContent() {
         ...formData,
         imageUrls: finalImageUrls,
         price: parseFloat(formData.price || '0'),
-        isAvailable: true, // Bug 1: Baseline field
+        isAvailable: true,
         createdAt: isEditing ? (products.find(p => p.id === isEditing)?.createdAt || serverTimestamp()) : serverTimestamp()
       };
 
       if (isEditing) {
-        await setDoc(doc(db, 'products', isEditing), data, { merge: true });
+        const docRef = doc(db, 'products', isEditing);
+        setDoc(docRef, data, { merge: true })
+          .catch(async (serverError) => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+              path: docRef.path,
+              operation: 'update',
+              requestResourceData: data,
+            } satisfies SecurityRuleContext));
+          });
       } else {
-        await addDoc(collection(db, 'products'), data);
+        const collRef = collection(db, 'products');
+        addDoc(collRef, data)
+          .catch(async (serverError) => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+              path: collRef.path,
+              operation: 'create',
+              requestResourceData: data,
+            } satisfies SecurityRuleContext));
+          });
       }
       
-      resetForm(); // Bug 2: Clear state
+      resetForm();
       toast({ title: isEditing ? "Product Updated" : "Product Created" });
     } catch (err) {
       toast({ variant: "destructive", title: "Save Failed" });
     } finally {
       setIsProductSaving(false);
+      setIsImageUploading(false);
     }
   };
 
@@ -152,9 +167,22 @@ export default function AdminContent() {
     
     try {
       const slug = newCategoryName.toLowerCase().trim().replace(/\s+/g, '-');
-      await addDoc(collection(db, 'categories'), { name: newCategoryName.trim(), slug });
+      const categoryData = { name: newCategoryName.trim(), slug };
+      const collRef = collection(db, 'categories');
+      
+      addDoc(collRef, categoryData)
+        .catch(async (serverError) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: collRef.path,
+            operation: 'create',
+            requestResourceData: categoryData,
+          } satisfies SecurityRuleContext));
+        });
+        
       setNewCategoryName('');
       toast({ title: "Category Added" });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Failed to Add Category" });
     } finally {
       setIsCategoryAdding(false);
     }
@@ -341,7 +369,6 @@ export default function AdminContent() {
             </Card>
           </TabsContent>
 
-          {/* Bug 3: Reviews Tab */}
           <TabsContent value="reviews" className="max-w-4xl mx-auto space-y-6">
              <div className="grid gap-4">
                {reviews.map(review => (
