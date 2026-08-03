@@ -27,6 +27,8 @@ import { useFirestore, useCollection, useDoc } from '@/firebase';
 import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import Link from 'next/link';
 import { MOCK_PRODUCTS } from '@/lib/mock-data';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function AdminContent() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -42,7 +44,7 @@ export default function AdminContent() {
   const { toast } = useToast();
   const db = useFirestore();
 
-  // Firestore Data Streams
+  // Firestore Data Streams - PERSISTENT CLOUD SYNC
   const productsQuery = useMemo(() => db ? query(collection(db, 'products'), orderBy('createdAt', 'desc')) : null, [db]);
   const categoriesQuery = useMemo(() => db ? query(collection(db, 'categories'), orderBy('name', 'asc')) : null, [db]);
   const reviewsQuery = useMemo(() => db ? query(collection(db, 'reviews'), orderBy('createdAt', 'desc')) : null, [db]);
@@ -89,14 +91,42 @@ export default function AdminContent() {
     if (!file) return;
 
     setIsImageProcessing(true);
-    const reader = new FileReader();
     
+    // IMAGE COMPRESSION TO ENSURE FIRESTORE SYNC (Max 1MB per document)
+    const reader = new FileReader();
     reader.onloadend = () => {
-      const base64String = reader.result as string;
-      setFormData(prev => ({ ...prev, imageUrls: [base64String] }));
-      setPreviewUrl(base64String);
-      setIsImageProcessing(false);
-      toast({ title: "Image Prepared" });
+      const img = new Image();
+      img.src = reader.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 800;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        // Convert to quality compressed Base64
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+        setFormData(prev => ({ ...prev, imageUrls: [compressedBase64] }));
+        setPreviewUrl(compressedBase64);
+        setIsImageProcessing(false);
+        toast({ title: "Image Prepared for Cloud" });
+      };
     };
 
     reader.onerror = () => {
@@ -128,18 +158,23 @@ export default function AdminContent() {
     try {
       if (isEditing) {
         await setDoc(doc(db, 'products', isEditing), productData, { merge: true });
-        toast({ title: "Persistent Update Success" });
+        toast({ title: "Cloud Sync: Update Successful" });
       } else {
-        // STRICT FIRESTORE PERSISTENCE
+        // DIRECT CLOUD PERSISTENCE
         await addDoc(collection(db, 'products'), {
           ...productData,
           createdAt: serverTimestamp(),
         });
-        toast({ title: "Saved to Cloud Permanently" });
+        toast({ title: "Cloud Sync: Item Added Globally" });
       }
       resetForm();
-    } catch (err) {
-      console.error("Persistence Error:", err);
+    } catch (err: any) {
+      console.error("Cloud Write Error:", err);
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: 'products',
+        operation: isEditing ? 'update' : 'create',
+        requestResourceData: productData
+      }));
       toast({ variant: "destructive", title: "Database Write Failed" });
     } finally {
       setIsProductSaving(false);
@@ -155,16 +190,21 @@ export default function AdminContent() {
     const slug = name.toLowerCase().replace(/\s+/g, '-');
 
     try {
-      // STRICT FIRESTORE PERSISTENCE
+      // DIRECT CLOUD PERSISTENCE
       await addDoc(collection(db, 'categories'), { 
         name, 
         slug,
         createdAt: serverTimestamp() 
       });
       setNewCategoryName(''); 
-      toast({ title: "Category Synced to Cloud" });
-    } catch (err) {
-      console.error("Category Persistence Error:", err);
+      toast({ title: "Category Synced Globally" });
+    } catch (err: any) {
+      console.error("Category Error:", err);
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: 'categories',
+        operation: 'create',
+        requestResourceData: { name, slug }
+      }));
       toast({ variant: "destructive", title: "Cloud Sync Failed" });
     } finally {
       setIsCategoryAdding(false);
@@ -173,7 +213,7 @@ export default function AdminContent() {
 
   const deleteItem = async (id: string, coll: string) => {
     if (!db) return;
-    if (!confirm("Are you sure you want to delete this item permanently?")) return;
+    if (!confirm("Are you sure you want to delete this item permanently from the cloud?")) return;
     try {
       await deleteDoc(doc(db, coll, id));
       toast({ title: "Removed from Cloud" });
@@ -193,7 +233,7 @@ export default function AdminContent() {
           createdAt: serverTimestamp() 
         })
       ));
-      toast({ title: "Mock Data Seeding Complete" });
+      toast({ title: "Cloud Seeding Complete" });
     } catch (err) {
       toast({ variant: "destructive", title: "Seeding Failed" });
     } finally {
@@ -203,7 +243,7 @@ export default function AdminContent() {
 
   const handleWipeAll = async () => {
     if (!db || isWiping) return;
-    if (!confirm("Are you sure you want to delete ALL cloud data? This is irreversible.")) return;
+    if (!confirm("Are you sure you want to delete ALL cloud data? This is irreversible and affects all users.")) return;
     
     setIsWiping(true);
     try {
@@ -213,7 +253,7 @@ export default function AdminContent() {
         ...reviews.map(r => deleteDoc(doc(db, 'reviews', r.id!)))
       ];
       await Promise.all(deletions);
-      toast({ title: "Database Wiped Successfully" });
+      toast({ title: "Cloud Database Wiped" });
     } catch (err) {
       toast({ variant: "destructive", title: "Wipe Failed" });
     } finally {
@@ -253,7 +293,7 @@ export default function AdminContent() {
              </div>
              <div>
                <h1 className="text-lg font-black tracking-tighter uppercase italic">Control <span className="text-amber-500">Center</span></h1>
-               <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Global Sync Active</p>
+               <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Live Cloud Sync Active</p>
              </div>
           </div>
           <div className="flex gap-2">
@@ -319,7 +359,7 @@ export default function AdminContent() {
                   </div>
 
                   <div className="space-y-3">
-                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Device Image (Base64)</Label>
+                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Device Image (Cloud Sync)</Label>
                     <div 
                       onClick={() => !isImageProcessing && fileInputRef.current?.click()}
                       className={`border-2 border-dashed border-zinc-700 rounded-xl p-6 flex flex-col items-center justify-center bg-zinc-800/30 cursor-pointer hover:border-amber-500 transition-all ${isImageProcessing ? 'opacity-50' : ''}`}
@@ -364,7 +404,7 @@ export default function AdminContent() {
             <div className="lg:col-span-7 grid sm:grid-cols-2 gap-4">
               {products.length === 0 ? (
                 <div className="col-span-full py-20 text-center opacity-20">
-                  <p className="text-sm font-black uppercase italic">No Products Found in Cloud</p>
+                  <p className="text-sm font-black uppercase italic">No Products in Cloud</p>
                 </div>
               ) : (
                 products.map(p => (
