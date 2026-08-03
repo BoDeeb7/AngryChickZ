@@ -6,40 +6,35 @@ import { collection, query, orderBy } from 'firebase/firestore';
 import { Product, Category } from '@/types/restaurant';
 import { ProductCard } from './ProductCard';
 import { cn } from '@/lib/utils';
-import { MOCK_PRODUCTS } from '@/lib/mock-data';
 import { Loader2 } from 'lucide-react';
 
 export function MenuGrid() {
   const db = useFirestore();
   const [activeCategory, setActiveCategory] = useState('all');
   
-  // REAL-TIME CLOUD QUERIES
+  // 4. المنيو اللحظي (Firestore Real-time)
   const productsQuery = useMemo(() => db ? query(collection(db, 'products'), orderBy('createdAt', 'desc')) : null, [db]);
   const categoriesQuery = useMemo(() => db ? query(collection(db, 'categories'), orderBy('name', 'asc')) : null, [db]);
 
   const { data: cloudProducts = [], loading: productsLoading } = useCollection<Product>(productsQuery);
   const { data: cloudCategories = [] } = useCollection<Category>(categoriesQuery);
 
-  // ZERO-LAG DATA LOGIC: Show cloud data if available, fallback to mock data immediately
-  const products = cloudProducts.length > 0 ? cloudProducts : (MOCK_PRODUCTS as any[]);
-
   const displayCategories = useMemo(() => {
     const base = [{ id: 'all', name: 'All Dishes', slug: 'all' }];
     if (cloudCategories.length > 0) return [...base, ...cloudCategories];
     
-    // Auto-generate categories from products if cloud categories missing
-    const uniqueCats = Array.from(new Set(products.map(p => p.category)));
+    const uniqueCats = Array.from(new Set(cloudProducts.map(p => p.category)));
     return [...base, ...uniqueCats.map(cat => ({ 
       id: cat, 
       name: cat.charAt(0).toUpperCase() + cat.slice(1), 
       slug: cat 
     }))];
-  }, [cloudCategories, products]);
+  }, [cloudCategories, cloudProducts]);
 
   const filteredProducts = useMemo(() => {
-    if (activeCategory === 'all') return products;
-    return products.filter(p => p.category === activeCategory);
-  }, [products, activeCategory]);
+    if (activeCategory === 'all') return cloudProducts;
+    return cloudProducts.filter(p => p.category === activeCategory);
+  }, [cloudProducts, activeCategory]);
 
   return (
     <section id="menu" className="py-16 md:py-32 relative w-full overflow-hidden bg-zinc-950 min-h-[50vh]">
@@ -73,18 +68,22 @@ export function MenuGrid() {
           </div>
         </div>
 
-        {/* LOADING INDICATOR (Small & Unobtrusive) */}
-        {productsLoading && cloudProducts.length === 0 && (
-          <div className="flex justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        {productsLoading && cloudProducts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-4 opacity-40">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            <p className="text-[10px] font-black uppercase tracking-widest italic">Synchronizing Menu...</p>
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="text-center py-20 opacity-20">
+             <p className="text-xl font-black uppercase italic">No Dishes Found</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8 animate-in fade-in duration-500">
+            {filteredProducts.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
           </div>
         )}
-
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8 animate-in fade-in duration-500">
-          {filteredProducts.map((product, idx) => (
-            <ProductCard key={product.id || idx} product={product} />
-          ))}
-        </div>
       </div>
     </section>
   );

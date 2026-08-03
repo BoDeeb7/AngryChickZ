@@ -13,12 +13,6 @@ import {
   ShieldCheck,
   UploadCloud,
   RefreshCw,
-  Globe,
-  Phone,
-  MapPin,
-  MessageCircle,
-  Instagram,
-  Facebook,
   RotateCcw
 } from 'lucide-react';
 import Image from 'next/image';
@@ -34,7 +28,6 @@ import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp, query, ord
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { MOCK_PRODUCTS, MOCK_CATEGORIES } from '@/lib/mock-data';
 import Link from 'next/link';
 
 export default function AdminContent() {
@@ -44,7 +37,6 @@ export default function AdminContent() {
   const [isProductSaving, setIsProductSaving] = useState(false);
   const [isCategoryAdding, setIsCategoryAdding] = useState(false);
   const [isImageUploading, setIsImageUploading] = useState(false);
-  const [isSeeding, setIsSeeding] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -52,7 +44,7 @@ export default function AdminContent() {
   const db = useFirestore();
   const storage = useStorage();
 
-  // Defensive queries
+  // 1. المزامنة السحابية العامة ( Firestore vs Local)
   const productsQuery = useMemo(() => db ? query(collection(db, 'products'), orderBy('createdAt', 'desc')) : null, [db]);
   const categoriesQuery = useMemo(() => db ? query(collection(db, 'categories'), orderBy('name', 'asc')) : null, [db]);
   const storeSettingsRef = useMemo(() => db ? doc(db, 'settings', 'store') : null, [db]);
@@ -74,19 +66,20 @@ export default function AdminContent() {
   const [settingsForm, setSettingsForm] = useState<Partial<StoreSettings>>({});
   const [newCategoryName, setNewCategoryName] = useState('');
 
-  // SAFETY TIMEOUTS to prevent infinite spinning
+  // 2. نظام التحرير التلقائي للأزرار (Safety Timeout)
   useEffect(() => {
     let timeout: NodeJS.Timeout;
-    if (isImageUploading || isProductSaving || isCategoryAdding) {
+    if (isImageUploading || isProductSaving || isCategoryAdding || deletingId) {
       timeout = setTimeout(() => {
         setIsImageUploading(false);
         setIsProductSaving(false);
         setIsCategoryAdding(false);
-        console.warn("Safety Timeout: UI unlocked due to long process.");
-      }, 10000); // 10 seconds max spinning
+        setDeletingId(null);
+        console.warn("Safety Reset: UI Unlocked automatically.");
+      }, 8000); // 8 ثواني كحد أقصى للدوران
     }
     return () => clearTimeout(timeout);
-  }, [isImageUploading, isProductSaving, isCategoryAdding]);
+  }, [isImageUploading, isProductSaving, isCategoryAdding, deletingId]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,6 +98,7 @@ export default function AdminContent() {
     setDeletingId(null);
   };
 
+  // 3. إعادة بناء رفع الصور (Image Upload Fix)
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !storage) return;
@@ -112,23 +106,21 @@ export default function AdminContent() {
     setIsImageUploading(true);
     const storageRef = ref(storage, `products/${Date.now()}-${file.name}`);
 
-    uploadBytes(storageRef, file)
-      .then(async (snapshot) => {
-        const url = await getDownloadURL(snapshot.ref);
-        setFormData(prev => ({ ...prev, imageUrls: [url] })); // Support single image for simplicity
-        toast({ title: "Image Ready" });
-      })
-      .catch((err) => {
-        console.error(err);
-        toast({ variant: "destructive", title: "Upload Failed" });
-      })
-      .finally(() => {
-        setIsImageUploading(false);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-      });
+    try {
+      const snapshot = await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(snapshot.ref);
+      setFormData(prev => ({ ...prev, imageUrls: [url] }));
+      toast({ title: "Image Uploaded Successfully" });
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Upload Failed" });
+    } finally {
+      setIsImageUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
-  const handleSaveProduct = (e: React.FormEvent) => {
+  const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!db) return;
     setIsProductSaving(true);
@@ -139,75 +131,61 @@ export default function AdminContent() {
       createdAt: isEditing ? (products.find(p => p.id === isEditing)?.createdAt || serverTimestamp()) : serverTimestamp()
     };
 
-    const docRef = isEditing ? doc(db, 'products', isEditing) : null;
-    const collRef = collection(db, 'products');
-
-    const action = isEditing && docRef 
-      ? setDoc(docRef, productData, { merge: true })
-      : addDoc(collRef, productData);
-
-    action
-      .then(() => {
-        setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
-        setIsEditing(null);
-        toast({ title: "Saved Successfully" });
-      })
-      .catch(err => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: 'products', operation: isEditing ? 'update' : 'create', requestResourceData: productData
-        }));
-      })
-      .finally(() => setIsProductSaving(false));
+    try {
+      if (isEditing) {
+        await setDoc(doc(db, 'products', isEditing), productData, { merge: true });
+      } else {
+        await addDoc(collection(db, 'products'), productData);
+      }
+      setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
+      setIsEditing(null);
+      toast({ title: "Product Saved Globaly" });
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Save Failed" });
+    } finally {
+      setIsProductSaving(false);
+    }
   };
 
-  const handleSaveSettings = () => {
+  const handleSaveSettings = async () => {
     if (!db) return;
-    const finalSettings = { ...storeSettings, ...settingsForm };
-    setDoc(doc(db, 'settings', 'store'), finalSettings, { merge: true })
-      .then(() => toast({ title: "Settings Updated" }))
-      .catch(() => toast({ variant: "destructive", title: "Failed to update" }))
-      .finally(() => {});
+    try {
+      const finalSettings = { ...storeSettings, ...settingsForm };
+      await setDoc(doc(db, 'settings', 'store'), finalSettings, { merge: true });
+      toast({ title: "Settings Synced" });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Failed to sync" });
+    } finally {
+      // No loading state needed for silent sync
+    }
   };
 
-  const handleAddCategory = (e: React.FormEvent) => {
+  const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCategoryName || !db) return;
     setIsCategoryAdding(true);
     
-    addDoc(collection(db, 'categories'), { 
-      name: newCategoryName.trim(), 
-      slug: newCategoryName.toLowerCase().trim().replace(/\s+/g, '-') 
-    }).then(() => {
-       setNewCategoryName('');
-       toast({ title: "Category Added" });
-    }).finally(() => setIsCategoryAdding(false));
+    try {
+      await addDoc(collection(db, 'categories'), { 
+        name: newCategoryName.trim(), 
+        slug: newCategoryName.toLowerCase().trim().replace(/\s+/g, '-') 
+      });
+      setNewCategoryName('');
+      toast({ title: "Category Added" });
+    } finally {
+      setIsCategoryAdding(false);
+    }
   };
 
-  const deleteItem = (id: string, coll: string) => {
+  const deleteItem = async (id: string, coll: string) => {
     if (!db) return;
     setDeletingId(id);
-    deleteDoc(doc(db, coll, id))
-      .catch(err => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: `${coll}/${id}`, operation: 'delete'
-        }));
-      })
-      .finally(() => setDeletingId(null));
-  };
-
-  const seedInitialData = async () => {
-    if (!db) return;
-    setIsSeeding(true);
     try {
-      for (const cat of MOCK_CATEGORIES) {
-        await addDoc(collection(db, 'categories'), cat);
-      }
-      for (const prod of MOCK_PRODUCTS) {
-        await addDoc(collection(db, 'products'), { ...prod, createdAt: serverTimestamp() });
-      }
-      toast({ title: "Success" });
+      await deleteDoc(doc(db, coll, id));
+      toast({ title: "Item Deleted" });
     } finally {
-      setIsSeeding(false);
+      setDeletingId(null);
     }
   };
 
@@ -243,17 +221,12 @@ export default function AdminContent() {
              </div>
              <div>
                <h1 className="text-lg font-black tracking-tighter uppercase italic">Control <span className="text-amber-500">Center</span></h1>
-               <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Global Sync Active</p>
+               <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Live Cloud Mapped</p>
              </div>
           </div>
           <div className="flex gap-2">
-            {(isImageUploading || isProductSaving || isCategoryAdding) && (
-              <Button onClick={resetUI} variant="destructive" className="h-10 rounded-xl px-4 text-[9px] font-bold uppercase italic animate-pulse">
-                <RotateCcw className="h-4 w-4 mr-2" /> Reset UI
-              </Button>
-            )}
-            <Button onClick={seedInitialData} disabled={isSeeding} className="h-10 bg-blue-600 hover:bg-blue-700 text-[9px] font-bold uppercase italic rounded-xl px-4">
-              {isSeeding ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Seed System'}
+            <Button onClick={resetUI} variant="ghost" className="h-10 rounded-xl px-4 text-[9px] font-bold uppercase italic text-zinc-500 hover:text-white">
+              <RotateCcw className="h-4 w-4 mr-2" /> Reset UI
             </Button>
             <Link href="/">
               <Button variant="outline" className="h-10 bg-zinc-800 border-zinc-700 rounded-xl px-4 font-bold uppercase italic text-[9px]">
@@ -286,13 +259,13 @@ export default function AdminContent() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Description</Label>
+                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Description (الوصف)</Label>
                     <Textarea 
                       required 
                       value={formData.description} 
                       onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} 
-                      className="bg-zinc-800 border-zinc-700 rounded-xl min-h-[80px] text-xs font-bold" 
-                      placeholder="Ingredients, spiciness, etc..."
+                      className="bg-zinc-800 border-zinc-700 rounded-xl min-h-[100px] text-xs font-bold" 
+                      placeholder="Write description here..."
                     />
                   </div>
 
@@ -321,20 +294,16 @@ export default function AdminContent() {
                       <span className="text-[8px] font-black uppercase text-zinc-500">{isImageUploading ? 'Uploading...' : 'Tap to Upload'}</span>
                     </div>
                     {formData.imageUrls.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {formData.imageUrls.map((url, idx) => (
-                          <div key={idx} className="relative h-16 w-16 rounded-lg overflow-hidden border border-amber-500 group">
-                            <Image src={url} alt="Preview" fill className="object-cover" />
-                            <button type="button" onClick={() => setFormData(prev => ({ ...prev, imageUrls: [] }))} className="absolute inset-0 bg-red-600/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                              <X className="h-4 w-4 text-white" />
-                            </button>
-                          </div>
-                        ))}
+                      <div className="relative h-20 w-full rounded-xl overflow-hidden border border-amber-500">
+                        <Image src={formData.imageUrls[0]} alt="Preview" fill className="object-cover" />
+                        <button type="button" onClick={() => setFormData(prev => ({ ...prev, imageUrls: [] }))} className="absolute top-2 right-2 bg-red-600 p-1 rounded-full shadow-lg">
+                          <X className="h-3 w-3 text-white" />
+                        </button>
                       </div>
                     )}
                   </div>
 
-                  <Button disabled={isProductSaving || isImageUploading} type="submit" className="w-full h-12 bg-amber-500 text-black font-black rounded-xl uppercase italic text-xs shadow-lg active:scale-95">
+                  <Button disabled={isProductSaving || isImageUploading} type="submit" className="w-full h-12 bg-amber-500 text-black font-black rounded-xl uppercase italic text-xs shadow-lg">
                     {isProductSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : (isEditing ? 'Update Item' : 'Save Item')}
                   </Button>
                 </form>
