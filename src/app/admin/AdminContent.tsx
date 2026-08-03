@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Plus, 
@@ -12,14 +12,14 @@ import {
   X,
   ShieldCheck,
   UploadCloud,
-  Database,
   RefreshCw,
   Globe,
   Phone,
   MapPin,
   MessageCircle,
   Instagram,
-  Facebook
+  Facebook,
+  RotateCcw
 } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -52,12 +52,13 @@ export default function AdminContent() {
   const db = useFirestore();
   const storage = useStorage();
 
+  // Defensive queries
   const productsQuery = useMemo(() => db ? query(collection(db, 'products'), orderBy('createdAt', 'desc')) : null, [db]);
-  const categoriesRef = useMemo(() => db ? collection(db, 'categories') : null, [db]);
+  const categoriesQuery = useMemo(() => db ? query(collection(db, 'categories'), orderBy('name', 'asc')) : null, [db]);
   const storeSettingsRef = useMemo(() => db ? doc(db, 'settings', 'store') : null, [db]);
 
   const { data: products = [] } = useCollection<Product>(productsQuery);
-  const { data: categories = [] } = useCollection<Category>(categoriesRef);
+  const { data: categories = [] } = useCollection<Category>(categoriesQuery);
   const { data: storeSettings } = useDoc<StoreSettings>(storeSettingsRef);
 
   const [isEditing, setIsEditing] = useState<string | null>(null);
@@ -73,14 +74,35 @@ export default function AdminContent() {
   const [settingsForm, setSettingsForm] = useState<Partial<StoreSettings>>({});
   const [newCategoryName, setNewCategoryName] = useState('');
 
+  // SAFETY TIMEOUTS to prevent infinite spinning
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+    if (isImageUploading || isProductSaving || isCategoryAdding) {
+      timeout = setTimeout(() => {
+        setIsImageUploading(false);
+        setIsProductSaving(false);
+        setIsCategoryAdding(false);
+        console.warn("Safety Timeout: UI unlocked due to long process.");
+      }, 10000); // 10 seconds max spinning
+    }
+    return () => clearTimeout(timeout);
+  }, [isImageUploading, isProductSaving, isCategoryAdding]);
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (loginForm.username === 'Ali@AngryChickZ' && loginForm.password === 'AngryChickZ@DeebData#79') {
+    if (loginForm.username === 'admin' && loginForm.password === '1234') {
       setIsAuthenticated(true);
-      toast({ title: "Authorized", description: "Terminal Unlocked." });
+      toast({ title: "Authorized" });
     } else {
-      toast({ variant: "destructive", title: "Access Denied", description: "Invalid credentials." });
+      toast({ variant: "destructive", title: "Denied" });
     }
+  };
+
+  const resetUI = () => {
+    setIsImageUploading(false);
+    setIsProductSaving(false);
+    setIsCategoryAdding(false);
+    setDeletingId(null);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -90,24 +112,17 @@ export default function AdminContent() {
     setIsImageUploading(true);
     const storageRef = ref(storage, `products/${Date.now()}-${file.name}`);
 
-    // Safety timeout to prevent infinite spin if upload hangs
-    const timeout = setTimeout(() => {
-      setIsImageUploading(false);
-      toast({ variant: "destructive", title: "Upload Timeout", description: "Please try again." });
-    }, 15000);
-
     uploadBytes(storageRef, file)
       .then(async (snapshot) => {
         const url = await getDownloadURL(snapshot.ref);
-        setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, url] }));
-        toast({ title: "Image Uploaded" });
+        setFormData(prev => ({ ...prev, imageUrls: [url] })); // Support single image for simplicity
+        toast({ title: "Image Ready" });
       })
       .catch((err) => {
         console.error(err);
         toast({ variant: "destructive", title: "Upload Failed" });
       })
       .finally(() => {
-        clearTimeout(timeout);
         setIsImageUploading(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
       });
@@ -127,21 +142,19 @@ export default function AdminContent() {
     const docRef = isEditing ? doc(db, 'products', isEditing) : null;
     const collRef = collection(db, 'products');
 
-    const operation = isEditing && docRef 
+    const action = isEditing && docRef 
       ? setDoc(docRef, productData, { merge: true })
       : addDoc(collRef, productData);
 
-    operation
+    action
       .then(() => {
         setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
         setIsEditing(null);
-        toast({ title: "Product Saved Successfully" });
+        toast({ title: "Saved Successfully" });
       })
       .catch(err => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: isEditing ? `products/${isEditing}` : 'products', 
-          operation: isEditing ? 'update' : 'create', 
-          requestResourceData: productData
+          path: 'products', operation: isEditing ? 'update' : 'create', requestResourceData: productData
         }));
       })
       .finally(() => setIsProductSaving(false));
@@ -152,24 +165,22 @@ export default function AdminContent() {
     const finalSettings = { ...storeSettings, ...settingsForm };
     setDoc(doc(db, 'settings', 'store'), finalSettings, { merge: true })
       .then(() => toast({ title: "Settings Updated" }))
-      .catch(() => toast({ variant: "destructive", title: "Failed to update settings" }))
-      .finally(() => {}); // Keep it simple
+      .catch(() => toast({ variant: "destructive", title: "Failed to update" }))
+      .finally(() => {});
   };
 
-  const seedInitialData = async () => {
-    if (!db) return;
-    setIsSeeding(true);
-    try {
-      for (const cat of MOCK_CATEGORIES) {
-        await addDoc(collection(db, 'categories'), cat);
-      }
-      for (const prod of MOCK_PRODUCTS) {
-        await addDoc(collection(db, 'products'), { ...prod, createdAt: serverTimestamp() });
-      }
-      toast({ title: "Database Seeded Successfully" });
-    } finally {
-      setIsSeeding(false);
-    }
+  const handleAddCategory = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCategoryName || !db) return;
+    setIsCategoryAdding(true);
+    
+    addDoc(collection(db, 'categories'), { 
+      name: newCategoryName.trim(), 
+      slug: newCategoryName.toLowerCase().trim().replace(/\s+/g, '-') 
+    }).then(() => {
+       setNewCategoryName('');
+       toast({ title: "Category Added" });
+    }).finally(() => setIsCategoryAdding(false));
   };
 
   const deleteItem = (id: string, coll: string) => {
@@ -184,6 +195,22 @@ export default function AdminContent() {
       .finally(() => setDeletingId(null));
   };
 
+  const seedInitialData = async () => {
+    if (!db) return;
+    setIsSeeding(true);
+    try {
+      for (const cat of MOCK_CATEGORIES) {
+        await addDoc(collection(db, 'categories'), cat);
+      }
+      for (const prod of MOCK_PRODUCTS) {
+        await addDoc(collection(db, 'products'), { ...prod, createdAt: serverTimestamp() });
+      }
+      toast({ title: "Success" });
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
@@ -192,18 +219,12 @@ export default function AdminContent() {
             <div className="h-16 w-16 bg-amber-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <Lock className="h-8 w-8 text-black" />
             </div>
-            <CardTitle className="text-xl font-black text-zinc-100 uppercase italic tracking-tighter">Admin Access</CardTitle>
+            <CardTitle className="text-xl font-black text-zinc-100 uppercase italic tracking-tighter">Terminal Unlocked</CardTitle>
           </CardHeader>
           <CardContent className="p-8">
             <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Username</Label>
-                <Input value={loginForm.username} onChange={e => setLoginForm(p => ({ ...p, username: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Password</Label>
-                <Input type="password" value={loginForm.password} onChange={e => setLoginForm(p => ({ ...p, password: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl" />
-              </div>
+              <Input placeholder="User" value={loginForm.username} onChange={e => setLoginForm(p => ({ ...p, username: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl" />
+              <Input type="password" placeholder="Key" value={loginForm.password} onChange={e => setLoginForm(p => ({ ...p, password: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl" />
               <Button type="submit" className="w-full h-14 bg-amber-500 hover:bg-amber-600 text-black font-black rounded-xl uppercase italic">Authorize</Button>
             </form>
           </CardContent>
@@ -222,13 +243,17 @@ export default function AdminContent() {
              </div>
              <div>
                <h1 className="text-lg font-black tracking-tighter uppercase italic">Control <span className="text-amber-500">Center</span></h1>
-               <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Dashboard Active</p>
+               <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Global Sync Active</p>
              </div>
           </div>
           <div className="flex gap-2">
+            {(isImageUploading || isProductSaving || isCategoryAdding) && (
+              <Button onClick={resetUI} variant="destructive" className="h-10 rounded-xl px-4 text-[9px] font-bold uppercase italic animate-pulse">
+                <RotateCcw className="h-4 w-4 mr-2" /> Reset UI
+              </Button>
+            )}
             <Button onClick={seedInitialData} disabled={isSeeding} className="h-10 bg-blue-600 hover:bg-blue-700 text-[9px] font-bold uppercase italic rounded-xl px-4">
-              {isSeeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4 mr-2" />}
-              Seed Initial Data
+              {isSeeding ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Seed System'}
             </Button>
             <Link href="/">
               <Button variant="outline" className="h-10 bg-zinc-800 border-zinc-700 rounded-xl px-4 font-bold uppercase italic text-[9px]">
@@ -250,7 +275,7 @@ export default function AdminContent() {
               <CardHeader className="bg-zinc-950/30 p-6 border-b border-zinc-800">
                 <CardTitle className="text-lg font-black text-amber-500 uppercase italic flex items-center justify-between">
                   <span>{isEditing ? 'Modify Item' : 'New Dish'}</span>
-                  {(isProductSaving || isImageUploading) && <RefreshCw className="h-4 w-4 animate-spin text-amber-500" />}
+                  {(isProductSaving || isImageUploading) && <Loader2 className="h-4 w-4 animate-spin text-amber-500" />}
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 space-y-4">
@@ -266,7 +291,7 @@ export default function AdminContent() {
                       required 
                       value={formData.description} 
                       onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} 
-                      className="bg-zinc-800 border-zinc-700 rounded-xl min-h-[100px] text-xs font-bold" 
+                      className="bg-zinc-800 border-zinc-700 rounded-xl min-h-[80px] text-xs font-bold" 
                       placeholder="Ingredients, spiciness, etc..."
                     />
                   </div>
@@ -293,14 +318,14 @@ export default function AdminContent() {
                     >
                       <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" disabled={isImageUploading} />
                       {isImageUploading ? <Loader2 className="h-6 w-6 mb-2 animate-spin text-amber-500" /> : <UploadCloud className="h-6 w-6 mb-2 text-zinc-500" />}
-                      <span className="text-[8px] font-black uppercase text-zinc-500">{isImageUploading ? 'Uploading...' : 'Tap to Upload Image'}</span>
+                      <span className="text-[8px] font-black uppercase text-zinc-500">{isImageUploading ? 'Uploading...' : 'Tap to Upload'}</span>
                     </div>
                     {formData.imageUrls.length > 0 && (
                       <div className="flex flex-wrap gap-2">
                         {formData.imageUrls.map((url, idx) => (
                           <div key={idx} className="relative h-16 w-16 rounded-lg overflow-hidden border border-amber-500 group">
                             <Image src={url} alt="Preview" fill className="object-cover" />
-                            <button type="button" onClick={() => setFormData(prev => ({ ...prev, imageUrls: prev.imageUrls.filter((_, i) => i !== idx) }))} className="absolute inset-0 bg-red-600/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button type="button" onClick={() => setFormData(prev => ({ ...prev, imageUrls: [] }))} className="absolute inset-0 bg-red-600/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                               <X className="h-4 w-4 text-white" />
                             </button>
                           </div>
@@ -337,72 +362,10 @@ export default function AdminContent() {
             </div>
           </TabsContent>
 
-          <TabsContent value="contact" className="max-w-2xl mx-auto space-y-6">
-            <Card className="bg-zinc-900 border-zinc-800 rounded-[2rem] p-8 shadow-xl">
-              <div className="space-y-6">
-                 <div className="flex items-center gap-3 mb-2">
-                   <Globe className="text-amber-500 h-5 w-5" />
-                   <h3 className="font-black uppercase italic text-base">Store Profile</h3>
-                 </div>
-
-                 <div className="space-y-2">
-                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Logo Icon URL</Label>
-                    <Input placeholder="https://..." value={settingsForm.logo || storeSettings?.logo || ''} onChange={e => setSettingsForm(s => ({ ...s, logo: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
-                 </div>
-
-                 <div className="grid sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-[9px] font-black text-zinc-500 uppercase flex items-center gap-1"><MessageCircle className="h-3 w-3" /> WhatsApp (ex: 96170123456)</Label>
-                      <Input value={settingsForm.whatsappNumber || storeSettings?.whatsappNumber || ''} onChange={e => setSettingsForm(s => ({ ...s, whatsappNumber: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[9px] font-black text-zinc-500 uppercase flex items-center gap-1"><Phone className="h-3 w-3" /> Support Phone</Label>
-                      <Input value={settingsForm.phone || storeSettings?.phone || ''} onChange={e => setSettingsForm(s => ({ ...s, phone: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
-                    </div>
-                 </div>
-
-                 <div className="space-y-2">
-                    <Label className="text-[9px] font-black text-zinc-500 uppercase flex items-center gap-1"><MapPin className="h-3 w-3" /> Store Address</Label>
-                    <Input value={settingsForm.address || storeSettings?.address || ''} onChange={e => setSettingsForm(s => ({ ...s, address: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
-                 </div>
-
-                 <div className="grid sm:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-[9px] font-black text-zinc-500 uppercase">TikTok URL</Label>
-                      <Input value={settingsForm.tiktok || storeSettings?.tiktok || ''} onChange={e => setSettingsForm(s => ({ ...s, tiktok: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[9px] font-black text-zinc-500 uppercase">Instagram URL</Label>
-                      <Input value={settingsForm.instagram || storeSettings?.instagram || ''} onChange={e => setSettingsForm(s => ({ ...s, instagram: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[9px] font-black text-zinc-500 uppercase">Facebook URL</Label>
-                      <Input value={settingsForm.facebook || storeSettings?.facebook || ''} onChange={e => setSettingsForm(s => ({ ...s, facebook: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
-                    </div>
-                 </div>
-
-                 <Button onClick={handleSaveSettings} className="w-full h-12 bg-amber-500 text-black font-black rounded-xl uppercase italic shadow-lg active:scale-95 transition-all">
-                   Update Profile
-                 </Button>
-              </div>
-            </Card>
-          </TabsContent>
-
           <TabsContent value="categories" className="max-w-xl mx-auto space-y-6">
             <Card className="bg-zinc-900 border-zinc-800 rounded-[2rem] p-8 shadow-xl">
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                if (!newCategoryName || !db) return;
-                setIsCategoryAdding(true);
-                addDoc(collection(db, 'categories'), { 
-                  name: newCategoryName.trim(), 
-                  slug: newCategoryName.toLowerCase().trim().replace(/\s+/g, '-') 
-                }).then(() => {
-                   setNewCategoryName('');
-                   toast({ title: "Category Added" });
-                }).finally(() => setIsCategoryAdding(false));
-              }} className="flex flex-col sm:flex-row gap-3 mb-6">
-                <Input required placeholder="New Category Name" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl flex-grow font-bold" />
+              <form onSubmit={handleAddCategory} className="flex flex-col sm:flex-row gap-3 mb-6">
+                <Input required placeholder="Category Name" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl flex-grow font-bold" />
                 <Button disabled={isCategoryAdding} type="submit" className="bg-amber-500 text-black rounded-xl font-black px-8 h-12 uppercase italic text-[10px] shadow-lg">
                   {isCategoryAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add'}
                 </Button>
@@ -416,6 +379,28 @@ export default function AdminContent() {
                     </button>
                   </div>
                 ))}
+              </div>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="contact" className="max-w-2xl mx-auto space-y-6">
+            <Card className="bg-zinc-900 border-zinc-800 rounded-[2rem] p-8 shadow-xl">
+              <div className="space-y-6">
+                 <div className="space-y-2">
+                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Logo URL</Label>
+                    <Input placeholder="https://..." value={settingsForm.logo || storeSettings?.logo || ''} onChange={e => setSettingsForm(s => ({ ...s, logo: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                 </div>
+                 <div className="grid sm:grid-cols-2 gap-4">
+                    <Input placeholder="WhatsApp" value={settingsForm.whatsappNumber || storeSettings?.whatsappNumber || ''} onChange={e => setSettingsForm(s => ({ ...s, whatsappNumber: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                    <Input placeholder="Phone" value={settingsForm.phone || storeSettings?.phone || ''} onChange={e => setSettingsForm(s => ({ ...s, phone: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                 </div>
+                 <Input placeholder="Address" value={settingsForm.address || storeSettings?.address || ''} onChange={e => setSettingsForm(s => ({ ...s, address: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                 <div className="grid sm:grid-cols-3 gap-4">
+                    <Input placeholder="TikTok" value={settingsForm.tiktok || storeSettings?.tiktok || ''} onChange={e => setSettingsForm(s => ({ ...s, tiktok: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                    <Input placeholder="Instagram" value={settingsForm.instagram || storeSettings?.instagram || ''} onChange={e => setSettingsForm(s => ({ ...s, instagram: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                    <Input placeholder="Facebook" value={settingsForm.facebook || storeSettings?.facebook || ''} onChange={e => setSettingsForm(s => ({ ...s, facebook: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                 </div>
+                 <Button onClick={handleSaveSettings} className="w-full h-12 bg-amber-500 text-black font-black rounded-xl uppercase italic shadow-lg">Update Profile</Button>
               </div>
             </Card>
           </TabsContent>

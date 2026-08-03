@@ -7,40 +7,34 @@ import { Product, Category } from '@/types/restaurant';
 import { ProductCard } from './ProductCard';
 import { cn } from '@/lib/utils';
 import { MOCK_PRODUCTS } from '@/lib/mock-data';
+import { Loader2 } from 'lucide-react';
 
 export function MenuGrid() {
   const db = useFirestore();
   const [activeCategory, setActiveCategory] = useState('all');
   
-  const productsQuery = useMemo(() => {
-    if (!db) return null;
-    return query(collection(db, 'products'), orderBy('createdAt', 'desc'));
-  }, [db]);
-
-  const categoriesRef = useMemo(() => {
-    if (!db) return null;
-    return collection(db, 'categories');
-  }, [db]);
+  // REAL-TIME CLOUD QUERIES
+  const productsQuery = useMemo(() => db ? query(collection(db, 'products'), orderBy('createdAt', 'desc')) : null, [db]);
+  const categoriesQuery = useMemo(() => db ? query(collection(db, 'categories'), orderBy('name', 'asc')) : null, [db]);
 
   const { data: cloudProducts = [], loading: productsLoading } = useCollection<Product>(productsQuery);
-  const { data: categories = [] } = useCollection<Category>(categoriesRef);
+  const { data: cloudCategories = [] } = useCollection<Category>(categoriesQuery);
 
-  // Fallback logic: Use cloud data if it exists, otherwise use mock data
-  // BUT, we show cloud products immediately as they arrive without a full-screen loader
+  // ZERO-LAG DATA LOGIC: Show cloud data if available, fallback to mock data immediately
   const products = cloudProducts.length > 0 ? cloudProducts : (MOCK_PRODUCTS as any[]);
 
   const displayCategories = useMemo(() => {
     const base = [{ id: 'all', name: 'All Dishes', slug: 'all' }];
-    if (categories.length > 0) return [...base, ...categories];
+    if (cloudCategories.length > 0) return [...base, ...cloudCategories];
     
-    // Auto-generate categories from current product set if cloud categories are missing
+    // Auto-generate categories from products if cloud categories missing
     const uniqueCats = Array.from(new Set(products.map(p => p.category)));
     return [...base, ...uniqueCats.map(cat => ({ 
       id: cat, 
       name: cat.charAt(0).toUpperCase() + cat.slice(1), 
       slug: cat 
     }))];
-  }, [categories, products]);
+  }, [cloudCategories, products]);
 
   const filteredProducts = useMemo(() => {
     if (activeCategory === 'all') return products;
@@ -48,7 +42,7 @@ export function MenuGrid() {
   }, [products, activeCategory]);
 
   return (
-    <section id="menu" className="py-16 md:py-32 relative w-full overflow-hidden bg-zinc-950">
+    <section id="menu" className="py-16 md:py-32 relative w-full overflow-hidden bg-zinc-950 min-h-[50vh]">
       <div className="container mx-auto px-4 md:px-6 relative z-10 w-full">
         <div className="flex flex-col items-center text-center mb-12 md:mb-20 gap-8">
           <div className="space-y-3">
@@ -71,13 +65,20 @@ export function MenuGrid() {
                 >
                   {cat.name}
                   {activeCategory === cat.slug && (
-                    <span className="absolute bottom-0 left-0 w-full h-[2px] bg-primary rounded-full shadow-[0_0_8px_rgba(225,29,72,0.4)]" />
+                    <span className="absolute bottom-0 left-0 w-full h-[2px] bg-primary rounded-full" />
                   )}
                 </button>
               ))}
             </div>
           </div>
         </div>
+
+        {/* LOADING INDICATOR (Small & Unobtrusive) */}
+        {productsLoading && cloudProducts.length === 0 && (
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        )}
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8 animate-in fade-in duration-500">
           {filteredProducts.map((product, idx) => (

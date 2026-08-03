@@ -16,7 +16,6 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   
-  // Use a ref to track if we've already done an initial fetch for this query
   const isInitialFetch = useRef(true);
 
   useEffect(() => {
@@ -25,31 +24,32 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
       return;
     }
 
-    // Only set loading to true if we don't have data or if the query actually changed significantly
-    // Firestore's onSnapshot is very fast if data is already in cache
-    if (isInitialFetch.current) {
-      setLoading(true);
-    }
+    // Defensive timeout to ensure UI is never stuck on "loading"
+    const safetyTimeout = setTimeout(() => {
+      setLoading(false);
+    }, 5000);
 
     const unsubscribe = onSnapshot(
       query,
-      { includeMetadataChanges: false }, // Avoid double triggers on metadata
+      { includeMetadataChanges: true },
       (snapshot: QuerySnapshot<T>) => {
         const items = snapshot.docs.map((doc) => ({
           ...doc.data(),
           id: doc.id,
         } as T));
+        
         setData(items);
         setLoading(false);
+        clearTimeout(safetyTimeout);
         isInitialFetch.current = false;
       },
       async (serverError: FirestoreError) => {
+        clearTimeout(safetyTimeout);
         if (serverError.code === 'permission-denied') {
-          const permissionError = new FirestorePermissionError({
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: 'collection',
             operation: 'list',
-          });
-          errorEmitter.emit('permission-error', permissionError);
+          }));
         }
         setError(serverError);
         setLoading(false);
@@ -59,6 +59,7 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
 
     return () => {
       unsubscribe();
+      clearTimeout(safetyTimeout);
     };
   }, [query]);
 
