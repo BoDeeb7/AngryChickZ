@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Instagram, Facebook, Phone, MapPin, ArrowUp, UtensilsCrossed, Star, Loader2, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -29,13 +29,21 @@ export function Footer() {
   const storeSettingsRef = useMemo(() => db ? doc(db, 'settings', 'store') : null, [db]);
   const { data: storeSettings } = useDoc<StoreSettings>(storeSettingsRef);
 
+  // Safety Timeout for Submitting State
+  useEffect(() => {
+    if (isSubmitting) {
+      const timer = setTimeout(() => setIsSubmitting(false), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [isSubmitting]);
+
   const scrollToTop = () => {
     if (typeof window !== 'undefined') {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
-  const handleReviewSubmit = (e: React.FormEvent) => {
+  const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!db || !review.name || !review.comment || isSubmitting) return;
     
@@ -47,20 +55,20 @@ export function Footer() {
       createdAt: serverTimestamp()
     };
 
-    addDoc(collection(db, 'reviews'), reviewData)
-      .finally(() => {
-        setIsSubmitting(false);
-      })
-      .catch(async (err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: 'reviews',
-          operation: 'create',
-          requestResourceData: reviewData
-        }));
-      });
-
-    setReview({ name: '', comment: '', rating: 5 });
-    toast({ title: "Sent!", description: "Thanks for your feedback." });
+    try {
+      await addDoc(collection(db, 'reviews'), reviewData);
+      setReview({ name: '', comment: '', rating: 5 });
+      toast({ title: "Sent!", description: "Thanks for your feedback." });
+    } catch (err: any) {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: 'reviews',
+        operation: 'create',
+        requestResourceData: reviewData
+      }));
+      toast({ variant: "destructive", title: "Error", description: "Could not send review." });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

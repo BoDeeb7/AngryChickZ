@@ -12,7 +12,6 @@ import {
   X,
   ShieldCheck,
   UploadCloud,
-  RotateCcw,
   Database
 } from 'lucide-react';
 import Image from 'next/image';
@@ -26,8 +25,6 @@ import { Product, Category, StoreSettings } from '@/types/restaurant';
 import { useFirestore, useCollection, useDoc, useStorage } from '@/firebase';
 import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 import Link from 'next/link';
 import { MOCK_PRODUCTS } from '@/lib/mock-data';
 
@@ -69,29 +66,25 @@ export default function AdminContent() {
   const [settingsForm, setSettingsForm] = useState<Partial<StoreSettings>>({});
   const [newCategoryName, setNewCategoryName] = useState('');
 
-  // 1. SAFETY RESET: Prevent infinite button spinning
+  // SAFETY RESET EFFECT: Forces all buttons to unlock if they spin for too long
   useEffect(() => {
-    let timeout: NodeJS.Timeout;
-    if (isImageUploading || isProductSaving || isCategoryAdding || deletingId || isSeeding) {
-      timeout = setTimeout(() => {
-        setIsImageUploading(false);
-        setIsProductSaving(false);
-        setIsCategoryAdding(false);
-        setIsSeeding(false);
-        setDeletingId(null);
-      }, 10000); // 10s Failsafe
-    }
-    return () => clearTimeout(timeout);
-  }, [isImageUploading, isProductSaving, isCategoryAdding, deletingId, isSeeding]);
+    const timer = setTimeout(() => {
+      if (isProductSaving) setIsProductSaving(false);
+      if (isCategoryAdding) setIsCategoryAdding(false);
+      if (isImageUploading) setIsImageUploading(false);
+      if (isSeeding) setIsSeeding(false);
+      if (deletingId) setDeletingId(null);
+    }, 8000); // 8 seconds failsafe
+    return () => clearTimeout(timer);
+  }, [isProductSaving, isCategoryAdding, isImageUploading, isSeeding, deletingId]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // NEW CREDENTIALS APPLIED
     if (loginForm.username === 'Ali@AngryChickZ' && loginForm.password === 'AngryChickZ@DeebData#79') {
       setIsAuthenticated(true);
-      toast({ title: "Terminal Authorized" });
+      toast({ title: "Authorized" });
     } else {
-      toast({ variant: "destructive", title: "Access Denied" });
+      toast({ variant: "destructive", title: "Denied" });
     }
   };
 
@@ -106,7 +99,7 @@ export default function AdminContent() {
       const snapshot = await uploadBytes(storageRef, file);
       const url = await getDownloadURL(snapshot.ref);
       setFormData(prev => ({ ...prev, imageUrls: [url] }));
-      toast({ title: "Image Sync Complete" });
+      toast({ title: "Image Uploaded" });
     } catch (err) {
       toast({ variant: "destructive", title: "Upload Failed" });
     } finally {
@@ -134,9 +127,24 @@ export default function AdminContent() {
       }
       setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
       setIsEditing(null);
-      toast({ title: "Cloud Data Synced" });
+      toast({ title: "Product Saved" });
     } finally {
       setIsProductSaving(false);
+    }
+  };
+
+  const handleAddCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCategoryName || !db) return;
+    setIsCategoryAdding(true);
+    
+    try {
+      const slug = newCategoryName.toLowerCase().trim().replace(/\s+/g, '-');
+      await addDoc(collection(db, 'categories'), { name: newCategoryName.trim(), slug });
+      setNewCategoryName('');
+      toast({ title: "Category Added" });
+    } finally {
+      setIsCategoryAdding(false);
     }
   };
 
@@ -150,7 +158,7 @@ export default function AdminContent() {
           createdAt: serverTimestamp()
         });
       }
-      toast({ title: "Mock Data Seeding Complete" });
+      toast({ title: "Mock Data Seeded" });
     } finally {
       setIsSeeding(false);
     }
@@ -161,7 +169,7 @@ export default function AdminContent() {
     setDeletingId(id);
     try {
       await deleteDoc(doc(db, coll, id));
-      toast({ title: "Item Removed Locally & Cloud" });
+      toast({ title: "Deleted" });
     } finally {
       setDeletingId(null);
     }
@@ -236,12 +244,12 @@ export default function AdminContent() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Short Description</Label>
+                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Description</Label>
                     <Textarea 
                       required 
                       value={formData.description} 
                       onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} 
-                      className="bg-zinc-800 border-zinc-700 rounded-xl min-h-[80px] text-xs font-bold" 
+                      className="bg-zinc-800 border-zinc-700 rounded-xl min-h-[100px] text-xs font-bold" 
                       placeholder="Dish details..."
                     />
                   </div>
@@ -310,7 +318,7 @@ export default function AdminContent() {
 
           <TabsContent value="categories" className="max-w-xl mx-auto space-y-6">
             <Card className="bg-zinc-900 border-zinc-800 rounded-[2rem] p-8">
-              <form onSubmit={async (e) => { e.preventDefault(); if(!newCategoryName || !db) return; setIsCategoryAdding(true); try { await addDoc(collection(db, 'categories'), { name: newCategoryName.trim(), slug: newCategoryName.toLowerCase().trim().replace(/\s+/g, '-') }); setNewCategoryName(''); toast({title: "Category Synced"}); } finally { setIsCategoryAdding(false); } }} className="flex flex-col sm:flex-row gap-3 mb-6">
+              <form onSubmit={handleAddCategory} className="flex flex-col sm:flex-row gap-3 mb-6">
                 <Input required placeholder="Category Name" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl flex-grow font-bold" />
                 <Button disabled={isCategoryAdding} type="submit" className="bg-amber-500 text-black rounded-xl font-black px-8 h-12 uppercase italic text-[10px]">
                   {isCategoryAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add Category'}
@@ -346,7 +354,7 @@ export default function AdminContent() {
                     <Input placeholder="Instagram Link" value={settingsForm.instagram || storeSettings?.instagram || ''} onChange={e => setSettingsForm(s => ({ ...s, instagram: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
                     <Input placeholder="Facebook Link" value={settingsForm.facebook || storeSettings?.facebook || ''} onChange={e => setSettingsForm(s => ({ ...s, facebook: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
                  </div>
-                 <Button onClick={async () => { if(!db) return; await setDoc(doc(db, 'settings', 'store'), { ...storeSettings, ...settingsForm }, { merge: true }); toast({title: "Branding Synced Globally"}); }} className="w-full h-12 bg-amber-500 text-black font-black rounded-xl uppercase italic shadow-lg">Update Profile</Button>
+                 <Button onClick={async () => { if(!db) return; await setDoc(doc(db, 'settings', 'store'), { ...storeSettings, ...settingsForm }, { merge: true }); toast({title: "Branding Updated"}); }} className="w-full h-12 bg-amber-500 text-black font-black rounded-xl uppercase italic shadow-lg">Update Profile</Button>
               </div>
             </Card>
           </TabsContent>
