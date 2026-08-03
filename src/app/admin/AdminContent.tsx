@@ -95,7 +95,7 @@ export default function AdminContent() {
       setFormData(prev => ({ ...prev, imageUrls: [base64String] }));
       setPreviewUrl(base64String);
       setIsImageProcessing(false);
-      toast({ title: "Image Prepared (Base64)" });
+      toast({ title: "Image Prepared" });
     };
 
     reader.onerror = () => {
@@ -113,6 +113,7 @@ export default function AdminContent() {
     setIsProductSaving(true);
     const priceVal = parseFloat(formData.price || '0');
     
+    // Crucial for global sync: Ensure isAvailable is true so MenuGrid shows it
     const productData = {
       name: formData.name.trim(),
       description: formData.description.trim(),
@@ -133,11 +134,11 @@ export default function AdminContent() {
           ...productData,
           createdAt: serverTimestamp(),
         });
-        toast({ title: "Product Created" });
+        toast({ title: "Product Saved to Cloud" });
       }
       resetForm();
     } catch (err) {
-      toast({ variant: "destructive", title: "Save Error" });
+      toast({ variant: "destructive", title: "Cloud Save Error" });
     } finally {
       setIsProductSaving(false);
     }
@@ -154,11 +155,10 @@ export default function AdminContent() {
     try {
       await addDoc(collection(db, 'categories'), { name, slug });
       setNewCategoryName(''); 
-      toast({ title: "Category Added" });
+      toast({ title: "Category Synced" });
     } catch (err) {
-      toast({ variant: "destructive", title: "Add Error" });
+      toast({ variant: "destructive", title: "Sync Error" });
     } finally {
-      // Ensuring the spinner stops immediately
       setIsCategoryAdding(false);
     }
   };
@@ -167,7 +167,7 @@ export default function AdminContent() {
     if (!db) return;
     try {
       await deleteDoc(doc(db, coll, id));
-      toast({ title: "Deleted" });
+      toast({ title: "Deleted from Cloud" });
     } catch (err) {
       toast({ variant: "destructive", title: "Delete Error" });
     }
@@ -180,7 +180,7 @@ export default function AdminContent() {
       await Promise.all(MOCK_PRODUCTS.map(p => 
         addDoc(collection(db, 'products'), { ...p, isAvailable: true, createdAt: serverTimestamp() })
       ));
-      toast({ title: "Data Seeded" });
+      toast({ title: "Mock Data Synced" });
     } finally {
       setIsSeeding(false);
     }
@@ -281,12 +281,12 @@ export default function AdminContent() {
                   </div>
 
                   <div className="space-y-3">
-                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Device Image</Label>
+                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Device Image (Base64)</Label>
                     <div 
                       onClick={() => !isImageProcessing && fileInputRef.current?.click()}
                       className={`border-2 border-dashed border-zinc-700 rounded-xl p-6 flex flex-col items-center justify-center bg-zinc-800/30 cursor-pointer hover:border-amber-500 transition-all ${isImageProcessing ? 'opacity-50' : ''}`}
                     >
-                      <input type="file" min="0" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" />
+                      <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" />
                       {isImageProcessing ? (
                         <div className="flex flex-col items-center">
                           <Loader2 className="h-6 w-6 animate-spin text-amber-500 mb-2" />
@@ -335,7 +335,7 @@ export default function AdminContent() {
                   </div>
                   <div className="flex gap-1">
                     <button onClick={() => { setIsEditing(p.id); setFormData({ ...p, price: p.price.toString() }); setPreviewUrl(p.imageUrls[0]); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="p-1.5 text-zinc-500 hover:text-white"><Edit2 className="h-3 w-3" /></button>
-                    <button onClick={() => deleteItem(p.id, 'products')} className="p-1.5 text-zinc-500 hover:text-red-500">
+                    <button onClick={() => deleteItem(p.id!, 'products')} className="p-1.5 text-zinc-500 hover:text-red-500">
                       <Trash2 className="h-3 w-3" />
                     </button>
                   </div>
@@ -356,7 +356,7 @@ export default function AdminContent() {
                 {categories.map(cat => (
                   <div key={cat.id} className="flex items-center justify-between p-3 bg-zinc-800/30 border border-zinc-800 rounded-xl">
                     <span className="font-black text-[9px] uppercase italic text-zinc-300">{cat.name}</span>
-                    <button onClick={() => deleteItem(cat.id, 'categories')} className="text-zinc-600 hover:text-red-500">
+                    <button onClick={() => deleteItem(cat.id!, 'categories')} className="text-zinc-600 hover:text-red-500">
                        <Trash2 className="h-3 w-3" />
                     </button>
                   </div>
