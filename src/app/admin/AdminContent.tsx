@@ -28,7 +28,7 @@ import { useFirestore, useCollection, useDoc, useStorage } from '@/firebase';
 import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
+import { FirestorePermissionError } from '@/firebase/errors';
 import Link from 'next/link';
 import { MOCK_PRODUCTS } from '@/lib/mock-data';
 
@@ -103,6 +103,19 @@ export default function AdminContent() {
     
     // 2. Immediate Cloud Upload
     setIsImageUploading(true);
+
+    // Safety timeout to prevent infinite spinning if network hangs
+    const safetyTimer = setTimeout(() => {
+      if (isImageUploading) {
+        setIsImageUploading(false);
+        toast({ 
+          variant: "destructive", 
+          title: "Upload Timeout", 
+          description: "Storage connection taking too long. Try again." 
+        });
+      }
+    }, 15000);
+
     try {
       const storageRef = ref(storage, `products/${Date.now()}-${file.name}`);
       const snapshot = await uploadBytes(storageRef, file);
@@ -122,16 +135,18 @@ export default function AdminContent() {
       });
       setPreviewUrl(null);
     } finally {
+      clearTimeout(safetyTimer);
       setIsImageUploading(false);
+      // Reset file input so same file can be selected again if needed
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  // SAVE PRODUCT (NO IMAGE LOGIC HERE)
+  // SAVE PRODUCT
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!db) return;
     
-    // Safety check: Don't submit if an image is still mid-upload
     if (isImageUploading) {
       toast({ title: "Wait...", description: "Image is still uploading to cloud." });
       return;
@@ -140,7 +155,6 @@ export default function AdminContent() {
     setIsProductSaving(true);
 
     try {
-      // 1. Prepare Data
       const priceVal = parseFloat(formData.price || '0');
       const finalImage = formData.imageUrls[0] || 'https://picsum.photos/seed/food/800/800';
       
@@ -155,7 +169,6 @@ export default function AdminContent() {
         updatedAt: serverTimestamp(),
       };
 
-      // 2. Write to Firestore
       if (isEditing) {
         const docRef = doc(db, 'products', isEditing);
         await setDoc(docRef, productData, { merge: true });
@@ -167,7 +180,6 @@ export default function AdminContent() {
         });
       }
       
-      // 3. Success Cleanup
       resetForm();
       toast({ title: isEditing ? "Product Updated" : "Product Created" });
     } catch (err) {
@@ -196,7 +208,11 @@ export default function AdminContent() {
       setNewCategoryName('');
       toast({ title: "Category Added" });
     } catch (err) {
-      toast({ variant: "destructive", title: "Failed to Add Category" });
+      toast({ 
+        variant: "destructive", 
+        title: "Failed to Add Category",
+        description: "Check your connection and try again."
+      });
     } finally {
       setIsCategoryAdding(false);
     }
