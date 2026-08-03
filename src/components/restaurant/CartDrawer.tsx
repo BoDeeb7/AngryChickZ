@@ -61,7 +61,8 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => { if(!open) setStep('review'); onClose(); }}>
-      <SheetContent className="w-full sm:max-w-md p-0 flex flex-col h-full bg-[#FFFBEB] border-l border-amber-500/10 text-foreground z-[100]">
+      <SheetContent className="w-full sm:max-w-md p-0 bg-[#FFFBEB] border-l border-amber-500/10 text-foreground z-[100] flex flex-col h-full max-h-screen">
+        {/* Header: القمة ثابتة */}
         <SheetHeader className="p-4 border-b border-amber-500/5 bg-white/40 backdrop-blur-md shrink-0">
           <SheetTitle className="flex items-center justify-between text-xl font-black uppercase italic tracking-tighter">
             <div className="flex items-center gap-2">
@@ -78,30 +79,31 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
           </SheetTitle>
         </SheetHeader>
 
-        <div className="flex-grow overflow-y-auto">
-          <div className="p-4 space-y-4">
-            {cart.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center py-16 opacity-20">
-                <ShoppingBag className="h-16 w-16 mb-4 stroke-1" />
-                <p className="text-lg font-black uppercase italic">السلة فارغة</p>
+        {/* Body: قائمة المنتجات تتمدد تلقائياً بدون تكبير قسري */}
+        <main className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-amber-200">
+          {cart.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-center py-16 opacity-20">
+              <ShoppingBag className="h-16 w-16 mb-4 stroke-1" />
+              <p className="text-lg font-black uppercase italic">السلة فارغة</p>
+            </div>
+          ) : step === 'review' ? (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-foreground/40">مراجعة الأصناف</h3>
+                <Button variant="ghost" size="sm" onClick={clearCart} className="h-7 text-[9px] font-black uppercase tracking-widest text-primary hover:bg-primary/5 gap-1.5">
+                  <Eraser className="h-3 w-3" /> مسح الكل
+                </Button>
               </div>
-            ) : step === 'review' ? (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-foreground/40">مراجعة الأصناف</h3>
-                  <Button variant="ghost" size="sm" onClick={clearCart} className="h-7 text-[9px] font-black uppercase tracking-widest text-primary hover:bg-primary/5 gap-1.5">
-                    <Eraser className="h-3 w-3" /> مسح الكل
-                  </Button>
-                </div>
-                
+              
+              <div className="grid gap-3">
                 {cart.map(item => (
-                  <div key={item.id} className="flex gap-3 pb-4 border-b border-amber-500/5">
-                    <div className="relative h-16 w-16 rounded-xl overflow-hidden shadow-md flex-shrink-0">
+                  <div key={item.id} className="flex gap-3 pb-3 border-b border-amber-500/5">
+                    <div className="relative h-14 w-14 rounded-xl overflow-hidden shadow-sm flex-shrink-0">
                       <Image src={item.imageUrls?.[0] || 'https://picsum.photos/seed/food/200/200'} alt={item.name} fill className="object-cover" />
                     </div>
                     <div className="flex-grow py-0.5">
                       <div className="flex justify-between items-start mb-0.5">
-                        <h4 className="font-black text-base text-foreground italic tracking-tighter uppercase line-clamp-1">{item.name}</h4>
+                        <h4 className="font-black text-sm text-foreground italic tracking-tighter uppercase line-clamp-1">{item.name}</h4>
                         <button onClick={() => removeFromCart(item.id)} className="text-foreground/10 hover:text-primary transition-colors p-1">
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -112,71 +114,72 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
                           <span className="w-6 text-center font-black text-[10px]">{item.quantity}</span>
                           <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="p-1 hover:text-primary transition-colors"><Plus className="h-2.5 w-2.5" /></button>
                         </div>
-                        <span className="font-black text-base italic tracking-tighter text-primary">${(item.price * item.quantity).toFixed(2)}</span>
+                        <span className="font-black text-sm italic tracking-tighter text-primary">${(item.price * item.quantity).toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
-            ) : (
-              <div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-200">
-                <div className="grid gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-[9px] font-black text-foreground/40 uppercase tracking-widest flex items-center gap-1.5">
-                      <User className="h-2.5 w-2.5" /> الاسم الكامل *
-                    </Label>
-                    <Input 
-                      className="rounded-xl h-11 bg-white border-amber-500/10 font-bold text-sm" 
-                      placeholder="أدخل اسمك" 
-                      value={details.customerName} 
-                      onChange={e => setDetails(d => ({ ...d, customerName: e.target.value }))} 
-                    />
-                  </div>
 
-                  <div className="space-y-1">
-                    <Label className="text-[9px] font-black text-foreground/40 uppercase tracking-widest flex items-center gap-1.5">
-                      <Phone className="h-2.5 w-2.5" /> رقم الهاتف *
-                    </Label>
-                    <Input 
-                      className="rounded-xl h-11 bg-white border-amber-500/10 font-bold text-sm" 
-                      placeholder="رقم الواتساب" 
-                      value={details.phoneNumber} 
-                      onChange={e => setDetails(d => ({ ...d, phoneNumber: e.target.value }))} 
-                    />
-                  </div>
+              <div className="pt-2">
+                <Label className="text-[9px] font-black text-foreground/40 uppercase tracking-widest mb-1.5 block">
+                  ملاحظات إضافية (اختياري)
+                </Label>
+                <Textarea 
+                  placeholder="أي تعليمات خاصة للمطبخ؟" 
+                  value={orderInstructions}
+                  onChange={(e) => setOrderInstructions(e.target.value)}
+                  className="bg-white border-amber-500/10 rounded-xl min-h-[60px] text-xs font-bold"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-200">
+              <div className="grid gap-3">
+                <div className="space-y-1">
+                  <Label className="text-[9px] font-black text-foreground/40 uppercase tracking-widest flex items-center gap-1.5">
+                    <User className="h-2.5 w-2.5" /> الاسم الكامل *
+                  </Label>
+                  <Input 
+                    className="rounded-xl h-11 bg-white border-amber-500/10 font-bold text-sm" 
+                    placeholder="أدخل اسمك" 
+                    value={details.customerName} 
+                    onChange={e => setDetails(d => ({ ...d, customerName: e.target.value }))} 
+                  />
+                </div>
 
-                  <div className="space-y-1">
-                    <Label className="text-[9px] font-black text-foreground/40 uppercase tracking-widest flex items-center gap-1.5">
-                      <MapPin className="h-2.5 w-2.5" /> عنوان التوصيل *
-                    </Label>
-                    <Input 
-                      className="rounded-xl h-11 bg-white border-amber-500/10 font-bold text-sm" 
-                      placeholder="الشارع، البناية، الطابق..." 
-                      value={details.address} 
-                      onChange={e => setDetails(d => ({ ...d, address: e.target.value }))} 
-                    />
-                  </div>
+                <div className="space-y-1">
+                  <Label className="text-[9px] font-black text-foreground/40 uppercase tracking-widest flex items-center gap-1.5">
+                    <Phone className="h-2.5 w-2.5" /> رقم الهاتف *
+                  </Label>
+                  <Input 
+                    className="rounded-xl h-11 bg-white border-amber-500/10 font-bold text-sm" 
+                    placeholder="رقم الواتساب" 
+                    value={details.phoneNumber} 
+                    onChange={e => setDetails(d => ({ ...d, phoneNumber: e.target.value }))} 
+                  />
+                </div>
 
-                  <div className="space-y-1">
-                    <Label className="text-[9px] font-black text-foreground/40 uppercase tracking-widest">
-                      ملاحظات إضافية
-                    </Label>
-                    <Textarea 
-                      placeholder="أي تعليمات خاصة للمطبخ؟" 
-                      value={orderInstructions}
-                      onChange={(e) => setOrderInstructions(e.target.value)}
-                      className="bg-white border-amber-500/10 rounded-xl min-h-[60px] text-xs font-bold"
-                    />
-                  </div>
+                <div className="space-y-1">
+                  <Label className="text-[9px] font-black text-foreground/40 uppercase tracking-widest flex items-center gap-1.5">
+                    <MapPin className="h-2.5 w-2.5" /> عنوان التوصيل *
+                  </Label>
+                  <Input 
+                    className="rounded-xl h-11 bg-white border-amber-500/10 font-bold text-sm" 
+                    placeholder="الشارع، البناية، الطابق..." 
+                    value={details.address} 
+                    onChange={e => setDetails(d => ({ ...d, address: e.target.value }))} 
+                  />
                 </div>
               </div>
-            )}
-          </div>
-        </div>
+            </div>
+          )}
+        </main>
 
+        {/* Footer: المجموع وزر الواتساب مثبتان بالأسفل تماماً */}
         {cart.length > 0 && (
-          <div className="p-4 border-t border-amber-500/10 bg-white/80 backdrop-blur-xl space-y-3 shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.05)] shrink-0">
-            <div className="flex justify-between items-center px-1">
+          <footer className="p-4 border-t border-amber-500/10 bg-white/80 backdrop-blur-xl shrink-0 sticky bottom-0 shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.05)]">
+            <div className="flex justify-between items-center mb-3 px-1">
               <span className="text-foreground/40 font-black text-[9px] uppercase tracking-[0.2em]">المجموع</span>
               <span className="text-2xl font-black italic tracking-tighter text-primary">${subtotal.toFixed(2)}</span>
             </div>
@@ -196,7 +199,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
                 <MessageCircle className="h-5 w-5" /> اطلب عبر واتساب
               </Button>
             )}
-          </div>
+          </footer>
         )}
       </SheetContent>
     </Sheet>
