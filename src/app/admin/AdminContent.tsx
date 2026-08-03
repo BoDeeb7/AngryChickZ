@@ -12,8 +12,8 @@ import {
   X,
   ShieldCheck,
   UploadCloud,
-  RefreshCw,
-  RotateCcw
+  RotateCcw,
+  Database
 } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -29,22 +29,25 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import Link from 'next/link';
+import { MOCK_PRODUCTS } from '@/lib/mock-data';
 
 export default function AdminContent() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   
+  // Loading states
   const [isProductSaving, setIsProductSaving] = useState(false);
   const [isCategoryAdding, setIsCategoryAdding] = useState(false);
   const [isImageUploading, setIsImageUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isSeeding, setIsSeeding] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const db = useFirestore();
   const storage = useStorage();
 
-  // 1. المزامنة السحابية العامة ( Firestore vs Local)
+  // Global Sync Queries
   const productsQuery = useMemo(() => db ? query(collection(db, 'products'), orderBy('createdAt', 'desc')) : null, [db]);
   const categoriesQuery = useMemo(() => db ? query(collection(db, 'categories'), orderBy('name', 'asc')) : null, [db]);
   const storeSettingsRef = useMemo(() => db ? doc(db, 'settings', 'store') : null, [db]);
@@ -66,39 +69,32 @@ export default function AdminContent() {
   const [settingsForm, setSettingsForm] = useState<Partial<StoreSettings>>({});
   const [newCategoryName, setNewCategoryName] = useState('');
 
-  // 2. نظام التحرير التلقائي للأزرار (Safety Timeout)
+  // 1. SAFETY RESET: Prevent infinite button spinning
   useEffect(() => {
     let timeout: NodeJS.Timeout;
-    if (isImageUploading || isProductSaving || isCategoryAdding || deletingId) {
+    if (isImageUploading || isProductSaving || isCategoryAdding || deletingId || isSeeding) {
       timeout = setTimeout(() => {
         setIsImageUploading(false);
         setIsProductSaving(false);
         setIsCategoryAdding(false);
+        setIsSeeding(false);
         setDeletingId(null);
-        console.warn("Safety Reset: UI Unlocked automatically.");
-      }, 8000); // 8 ثواني كحد أقصى للدوران
+      }, 10000); // 10s Failsafe
     }
     return () => clearTimeout(timeout);
-  }, [isImageUploading, isProductSaving, isCategoryAdding, deletingId]);
+  }, [isImageUploading, isProductSaving, isCategoryAdding, deletingId, isSeeding]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (loginForm.username === 'admin' && loginForm.password === '1234') {
+    // NEW CREDENTIALS APPLIED
+    if (loginForm.username === 'Ali@AngryChickZ' && loginForm.password === 'AngryChickZ@DeebData#79') {
       setIsAuthenticated(true);
-      toast({ title: "Authorized" });
+      toast({ title: "Terminal Authorized" });
     } else {
-      toast({ variant: "destructive", title: "Denied" });
+      toast({ variant: "destructive", title: "Access Denied" });
     }
   };
 
-  const resetUI = () => {
-    setIsImageUploading(false);
-    setIsProductSaving(false);
-    setIsCategoryAdding(false);
-    setDeletingId(null);
-  };
-
-  // 3. إعادة بناء رفع الصور (Image Upload Fix)
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !storage) return;
@@ -110,9 +106,8 @@ export default function AdminContent() {
       const snapshot = await uploadBytes(storageRef, file);
       const url = await getDownloadURL(snapshot.ref);
       setFormData(prev => ({ ...prev, imageUrls: [url] }));
-      toast({ title: "Image Uploaded Successfully" });
+      toast({ title: "Image Sync Complete" });
     } catch (err) {
-      console.error(err);
       toast({ variant: "destructive", title: "Upload Failed" });
     } finally {
       setIsImageUploading(false);
@@ -125,7 +120,7 @@ export default function AdminContent() {
     if (!db) return;
     setIsProductSaving(true);
 
-    const productData = {
+    const data = {
       ...formData,
       price: parseFloat(formData.price || '0'),
       createdAt: isEditing ? (products.find(p => p.id === isEditing)?.createdAt || serverTimestamp()) : serverTimestamp()
@@ -133,48 +128,31 @@ export default function AdminContent() {
 
     try {
       if (isEditing) {
-        await setDoc(doc(db, 'products', isEditing), productData, { merge: true });
+        await setDoc(doc(db, 'products', isEditing), data, { merge: true });
       } else {
-        await addDoc(collection(db, 'products'), productData);
+        await addDoc(collection(db, 'products'), data);
       }
       setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
       setIsEditing(null);
-      toast({ title: "Product Saved Globaly" });
-    } catch (err) {
-      console.error(err);
-      toast({ variant: "destructive", title: "Save Failed" });
+      toast({ title: "Cloud Data Synced" });
     } finally {
       setIsProductSaving(false);
     }
   };
 
-  const handleSaveSettings = async () => {
-    if (!db) return;
+  const handleSeedData = async () => {
+    if (!db || isSeeding) return;
+    setIsSeeding(true);
     try {
-      const finalSettings = { ...storeSettings, ...settingsForm };
-      await setDoc(doc(db, 'settings', 'store'), finalSettings, { merge: true });
-      toast({ title: "Settings Synced" });
-    } catch (err) {
-      toast({ variant: "destructive", title: "Failed to sync" });
+      for (const product of MOCK_PRODUCTS) {
+        await addDoc(collection(db, 'products'), {
+          ...product,
+          createdAt: serverTimestamp()
+        });
+      }
+      toast({ title: "Mock Data Seeding Complete" });
     } finally {
-      // No loading state needed for silent sync
-    }
-  };
-
-  const handleAddCategory = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCategoryName || !db) return;
-    setIsCategoryAdding(true);
-    
-    try {
-      await addDoc(collection(db, 'categories'), { 
-        name: newCategoryName.trim(), 
-        slug: newCategoryName.toLowerCase().trim().replace(/\s+/g, '-') 
-      });
-      setNewCategoryName('');
-      toast({ title: "Category Added" });
-    } finally {
-      setIsCategoryAdding(false);
+      setIsSeeding(false);
     }
   };
 
@@ -183,7 +161,7 @@ export default function AdminContent() {
     setDeletingId(id);
     try {
       await deleteDoc(doc(db, coll, id));
-      toast({ title: "Item Deleted" });
+      toast({ title: "Item Removed Locally & Cloud" });
     } finally {
       setDeletingId(null);
     }
@@ -197,12 +175,12 @@ export default function AdminContent() {
             <div className="h-16 w-16 bg-amber-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <Lock className="h-8 w-8 text-black" />
             </div>
-            <CardTitle className="text-xl font-black text-zinc-100 uppercase italic tracking-tighter">Terminal Unlocked</CardTitle>
+            <CardTitle className="text-xl font-black text-zinc-100 uppercase italic tracking-tighter">Terminal Security</CardTitle>
           </CardHeader>
           <CardContent className="p-8">
             <form onSubmit={handleLogin} className="space-y-4">
-              <Input placeholder="User" value={loginForm.username} onChange={e => setLoginForm(p => ({ ...p, username: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl" />
-              <Input type="password" placeholder="Key" value={loginForm.password} onChange={e => setLoginForm(p => ({ ...p, password: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl" />
+              <Input placeholder="Username" value={loginForm.username} onChange={e => setLoginForm(p => ({ ...p, username: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl" />
+              <Input type="password" placeholder="Passkey" value={loginForm.password} onChange={e => setLoginForm(p => ({ ...p, password: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl" />
               <Button type="submit" className="w-full h-14 bg-amber-500 hover:bg-amber-600 text-black font-black rounded-xl uppercase italic">Authorize</Button>
             </form>
           </CardContent>
@@ -221,12 +199,12 @@ export default function AdminContent() {
              </div>
              <div>
                <h1 className="text-lg font-black tracking-tighter uppercase italic">Control <span className="text-amber-500">Center</span></h1>
-               <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Live Cloud Mapped</p>
+               <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Global Sync Status: Active</p>
              </div>
           </div>
           <div className="flex gap-2">
-            <Button onClick={resetUI} variant="ghost" className="h-10 rounded-xl px-4 text-[9px] font-bold uppercase italic text-zinc-500 hover:text-white">
-              <RotateCcw className="h-4 w-4 mr-2" /> Reset UI
+            <Button onClick={handleSeedData} disabled={isSeeding} variant="outline" className="h-10 border-amber-500/20 bg-amber-500/5 rounded-xl px-4 text-[9px] font-bold uppercase italic text-amber-500 hover:bg-amber-500 hover:text-black">
+              {isSeeding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Database className="h-4 w-4 mr-2" />} Seed Data
             </Button>
             <Link href="/">
               <Button variant="outline" className="h-10 bg-zinc-800 border-zinc-700 rounded-xl px-4 font-bold uppercase italic text-[9px]">
@@ -240,15 +218,14 @@ export default function AdminContent() {
           <TabsList className="bg-zinc-900 border border-zinc-800 p-1 rounded-xl h-auto w-full justify-start gap-1 flex-wrap">
             <TabsTrigger value="products" className="px-4 py-2 rounded-lg font-black text-[9px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-black">Products</TabsTrigger>
             <TabsTrigger value="categories" className="px-4 py-2 rounded-lg font-black text-[9px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-black">Categories</TabsTrigger>
-            <TabsTrigger value="contact" className="px-4 py-2 rounded-lg font-black text-[9px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-black">Branding & Social</TabsTrigger>
+            <TabsTrigger value="contact" className="px-4 py-2 rounded-lg font-black text-[9px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-black">Branding</TabsTrigger>
           </TabsList>
 
           <TabsContent value="products" className="grid lg:grid-cols-12 gap-8">
             <Card className="lg:col-span-5 bg-zinc-900 border-zinc-800 rounded-[2rem] shadow-xl h-fit overflow-hidden">
               <CardHeader className="bg-zinc-950/30 p-6 border-b border-zinc-800">
-                <CardTitle className="text-lg font-black text-amber-500 uppercase italic flex items-center justify-between">
-                  <span>{isEditing ? 'Modify Item' : 'New Dish'}</span>
-                  {(isProductSaving || isImageUploading) && <Loader2 className="h-4 w-4 animate-spin text-amber-500" />}
+                <CardTitle className="text-lg font-black text-amber-500 uppercase italic">
+                  {isEditing ? 'Modify Item' : 'Create Dish'}
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 space-y-4">
@@ -259,13 +236,13 @@ export default function AdminContent() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Description (الوصف)</Label>
+                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Short Description</Label>
                     <Textarea 
                       required 
                       value={formData.description} 
                       onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} 
-                      className="bg-zinc-800 border-zinc-700 rounded-xl min-h-[100px] text-xs font-bold" 
-                      placeholder="Write description here..."
+                      className="bg-zinc-800 border-zinc-700 rounded-xl min-h-[80px] text-xs font-bold" 
+                      placeholder="Dish details..."
                     />
                   </div>
 
@@ -284,27 +261,27 @@ export default function AdminContent() {
                   </div>
 
                   <div className="space-y-3">
-                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Dish Image</Label>
+                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Media Upload</Label>
                     <div 
                       onClick={() => !isImageUploading && fileInputRef.current?.click()}
                       className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center bg-zinc-800/30 cursor-pointer transition-all ${isImageUploading ? 'opacity-50 border-amber-500' : 'border-zinc-700 hover:border-amber-500'}`}
                     >
                       <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" disabled={isImageUploading} />
                       {isImageUploading ? <Loader2 className="h-6 w-6 mb-2 animate-spin text-amber-500" /> : <UploadCloud className="h-6 w-6 mb-2 text-zinc-500" />}
-                      <span className="text-[8px] font-black uppercase text-zinc-500">{isImageUploading ? 'Uploading...' : 'Tap to Upload'}</span>
+                      <span className="text-[8px] font-black uppercase text-zinc-500">{isImageUploading ? 'Syncing...' : 'Upload Cloud Image'}</span>
                     </div>
                     {formData.imageUrls.length > 0 && (
-                      <div className="relative h-20 w-full rounded-xl overflow-hidden border border-amber-500">
+                      <div className="relative h-24 w-full rounded-xl overflow-hidden border border-amber-500/30">
                         <Image src={formData.imageUrls[0]} alt="Preview" fill className="object-cover" />
-                        <button type="button" onClick={() => setFormData(prev => ({ ...prev, imageUrls: [] }))} className="absolute top-2 right-2 bg-red-600 p-1 rounded-full shadow-lg">
+                        <button type="button" onClick={() => setFormData(prev => ({ ...prev, imageUrls: [] }))} className="absolute top-2 right-2 bg-red-600/80 p-1 rounded-full backdrop-blur-md">
                           <X className="h-3 w-3 text-white" />
                         </button>
                       </div>
                     )}
                   </div>
 
-                  <Button disabled={isProductSaving || isImageUploading} type="submit" className="w-full h-12 bg-amber-500 text-black font-black rounded-xl uppercase italic text-xs shadow-lg">
-                    {isProductSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : (isEditing ? 'Update Item' : 'Save Item')}
+                  <Button disabled={isProductSaving || isImageUploading} type="submit" className="w-full h-12 bg-amber-500 text-black font-black rounded-xl uppercase italic text-xs">
+                    {isProductSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : (isEditing ? 'Update Global Item' : 'Add to Cloud')}
                   </Button>
                 </form>
               </CardContent>
@@ -312,7 +289,7 @@ export default function AdminContent() {
 
             <div className="lg:col-span-7 grid sm:grid-cols-2 gap-4">
               {products.map(p => (
-                <div key={p.id} className="bg-zinc-900 border border-zinc-800 p-3 rounded-[1.2rem] flex gap-3 items-center hover:bg-zinc-800/50 transition-all shadow-lg">
+                <div key={p.id} className="bg-zinc-900 border border-zinc-800 p-3 rounded-[1.2rem] flex gap-3 items-center hover:bg-zinc-800 transition-colors">
                   <div className="relative h-12 w-12 rounded-lg overflow-hidden bg-zinc-800">
                     <Image src={p.imageUrls?.[0] || 'https://picsum.photos/seed/food/200/200'} alt={p.name} fill className="object-cover" />
                   </div>
@@ -321,8 +298,8 @@ export default function AdminContent() {
                     <span className="text-amber-500 text-[9px] font-black">${p.price.toFixed(2)}</span>
                   </div>
                   <div className="flex gap-1">
-                    <button onClick={() => { setIsEditing(p.id); setFormData({ ...p, price: p.price.toString() }); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="p-1.5 text-zinc-500 hover:text-white transition-colors"><Edit2 className="h-3 w-3" /></button>
-                    <button disabled={deletingId === p.id} onClick={() => deleteItem(p.id, 'products')} className="p-1.5 text-zinc-500 hover:text-red-500 transition-colors">
+                    <button onClick={() => { setIsEditing(p.id); setFormData({ ...p, price: p.price.toString() }); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="p-1.5 text-zinc-500 hover:text-white"><Edit2 className="h-3 w-3" /></button>
+                    <button disabled={deletingId === p.id} onClick={() => deleteItem(p.id, 'products')} className="p-1.5 text-zinc-500 hover:text-red-500">
                       {deletingId === p.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
                     </button>
                   </div>
@@ -332,18 +309,18 @@ export default function AdminContent() {
           </TabsContent>
 
           <TabsContent value="categories" className="max-w-xl mx-auto space-y-6">
-            <Card className="bg-zinc-900 border-zinc-800 rounded-[2rem] p-8 shadow-xl">
-              <form onSubmit={handleAddCategory} className="flex flex-col sm:flex-row gap-3 mb-6">
+            <Card className="bg-zinc-900 border-zinc-800 rounded-[2rem] p-8">
+              <form onSubmit={async (e) => { e.preventDefault(); if(!newCategoryName || !db) return; setIsCategoryAdding(true); try { await addDoc(collection(db, 'categories'), { name: newCategoryName.trim(), slug: newCategoryName.toLowerCase().trim().replace(/\s+/g, '-') }); setNewCategoryName(''); toast({title: "Category Synced"}); } finally { setIsCategoryAdding(false); } }} className="flex flex-col sm:flex-row gap-3 mb-6">
                 <Input required placeholder="Category Name" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl flex-grow font-bold" />
-                <Button disabled={isCategoryAdding} type="submit" className="bg-amber-500 text-black rounded-xl font-black px-8 h-12 uppercase italic text-[10px] shadow-lg">
-                  {isCategoryAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add'}
+                <Button disabled={isCategoryAdding} type="submit" className="bg-amber-500 text-black rounded-xl font-black px-8 h-12 uppercase italic text-[10px]">
+                  {isCategoryAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add Category'}
                 </Button>
               </form>
               <div className="grid gap-2">
                 {categories.map(cat => (
                   <div key={cat.id} className="flex items-center justify-between p-3 bg-zinc-800/30 border border-zinc-800 rounded-xl">
                     <span className="font-black text-[9px] uppercase italic text-zinc-300">{cat.name}</span>
-                    <button disabled={deletingId === cat.id} onClick={() => deleteItem(cat.id, 'categories')} className="text-zinc-600 hover:text-red-500 transition-colors">
+                    <button disabled={deletingId === cat.id} onClick={() => deleteItem(cat.id, 'categories')} className="text-zinc-600 hover:text-red-500">
                        {deletingId === cat.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
                     </button>
                   </div>
@@ -353,23 +330,23 @@ export default function AdminContent() {
           </TabsContent>
 
           <TabsContent value="contact" className="max-w-2xl mx-auto space-y-6">
-            <Card className="bg-zinc-900 border-zinc-800 rounded-[2rem] p-8 shadow-xl">
+            <Card className="bg-zinc-900 border-zinc-800 rounded-[2rem] p-8">
               <div className="space-y-6">
                  <div className="space-y-2">
-                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Logo URL</Label>
+                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Global Logo URL</Label>
                     <Input placeholder="https://..." value={settingsForm.logo || storeSettings?.logo || ''} onChange={e => setSettingsForm(s => ({ ...s, logo: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
                  </div>
                  <div className="grid sm:grid-cols-2 gap-4">
-                    <Input placeholder="WhatsApp" value={settingsForm.whatsappNumber || storeSettings?.whatsappNumber || ''} onChange={e => setSettingsForm(s => ({ ...s, whatsappNumber: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
-                    <Input placeholder="Phone" value={settingsForm.phone || storeSettings?.phone || ''} onChange={e => setSettingsForm(s => ({ ...s, phone: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                    <Input placeholder="WhatsApp Global" value={settingsForm.whatsappNumber || storeSettings?.whatsappNumber || ''} onChange={e => setSettingsForm(s => ({ ...s, whatsappNumber: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                    <Input placeholder="Support Phone" value={settingsForm.phone || storeSettings?.phone || ''} onChange={e => setSettingsForm(s => ({ ...s, phone: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
                  </div>
-                 <Input placeholder="Address" value={settingsForm.address || storeSettings?.address || ''} onChange={e => setSettingsForm(s => ({ ...s, address: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                 <Input placeholder="Main Address" value={settingsForm.address || storeSettings?.address || ''} onChange={e => setSettingsForm(s => ({ ...s, address: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
                  <div className="grid sm:grid-cols-3 gap-4">
-                    <Input placeholder="TikTok" value={settingsForm.tiktok || storeSettings?.tiktok || ''} onChange={e => setSettingsForm(s => ({ ...s, tiktok: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
-                    <Input placeholder="Instagram" value={settingsForm.instagram || storeSettings?.instagram || ''} onChange={e => setSettingsForm(s => ({ ...s, instagram: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
-                    <Input placeholder="Facebook" value={settingsForm.facebook || storeSettings?.facebook || ''} onChange={e => setSettingsForm(s => ({ ...s, facebook: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                    <Input placeholder="TikTok Link" value={settingsForm.tiktok || storeSettings?.tiktok || ''} onChange={e => setSettingsForm(s => ({ ...s, tiktok: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                    <Input placeholder="Instagram Link" value={settingsForm.instagram || storeSettings?.instagram || ''} onChange={e => setSettingsForm(s => ({ ...s, instagram: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                    <Input placeholder="Facebook Link" value={settingsForm.facebook || storeSettings?.facebook || ''} onChange={e => setSettingsForm(s => ({ ...s, facebook: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
                  </div>
-                 <Button onClick={handleSaveSettings} className="w-full h-12 bg-amber-500 text-black font-black rounded-xl uppercase italic shadow-lg">Update Profile</Button>
+                 <Button onClick={async () => { if(!db) return; await setDoc(doc(db, 'settings', 'store'), { ...storeSettings, ...settingsForm }, { merge: true }); toast({title: "Branding Synced Globally"}); }} className="w-full h-12 bg-amber-500 text-black font-black rounded-xl uppercase italic shadow-lg">Update Profile</Button>
               </div>
             </Card>
           </TabsContent>
