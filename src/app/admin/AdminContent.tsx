@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Plus, 
   Trash2, 
   Edit2, 
-  Loader2, 
   ArrowLeft, 
   Lock, 
   X,
@@ -14,7 +13,8 @@ import {
   UploadCloud,
   Database,
   Star,
-  MessageSquare
+  MessageSquare,
+  Loader2
 } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -34,19 +34,15 @@ export default function AdminContent() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   
-  // Loading states
-  const [isProductSaving, setIsProductSaving] = useState(false);
-  const [isCategoryAdding, setIsCategoryAdding] = useState(false);
-  const [isImageUploading, setIsImageUploading] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [isSeeding, setIsSeeding] = useState(false);
+  // Minimal loading indicators that don't lock the UI
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const db = useFirestore();
   const storage = useStorage();
 
-  // Global Sync Queries
+  // Queries
   const productsQuery = useMemo(() => db ? query(collection(db, 'products'), orderBy('createdAt', 'desc')) : null, [db]);
   const categoriesQuery = useMemo(() => db ? query(collection(db, 'categories'), orderBy('name', 'asc')) : null, [db]);
   const reviewsQuery = useMemo(() => db ? query(collection(db, 'reviews'), orderBy('createdAt', 'desc')) : null, [db]);
@@ -76,8 +72,7 @@ export default function AdminContent() {
     setIsEditing(null);
     setPreviewUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
-    setIsProductSaving(false);
-    setIsImageUploading(false);
+    setIsProcessing(false);
   };
 
   const handleLogin = (e: React.FormEvent) => {
@@ -90,13 +85,14 @@ export default function AdminContent() {
     }
   };
 
-  // IMMEDIATE UPLOAD LOGIC
+  // INSTANT UPLOAD LOGIC
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !storage) return;
 
-    setIsImageUploading(true);
+    // Show preview immediately
     setPreviewUrl(URL.createObjectURL(file));
+    setIsProcessing(true);
 
     try {
       const storageRef = ref(storage, `products/${Date.now()}-${file.name}`);
@@ -106,87 +102,91 @@ export default function AdminContent() {
       if (cloudUrl) {
         setFormData(prev => ({ ...prev, imageUrls: [cloudUrl] }));
         setPreviewUrl(cloudUrl);
-        toast({ title: "Image Ready" });
+        toast({ title: "Image Uploaded" });
       }
     } catch (err) {
-      console.error(err);
       toast({ variant: "destructive", title: "Upload Failed" });
     } finally {
-      setIsImageUploading(false);
+      setIsProcessing(false);
     }
   };
 
-  // SAVE PRODUCT LOGIC
+  // DIRECT SAVE PRODUCT
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!db || isImageUploading) return;
+    if (!db) return;
     
-    setIsProductSaving(true);
+    setIsProcessing(true);
+    const priceVal = parseFloat(formData.price || '0');
+    const finalImage = formData.imageUrls[0] || 'https://picsum.photos/seed/food/800/800';
+    
+    const productData = {
+      name: formData.name.trim(),
+      description: formData.description.trim(),
+      price: priceVal,
+      category: formData.category,
+      imageUrls: [finalImage],
+      badges: formData.badges || [],
+      isAvailable: true,
+      updatedAt: serverTimestamp(),
+    };
 
     try {
-      const priceVal = parseFloat(formData.price || '0');
-      const finalImage = formData.imageUrls[0] || 'https://picsum.photos/seed/food/800/800';
-      
-      const productData = {
-        name: formData.name.trim(),
-        description: formData.description.trim(),
-        price: priceVal,
-        category: formData.category,
-        imageUrls: [finalImage],
-        badges: formData.badges || [],
-        isAvailable: true,
-        updatedAt: serverTimestamp(),
-      };
-
       if (isEditing) {
         await setDoc(doc(db, 'products', isEditing), productData, { merge: true });
-        toast({ title: "Updated Successfully" });
+        toast({ title: "Updated" });
       } else {
         await addDoc(collection(db, 'products'), {
           ...productData,
           createdAt: serverTimestamp(),
         });
-        toast({ title: "Created Successfully" });
+        toast({ title: "Created" });
       }
       resetForm();
     } catch (err) {
-      console.error(err);
-      toast({ variant: "destructive", title: "Save Failed" });
+      toast({ variant: "destructive", title: "Save Error" });
     } finally {
-      setIsProductSaving(false);
+      setIsProcessing(false);
     }
   };
 
-  // ADD CATEGORY LOGIC
+  // DIRECT ADD CATEGORY
   const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCategoryName.trim() || !db) return;
     
-    setIsCategoryAdding(true);
+    const name = newCategoryName.trim();
+    const slug = name.toLowerCase().replace(/\s+/g, '-');
+    setNewCategoryName(''); // Clear instantly
+
     try {
-      const slug = newCategoryName.toLowerCase().trim().replace(/\s+/g, '-');
-      await addDoc(collection(db, 'categories'), { 
-        name: newCategoryName.trim(), 
-        slug 
-      });
+      await addDoc(collection(db, 'categories'), { name, slug });
       toast({ title: "Category Added" });
     } catch (err) {
-      console.error(err);
-      toast({ variant: "destructive", title: "Add Failed" });
-    } finally {
-      setIsCategoryAdding(false);
-      setNewCategoryName('');
+      toast({ variant: "destructive", title: "Add Error" });
     }
   };
 
   const deleteItem = async (id: string, coll: string) => {
     if (!db) return;
-    setDeletingId(id);
     try {
       await deleteDoc(doc(db, coll, id));
       toast({ title: "Deleted" });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Delete Error" });
+    }
+  };
+
+  const handleSeedData = async () => {
+    if (!db) return;
+    setIsProcessing(true);
+    try {
+      await Promise.all(MOCK_PRODUCTS.map(p => 
+        addDoc(collection(db, 'products'), { ...p, isAvailable: true, createdAt: serverTimestamp() })
+      ));
+      toast({ title: "Data Seeded" });
     } finally {
-      setDeletingId(null);
+      setIsProcessing(false);
     }
   };
 
@@ -198,7 +198,7 @@ export default function AdminContent() {
             <div className="h-16 w-16 bg-amber-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <Lock className="h-8 w-8 text-black" />
             </div>
-            <CardTitle className="text-xl font-black text-zinc-100 uppercase italic tracking-tighter">Terminal Security</CardTitle>
+            <CardTitle className="text-xl font-black text-zinc-100 uppercase italic tracking-tighter">Terminal Access</CardTitle>
           </CardHeader>
           <CardContent className="p-8">
             <form onSubmit={handleLogin} className="space-y-4">
@@ -222,16 +222,16 @@ export default function AdminContent() {
              </div>
              <div>
                <h1 className="text-lg font-black tracking-tighter uppercase italic">Control <span className="text-amber-500">Center</span></h1>
-               <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Global Sync Status: Active</p>
+               <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Global Sync Active</p>
              </div>
           </div>
           <div className="flex gap-2">
-            <Button onClick={() => { setIsSeeding(true); Promise.all(MOCK_PRODUCTS.map(p => addDoc(collection(db!, 'products'), { ...p, isAvailable: true, createdAt: serverTimestamp() }))).finally(() => setIsSeeding(false)); }} disabled={isSeeding} variant="outline" className="h-10 border-amber-500/20 bg-amber-500/5 rounded-xl px-4 text-[9px] font-bold uppercase italic text-amber-500 hover:bg-amber-500 hover:text-black">
-              {isSeeding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Database className="h-4 w-4 mr-2" />} Seed Data
+            <Button onClick={handleSeedData} variant="outline" className="h-10 border-amber-500/20 bg-amber-500/5 rounded-xl px-4 text-[9px] font-bold uppercase italic text-amber-500 hover:bg-amber-500 hover:text-black">
+              <Database className="h-4 w-4 mr-2" /> Seed Database
             </Button>
             <Link href="/">
               <Button variant="outline" className="h-10 bg-zinc-800 border-zinc-700 rounded-xl px-4 font-bold uppercase italic text-[9px]">
-                <ArrowLeft className="h-4 w-4 mr-2" /> Live Portal
+                <ArrowLeft className="h-4 w-4 mr-2" /> View Portal
               </Button>
             </Link>
           </div>
@@ -249,7 +249,7 @@ export default function AdminContent() {
             <Card className="lg:col-span-5 bg-zinc-900 border-zinc-800 rounded-[2rem] shadow-xl h-fit overflow-hidden">
               <CardHeader className="bg-zinc-950/30 p-6 border-b border-zinc-800">
                 <CardTitle className="text-lg font-black text-amber-500 uppercase italic">
-                  {isEditing ? 'Modify Item' : 'Create Dish'}
+                  {isEditing ? 'Modify Product' : 'Add New Item'}
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 space-y-4">
@@ -285,19 +285,19 @@ export default function AdminContent() {
                   </div>
 
                   <div className="space-y-3">
-                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Media Preview</Label>
+                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Media Upload</Label>
                     <div 
-                      onClick={() => !isImageUploading && fileInputRef.current?.click()}
-                      className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center bg-zinc-800/30 cursor-pointer transition-all ${isImageUploading ? 'opacity-50 border-amber-500' : 'border-zinc-700 hover:border-amber-500'}`}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="border-2 border-dashed border-zinc-700 rounded-xl p-6 flex flex-col items-center justify-center bg-zinc-800/30 cursor-pointer hover:border-amber-500 transition-all"
                     >
                       <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" />
-                      {isImageUploading ? <Loader2 className="h-6 w-6 mb-2 animate-spin text-amber-500" /> : <UploadCloud className="h-6 w-6 mb-2 text-zinc-500" />}
-                      <span className="text-[8px] font-black uppercase text-zinc-500">{isImageUploading ? 'Uploading to Cloud...' : 'Click to Browse Image'}</span>
+                      <UploadCloud className="h-6 w-6 mb-2 text-zinc-500" />
+                      <span className="text-[8px] font-black uppercase text-zinc-500">Pick from Device</span>
                     </div>
                     {previewUrl && (
                       <div className="relative h-24 w-full rounded-xl overflow-hidden border border-amber-500/30">
                         <Image src={previewUrl} alt="Preview" fill className="object-cover" />
-                        <button type="button" onClick={() => { setFormData(prev => ({ ...prev, imageUrls: [] })); setPreviewUrl(null); if(fileInputRef.current) fileInputRef.current.value = ''; }} className="absolute top-2 right-2 bg-red-600/80 p-1 rounded-full backdrop-blur-md">
+                        <button type="button" onClick={() => { setFormData(prev => ({ ...prev, imageUrls: [] })); setPreviewUrl(null); }} className="absolute top-2 right-2 bg-red-600/80 p-1 rounded-full backdrop-blur-md">
                           <X className="h-3 w-3 text-white" />
                         </button>
                       </div>
@@ -310,8 +310,8 @@ export default function AdminContent() {
                         Cancel
                       </Button>
                     )}
-                    <Button disabled={isProductSaving || isImageUploading} type="submit" className="flex-[2] h-12 bg-amber-500 text-black font-black rounded-xl uppercase italic text-xs">
-                      {isProductSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : (isEditing ? 'Update Global Item' : 'Add to Cloud')}
+                    <Button type="submit" className="flex-[2] h-12 bg-amber-500 text-black font-black rounded-xl uppercase italic text-xs">
+                       {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : (isEditing ? 'Update Item' : 'Add to Cloud')}
                     </Button>
                   </div>
                 </form>
@@ -330,8 +330,8 @@ export default function AdminContent() {
                   </div>
                   <div className="flex gap-1">
                     <button onClick={() => { setIsEditing(p.id); setFormData({ ...p, price: p.price.toString() }); setPreviewUrl(p.imageUrls[0]); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="p-1.5 text-zinc-500 hover:text-white"><Edit2 className="h-3 w-3" /></button>
-                    <button disabled={deletingId === p.id} onClick={() => deleteItem(p.id, 'products')} className="p-1.5 text-zinc-500 hover:text-red-500">
-                      {deletingId === p.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                    <button onClick={() => deleteItem(p.id, 'products')} className="p-1.5 text-zinc-500 hover:text-red-500">
+                      <Trash2 className="h-3 w-3" />
                     </button>
                   </div>
                 </div>
@@ -343,16 +343,16 @@ export default function AdminContent() {
             <Card className="bg-zinc-900 border-zinc-800 rounded-[2rem] p-8">
               <form onSubmit={handleAddCategory} className="flex flex-col sm:flex-row gap-3 mb-6">
                 <Input required placeholder="Category Name" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl flex-grow font-bold" />
-                <Button disabled={isCategoryAdding} type="submit" className="bg-amber-500 text-black rounded-xl font-black px-8 h-12 uppercase italic text-[10px]">
-                  {isCategoryAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add Category'}
+                <Button type="submit" className="bg-amber-500 text-black rounded-xl font-black px-8 h-12 uppercase italic text-[10px]">
+                  Add Category
                 </Button>
               </form>
               <div className="grid gap-2">
                 {categories.map(cat => (
                   <div key={cat.id} className="flex items-center justify-between p-3 bg-zinc-800/30 border border-zinc-800 rounded-xl">
                     <span className="font-black text-[9px] uppercase italic text-zinc-300">{cat.name}</span>
-                    <button disabled={deletingId === cat.id} onClick={() => deleteItem(cat.id, 'categories')} className="text-zinc-600 hover:text-red-500">
-                       {deletingId === cat.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                    <button onClick={() => deleteItem(cat.id, 'categories')} className="text-zinc-600 hover:text-red-500">
+                       <Trash2 className="h-3 w-3" />
                     </button>
                   </div>
                 ))}
@@ -376,11 +376,11 @@ export default function AdminContent() {
                        </div>
                        <p className="text-zinc-400 text-xs font-medium italic">"{review.comment}"</p>
                        <span className="text-[8px] font-black uppercase text-zinc-600 tracking-widest">
-                         {review.createdAt?.toDate ? review.createdAt.toDate().toLocaleDateString() : 'Just now'}
+                         {review.createdAt?.toDate ? review.createdAt.toDate().toLocaleDateString() : 'New Feedback'}
                        </span>
                      </div>
-                     <button disabled={deletingId === review.id} onClick={() => deleteItem(review.id!, 'reviews')} className="text-zinc-600 hover:text-red-500 p-2">
-                       {deletingId === review.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                     <button onClick={() => deleteItem(review.id!, 'reviews')} className="text-zinc-600 hover:text-red-500 p-2">
+                       <Trash2 className="h-4 w-4" />
                      </button>
                    </CardContent>
                  </Card>
@@ -398,20 +398,20 @@ export default function AdminContent() {
             <Card className="bg-zinc-900 border-zinc-800 rounded-[2rem] p-8">
               <div className="space-y-6">
                  <div className="space-y-2">
-                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Global Logo URL</Label>
+                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Logo URL</Label>
                     <Input placeholder="https://..." value={settingsForm.logo || storeSettings?.logo || ''} onChange={e => setSettingsForm(s => ({ ...s, logo: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
                  </div>
                  <div className="grid sm:grid-cols-2 gap-4">
-                    <Input placeholder="WhatsApp Global" value={settingsForm.whatsappNumber || storeSettings?.whatsappNumber || ''} onChange={e => setSettingsForm(s => ({ ...s, whatsappNumber: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                    <Input placeholder="WhatsApp" value={settingsForm.whatsappNumber || storeSettings?.whatsappNumber || ''} onChange={e => setSettingsForm(s => ({ ...s, whatsappNumber: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
                     <Input placeholder="Support Phone" value={settingsForm.phone || storeSettings?.phone || ''} onChange={e => setSettingsForm(s => ({ ...s, phone: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
                  </div>
-                 <Input placeholder="Main Address" value={settingsForm.address || storeSettings?.address || ''} onChange={e => setSettingsForm(s => ({ ...s, address: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                 <Input placeholder="Store Address" value={settingsForm.address || storeSettings?.address || ''} onChange={e => setSettingsForm(s => ({ ...s, address: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
                  <div className="grid sm:grid-cols-3 gap-4">
-                    <Input placeholder="TikTok Link" value={settingsForm.tiktok || storeSettings?.tiktok || ''} onChange={e => setSettingsForm(s => ({ ...s, tiktok: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
-                    <Input placeholder="Instagram Link" value={settingsForm.instagram || storeSettings?.instagram || ''} onChange={e => setSettingsForm(s => ({ ...s, instagram: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
-                    <Input placeholder="Facebook Link" value={settingsForm.facebook || storeSettings?.facebook || ''} onChange={e => setSettingsForm(s => ({ ...s, facebook: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                    <Input placeholder="TikTok" value={settingsForm.tiktok || storeSettings?.tiktok || ''} onChange={e => setSettingsForm(s => ({ ...s, tiktok: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                    <Input placeholder="Instagram" value={settingsForm.instagram || storeSettings?.instagram || ''} onChange={e => setSettingsForm(s => ({ ...s, instagram: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                    <Input placeholder="Facebook" value={settingsForm.facebook || storeSettings?.facebook || ''} onChange={e => setSettingsForm(s => ({ ...s, facebook: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
                  </div>
-                 <Button onClick={async () => { if(!db) return; await setDoc(doc(db, 'settings', 'store'), { ...storeSettings, ...settingsForm }, { merge: true }); toast({title: "Branding Updated"}); }} className="w-full h-12 bg-amber-500 text-black font-black rounded-xl uppercase italic shadow-lg">Update Profile</Button>
+                 <Button onClick={async () => { if(!db) return; await setDoc(doc(db, 'settings', 'store'), { ...storeSettings, ...settingsForm }, { merge: true }); toast({title: "Settings Saved"}); }} className="w-full h-12 bg-amber-500 text-black font-black rounded-xl uppercase italic shadow-lg">Save Settings</Button>
               </div>
             </Card>
           </TabsContent>
