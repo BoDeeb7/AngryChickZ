@@ -106,14 +106,7 @@ export default function AdminContent() {
 
     // Safety timeout to prevent infinite spinning if network hangs
     const safetyTimer = setTimeout(() => {
-      if (isImageUploading) {
-        setIsImageUploading(false);
-        toast({ 
-          variant: "destructive", 
-          title: "Upload Timeout", 
-          description: "Storage connection taking too long. Try again." 
-        });
-      }
+      setIsImageUploading(false);
     }, 15000);
 
     try {
@@ -136,13 +129,13 @@ export default function AdminContent() {
       setPreviewUrl(null);
     } finally {
       clearTimeout(safetyTimer);
+      // FORCE STATE RESET
       setIsImageUploading(false);
-      // Reset file input so same file can be selected again if needed
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  // SAVE PRODUCT
+  // SAVE PRODUCT - Reads from state, does not re-trigger upload
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!db) return;
@@ -190,6 +183,7 @@ export default function AdminContent() {
         description: "Firestore connection error. Please try again." 
       });
     } finally {
+      // FORCE STATE RESET
       setIsProductSaving(false);
     }
   };
@@ -214,7 +208,9 @@ export default function AdminContent() {
         description: "Check your connection and try again."
       });
     } finally {
+      // FORCE STATE RESET & INPUT CLEAR
       setIsCategoryAdding(false);
+      setNewCategoryName('');
     }
   };
 
