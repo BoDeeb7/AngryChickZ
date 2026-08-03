@@ -6,6 +6,7 @@ export interface Product {
   category: string;
   imageUrls: string[];
   badges: string[];
+  isAvailable?: boolean;
   createdAt?: any;
 }
 
@@ -43,4 +44,5 @@ export interface StoreSettings {
   tiktok: string;
   whatsappNumber: string;
   openingHours: string;
+  logo?: string;
 }

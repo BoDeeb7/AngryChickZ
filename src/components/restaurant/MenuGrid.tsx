@@ -12,8 +12,15 @@ export function MenuGrid() {
   const db = useFirestore();
   const [activeCategory, setActiveCategory] = useState('all');
   
-  // 4. المنيو اللحظي (Firestore Real-time)
-  const productsQuery = useMemo(() => db ? query(collection(db, 'products'), orderBy('createdAt', 'desc')) : null, [db]);
+  // Bug 1: Items sync & availability
+  const productsQuery = useMemo(() => {
+    if (!db) return null;
+    return query(
+      collection(db, 'products'),
+      orderBy('createdAt', 'desc')
+    );
+  }, [db]);
+
   const categoriesQuery = useMemo(() => db ? query(collection(db, 'categories'), orderBy('name', 'asc')) : null, [db]);
 
   const { data: cloudProducts = [], loading: productsLoading } = useCollection<Product>(productsQuery);
@@ -32,8 +39,10 @@ export function MenuGrid() {
   }, [cloudCategories, cloudProducts]);
 
   const filteredProducts = useMemo(() => {
-    if (activeCategory === 'all') return cloudProducts;
-    return cloudProducts.filter(p => p.category === activeCategory);
+    // Filter by availability if field exists
+    const availableItems = cloudProducts.filter(p => p.isAvailable !== false);
+    if (activeCategory === 'all') return availableItems;
+    return availableItems.filter(p => p.category === activeCategory);
   }, [cloudProducts, activeCategory]);
 
   return (

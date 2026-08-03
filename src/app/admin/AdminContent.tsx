@@ -12,7 +12,9 @@ import {
   X,
   ShieldCheck,
   UploadCloud,
-  Database
+  Database,
+  Star,
+  MessageSquare
 } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -21,7 +23,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Product, Category, StoreSettings } from '@/types/restaurant';
+import { Product, Category, StoreSettings, Review } from '@/types/restaurant';
 import { useFirestore, useCollection, useDoc, useStorage } from '@/firebase';
 import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -47,10 +49,12 @@ export default function AdminContent() {
   // Global Sync Queries
   const productsQuery = useMemo(() => db ? query(collection(db, 'products'), orderBy('createdAt', 'desc')) : null, [db]);
   const categoriesQuery = useMemo(() => db ? query(collection(db, 'categories'), orderBy('name', 'asc')) : null, [db]);
+  const reviewsQuery = useMemo(() => db ? query(collection(db, 'reviews'), orderBy('createdAt', 'desc')) : null, [db]);
   const storeSettingsRef = useMemo(() => db ? doc(db, 'settings', 'store') : null, [db]);
 
   const { data: products = [] } = useCollection<Product>(productsQuery);
   const { data: categories = [] } = useCollection<Category>(categoriesQuery);
+  const { data: reviews = [] } = useCollection<Review>(reviewsQuery);
   const { data: storeSettings } = useDoc<StoreSettings>(storeSettingsRef);
 
   const [isEditing, setIsEditing] = useState<string | null>(null);
@@ -63,20 +67,22 @@ export default function AdminContent() {
     badges: [] as string[],
   });
 
+  // Bug 4: Local Preview State
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
   const [settingsForm, setSettingsForm] = useState<Partial<StoreSettings>>({});
   const [newCategoryName, setNewCategoryName] = useState('');
 
-  // SAFETY RESET EFFECT: Forces all buttons to unlock if they spin for too long
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (isProductSaving) setIsProductSaving(false);
-      if (isCategoryAdding) setIsCategoryAdding(false);
-      if (isImageUploading) setIsImageUploading(false);
-      if (isSeeding) setIsSeeding(false);
-      if (deletingId) setDeletingId(null);
-    }, 8000); // 8 seconds failsafe
-    return () => clearTimeout(timer);
-  }, [isProductSaving, isCategoryAdding, isImageUploading, isSeeding, deletingId]);
+  // Bug 2: Reset Form State
+  const resetForm = () => {
+    setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
+    setIsEditing(null);
+    setSelectedFile(null);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,24 +94,14 @@ export default function AdminContent() {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Bug 4: Image Selection & Preview
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !storage) return;
+    if (!file) return;
 
-    setIsImageUploading(true);
-    const storageRef = ref(storage, `products/${Date.now()}-${file.name}`);
-
-    try {
-      const snapshot = await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(snapshot.ref);
-      setFormData(prev => ({ ...prev, imageUrls: [url] }));
-      toast({ title: "Image Uploaded" });
-    } catch (err) {
-      toast({ variant: "destructive", title: "Upload Failed" });
-    } finally {
-      setIsImageUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
+    setSelectedFile(file);
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
   };
 
   const handleSaveProduct = async (e: React.FormEvent) => {
@@ -113,21 +109,37 @@ export default function AdminContent() {
     if (!db) return;
     setIsProductSaving(true);
 
-    const data = {
-      ...formData,
-      price: parseFloat(formData.price || '0'),
-      createdAt: isEditing ? (products.find(p => p.id === isEditing)?.createdAt || serverTimestamp()) : serverTimestamp()
-    };
-
     try {
+      let finalImageUrls = [...formData.imageUrls];
+
+      // Bug 4: Upload file if selected
+      if (selectedFile && storage) {
+        setIsImageUploading(true);
+        const storageRef = ref(storage, `products/${Date.now()}-${selectedFile.name}`);
+        const snapshot = await uploadBytes(storageRef, selectedFile);
+        const url = await getDownloadURL(snapshot.ref);
+        finalImageUrls = [url];
+        setIsImageUploading(false);
+      }
+
+      const data = {
+        ...formData,
+        imageUrls: finalImageUrls,
+        price: parseFloat(formData.price || '0'),
+        isAvailable: true, // Bug 1: Baseline field
+        createdAt: isEditing ? (products.find(p => p.id === isEditing)?.createdAt || serverTimestamp()) : serverTimestamp()
+      };
+
       if (isEditing) {
         await setDoc(doc(db, 'products', isEditing), data, { merge: true });
       } else {
         await addDoc(collection(db, 'products'), data);
       }
-      setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
-      setIsEditing(null);
-      toast({ title: "Product Saved" });
+      
+      resetForm(); // Bug 2: Clear state
+      toast({ title: isEditing ? "Product Updated" : "Product Created" });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Save Failed" });
     } finally {
       setIsProductSaving(false);
     }
@@ -148,28 +160,12 @@ export default function AdminContent() {
     }
   };
 
-  const handleSeedData = async () => {
-    if (!db || isSeeding) return;
-    setIsSeeding(true);
-    try {
-      for (const product of MOCK_PRODUCTS) {
-        await addDoc(collection(db, 'products'), {
-          ...product,
-          createdAt: serverTimestamp()
-        });
-      }
-      toast({ title: "Mock Data Seeded" });
-    } finally {
-      setIsSeeding(false);
-    }
-  };
-
   const deleteItem = async (id: string, coll: string) => {
     if (!db) return;
     setDeletingId(id);
     try {
       await deleteDoc(doc(db, coll, id));
-      toast({ title: "Deleted" });
+      toast({ title: "Deleted Successfully" });
     } finally {
       setDeletingId(null);
     }
@@ -211,7 +207,7 @@ export default function AdminContent() {
              </div>
           </div>
           <div className="flex gap-2">
-            <Button onClick={handleSeedData} disabled={isSeeding} variant="outline" className="h-10 border-amber-500/20 bg-amber-500/5 rounded-xl px-4 text-[9px] font-bold uppercase italic text-amber-500 hover:bg-amber-500 hover:text-black">
+            <Button onClick={() => { setIsSeeding(true); Promise.all(MOCK_PRODUCTS.map(p => addDoc(collection(db!, 'products'), { ...p, isAvailable: true, createdAt: serverTimestamp() }))).finally(() => setIsSeeding(false)); }} disabled={isSeeding} variant="outline" className="h-10 border-amber-500/20 bg-amber-500/5 rounded-xl px-4 text-[9px] font-bold uppercase italic text-amber-500 hover:bg-amber-500 hover:text-black">
               {isSeeding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Database className="h-4 w-4 mr-2" />} Seed Data
             </Button>
             <Link href="/">
@@ -226,6 +222,7 @@ export default function AdminContent() {
           <TabsList className="bg-zinc-900 border border-zinc-800 p-1 rounded-xl h-auto w-full justify-start gap-1 flex-wrap">
             <TabsTrigger value="products" className="px-4 py-2 rounded-lg font-black text-[9px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-black">Products</TabsTrigger>
             <TabsTrigger value="categories" className="px-4 py-2 rounded-lg font-black text-[9px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-black">Categories</TabsTrigger>
+            <TabsTrigger value="reviews" className="px-4 py-2 rounded-lg font-black text-[9px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-black">Reviews</TabsTrigger>
             <TabsTrigger value="contact" className="px-4 py-2 rounded-lg font-black text-[9px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-black">Branding</TabsTrigger>
           </TabsList>
 
@@ -269,28 +266,35 @@ export default function AdminContent() {
                   </div>
 
                   <div className="space-y-3">
-                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Media Upload</Label>
+                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Media Preview</Label>
                     <div 
                       onClick={() => !isImageUploading && fileInputRef.current?.click()}
                       className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center bg-zinc-800/30 cursor-pointer transition-all ${isImageUploading ? 'opacity-50 border-amber-500' : 'border-zinc-700 hover:border-amber-500'}`}
                     >
-                      <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" disabled={isImageUploading} />
+                      <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" />
                       {isImageUploading ? <Loader2 className="h-6 w-6 mb-2 animate-spin text-amber-500" /> : <UploadCloud className="h-6 w-6 mb-2 text-zinc-500" />}
-                      <span className="text-[8px] font-black uppercase text-zinc-500">{isImageUploading ? 'Syncing...' : 'Upload Cloud Image'}</span>
+                      <span className="text-[8px] font-black uppercase text-zinc-500">{isImageUploading ? 'Uploading...' : 'Click to Browse Image'}</span>
                     </div>
-                    {formData.imageUrls.length > 0 && (
+                    {(previewUrl || formData.imageUrls.length > 0) && (
                       <div className="relative h-24 w-full rounded-xl overflow-hidden border border-amber-500/30">
-                        <Image src={formData.imageUrls[0]} alt="Preview" fill className="object-cover" />
-                        <button type="button" onClick={() => setFormData(prev => ({ ...prev, imageUrls: [] }))} className="absolute top-2 right-2 bg-red-600/80 p-1 rounded-full backdrop-blur-md">
+                        <Image src={previewUrl || formData.imageUrls[0]} alt="Preview" fill className="object-cover" />
+                        <button type="button" onClick={() => { setFormData(prev => ({ ...prev, imageUrls: [] })); setPreviewUrl(null); setSelectedFile(null); }} className="absolute top-2 right-2 bg-red-600/80 p-1 rounded-full backdrop-blur-md">
                           <X className="h-3 w-3 text-white" />
                         </button>
                       </div>
                     )}
                   </div>
 
-                  <Button disabled={isProductSaving || isImageUploading} type="submit" className="w-full h-12 bg-amber-500 text-black font-black rounded-xl uppercase italic text-xs">
-                    {isProductSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : (isEditing ? 'Update Global Item' : 'Add to Cloud')}
-                  </Button>
+                  <div className="flex gap-2">
+                    {isEditing && (
+                      <Button type="button" onClick={resetForm} variant="outline" className="flex-1 h-12 bg-zinc-800 border-zinc-700 text-zinc-100 rounded-xl font-black uppercase italic text-xs">
+                        Cancel
+                      </Button>
+                    )}
+                    <Button disabled={isProductSaving} type="submit" className="flex-[2] h-12 bg-amber-500 text-black font-black rounded-xl uppercase italic text-xs">
+                      {isProductSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : (isEditing ? 'Update Global Item' : 'Add to Cloud')}
+                    </Button>
+                  </div>
                 </form>
               </CardContent>
             </Card>
@@ -335,6 +339,46 @@ export default function AdminContent() {
                 ))}
               </div>
             </Card>
+          </TabsContent>
+
+          {/* Bug 3: Reviews Tab */}
+          <TabsContent value="reviews" className="max-w-4xl mx-auto space-y-6">
+             <div className="grid gap-4">
+               {reviews.map(review => (
+                 <Card key={review.id} className="bg-zinc-900 border-zinc-800 rounded-2xl overflow-hidden">
+                   <CardContent className="p-6 flex justify-between items-start">
+                     <div className="space-y-2">
+                       <div className="flex items-center gap-2">
+                         <span className="font-black text-amber-500 uppercase italic text-sm">{review.customerName}</span>
+                         <div className="flex gap-0.5">
+                           {Array.from({ length: review.rating }).map((_, i) => (
+                             <Star key={i} className="h-3 w-3 fill-amber-500 text-amber-500" />
+                           ))}
+                         </div>
+                       </div>
+                       <p className="text-zinc-400 text-xs font-medium italic">"{review.comment}"</p>
+                       <span className="text-[8px] font-black uppercase text-zinc-600 tracking-widest">
+                         {review.createdAt?.toDate ? review.createdAt.toDate().toLocaleDateString() : 'Just now'}
+                       </span>
+                     </div>
+                     <Button 
+                       variant="ghost" 
+                       size="sm" 
+                       onClick={() => deleteItem(review.id!, 'reviews')}
+                       className="text-zinc-600 hover:text-red-500"
+                     >
+                       <Trash2 className="h-4 w-4" />
+                     </Button>
+                   </CardContent>
+                 </Card>
+               ))}
+               {reviews.length === 0 && (
+                 <div className="text-center py-20 opacity-20">
+                   <MessageSquare className="h-12 w-12 mx-auto mb-4" />
+                   <p className="text-xl font-black uppercase italic">No Reviews Yet</p>
+                 </div>
+               )}
+             </div>
           </TabsContent>
 
           <TabsContent value="contact" className="max-w-2xl mx-auto space-y-6">
