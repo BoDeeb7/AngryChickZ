@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useFirestore, useCollection } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { Product, Category } from '@/types/restaurant';
@@ -23,19 +22,24 @@ export function MenuGrid() {
     return collection(db, 'categories');
   }, [db]);
 
-  const { data: cloudProducts = [] } = useCollection<Product>(productsQuery);
+  const { data: cloudProducts = [], loading: productsLoading } = useCollection<Product>(productsQuery);
   const { data: categories = [] } = useCollection<Category>(categoriesRef);
 
-  // Fallback logic for All: Display cloud data if available, else mocks
+  // Fallback logic: Use cloud data if it exists, otherwise use mock data
+  // BUT, we show cloud products immediately as they arrive without a full-screen loader
   const products = cloudProducts.length > 0 ? cloudProducts : (MOCK_PRODUCTS as any[]);
 
   const displayCategories = useMemo(() => {
     const base = [{ id: 'all', name: 'All Dishes', slug: 'all' }];
     if (categories.length > 0) return [...base, ...categories];
     
-    // Auto-generate categories from products if cloud cats are missing
+    // Auto-generate categories from current product set if cloud categories are missing
     const uniqueCats = Array.from(new Set(products.map(p => p.category)));
-    return [...base, ...uniqueCats.map(cat => ({ id: cat, name: cat.charAt(0).toUpperCase() + cat.slice(1), slug: cat }))];
+    return [...base, ...uniqueCats.map(cat => ({ 
+      id: cat, 
+      name: cat.charAt(0).toUpperCase() + cat.slice(1), 
+      slug: cat 
+    }))];
   }, [categories, products]);
 
   const filteredProducts = useMemo(() => {

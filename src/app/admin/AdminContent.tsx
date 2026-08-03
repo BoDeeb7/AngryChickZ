@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useRef } from 'react';
@@ -91,16 +90,22 @@ export default function AdminContent() {
     setIsImageUploading(true);
     const storageRef = ref(storage, `products/${Date.now()}-${file.name}`);
 
-    // Safety timeout to prevent infinite spin
-    const timeout = setTimeout(() => setIsImageUploading(false), 15000);
+    // Safety timeout to prevent infinite spin if upload hangs
+    const timeout = setTimeout(() => {
+      setIsImageUploading(false);
+      toast({ variant: "destructive", title: "Upload Timeout", description: "Please try again." });
+    }, 15000);
 
     uploadBytes(storageRef, file)
       .then(async (snapshot) => {
         const url = await getDownloadURL(snapshot.ref);
         setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, url] }));
-        toast({ title: "Upload Success" });
+        toast({ title: "Image Uploaded" });
       })
-      .catch(() => toast({ variant: "destructive", title: "Upload Failed" }))
+      .catch((err) => {
+        console.error(err);
+        toast({ variant: "destructive", title: "Upload Failed" });
+      })
       .finally(() => {
         clearTimeout(timeout);
         setIsImageUploading(false);
@@ -130,7 +135,7 @@ export default function AdminContent() {
       .then(() => {
         setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
         setIsEditing(null);
-        toast({ title: "Product Stored" });
+        toast({ title: "Product Saved Successfully" });
       })
       .catch(err => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -146,8 +151,9 @@ export default function AdminContent() {
     if (!db) return;
     const finalSettings = { ...storeSettings, ...settingsForm };
     setDoc(doc(db, 'settings', 'store'), finalSettings, { merge: true })
-      .then(() => toast({ title: "Profile Updated" }))
-      .catch(() => toast({ variant: "destructive", title: "Update Failed" }));
+      .then(() => toast({ title: "Settings Updated" }))
+      .catch(() => toast({ variant: "destructive", title: "Failed to update settings" }))
+      .finally(() => {}); // Keep it simple
   };
 
   const seedInitialData = async () => {
@@ -160,7 +166,7 @@ export default function AdminContent() {
       for (const prod of MOCK_PRODUCTS) {
         await addDoc(collection(db, 'products'), { ...prod, createdAt: serverTimestamp() });
       }
-      toast({ title: "Database Seeded" });
+      toast({ title: "Database Seeded Successfully" });
     } finally {
       setIsSeeding(false);
     }
@@ -186,7 +192,7 @@ export default function AdminContent() {
             <div className="h-16 w-16 bg-amber-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <Lock className="h-8 w-8 text-black" />
             </div>
-            <CardTitle className="text-xl font-black text-zinc-100 uppercase italic tracking-tighter">Terminal Access</CardTitle>
+            <CardTitle className="text-xl font-black text-zinc-100 uppercase italic tracking-tighter">Admin Access</CardTitle>
           </CardHeader>
           <CardContent className="p-8">
             <form onSubmit={handleLogin} className="space-y-4">
@@ -216,13 +222,13 @@ export default function AdminContent() {
              </div>
              <div>
                <h1 className="text-lg font-black tracking-tighter uppercase italic">Control <span className="text-amber-500">Center</span></h1>
-               <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Active</p>
+               <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Dashboard Active</p>
              </div>
           </div>
           <div className="flex gap-2">
             <Button onClick={seedInitialData} disabled={isSeeding} className="h-10 bg-blue-600 hover:bg-blue-700 text-[9px] font-bold uppercase italic rounded-xl px-4">
               {isSeeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4 mr-2" />}
-              Seed Data
+              Seed Initial Data
             </Button>
             <Link href="/">
               <Button variant="outline" className="h-10 bg-zinc-800 border-zinc-700 rounded-xl px-4 font-bold uppercase italic text-[9px]">
@@ -261,7 +267,7 @@ export default function AdminContent() {
                       value={formData.description} 
                       onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} 
                       className="bg-zinc-800 border-zinc-700 rounded-xl min-h-[100px] text-xs font-bold" 
-                      placeholder="Dish details, spice level..."
+                      placeholder="Ingredients, spiciness, etc..."
                     />
                   </div>
 
@@ -287,7 +293,7 @@ export default function AdminContent() {
                     >
                       <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" disabled={isImageUploading} />
                       {isImageUploading ? <Loader2 className="h-6 w-6 mb-2 animate-spin text-amber-500" /> : <UploadCloud className="h-6 w-6 mb-2 text-zinc-500" />}
-                      <span className="text-[8px] font-black uppercase text-zinc-500">{isImageUploading ? 'Uploading...' : 'Click to Upload Image'}</span>
+                      <span className="text-[8px] font-black uppercase text-zinc-500">{isImageUploading ? 'Uploading...' : 'Tap to Upload Image'}</span>
                     </div>
                     {formData.imageUrls.length > 0 && (
                       <div className="flex flex-wrap gap-2">
@@ -306,9 +312,6 @@ export default function AdminContent() {
                   <Button disabled={isProductSaving || isImageUploading} type="submit" className="w-full h-12 bg-amber-500 text-black font-black rounded-xl uppercase italic text-xs shadow-lg active:scale-95">
                     {isProductSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : (isEditing ? 'Update Item' : 'Save Item')}
                   </Button>
-                  {isImageUploading && (
-                    <Button type="button" onClick={() => setIsImageUploading(false)} variant="outline" className="w-full h-8 border-red-500/20 text-red-500 text-[8px] uppercase font-black">Force Reset Upload</Button>
-                  )}
                 </form>
               </CardContent>
             </Card>
@@ -339,7 +342,7 @@ export default function AdminContent() {
               <div className="space-y-6">
                  <div className="flex items-center gap-3 mb-2">
                    <Globe className="text-amber-500 h-5 w-5" />
-                   <h3 className="font-black uppercase italic text-base">Brand Profile</h3>
+                   <h3 className="font-black uppercase italic text-base">Store Profile</h3>
                  </div>
 
                  <div className="space-y-2">
@@ -349,7 +352,7 @@ export default function AdminContent() {
 
                  <div className="grid sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-[9px] font-black text-zinc-500 uppercase flex items-center gap-1"><MessageCircle className="h-3 w-3" /> WhatsApp (Ex: 96170123456)</Label>
+                      <Label className="text-[9px] font-black text-zinc-500 uppercase flex items-center gap-1"><MessageCircle className="h-3 w-3" /> WhatsApp (ex: 96170123456)</Label>
                       <Input value={settingsForm.whatsappNumber || storeSettings?.whatsappNumber || ''} onChange={e => setSettingsForm(s => ({ ...s, whatsappNumber: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
                     </div>
                     <div className="space-y-2">
@@ -379,7 +382,7 @@ export default function AdminContent() {
                  </div>
 
                  <Button onClick={handleSaveSettings} className="w-full h-12 bg-amber-500 text-black font-black rounded-xl uppercase italic shadow-lg active:scale-95 transition-all">
-                   Save Brand Profile
+                   Update Profile
                  </Button>
               </div>
             </Card>
@@ -396,10 +399,10 @@ export default function AdminContent() {
                   slug: newCategoryName.toLowerCase().trim().replace(/\s+/g, '-') 
                 }).then(() => {
                    setNewCategoryName('');
-                   toast({ title: "Category Created" });
+                   toast({ title: "Category Added" });
                 }).finally(() => setIsCategoryAdding(false));
               }} className="flex flex-col sm:flex-row gap-3 mb-6">
-                <Input required placeholder="Category Name" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl flex-grow font-bold" />
+                <Input required placeholder="New Category Name" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl flex-grow font-bold" />
                 <Button disabled={isCategoryAdding} type="submit" className="bg-amber-500 text-black rounded-xl font-black px-8 h-12 uppercase italic text-[10px] shadow-lg">
                   {isCategoryAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add'}
                 </Button>

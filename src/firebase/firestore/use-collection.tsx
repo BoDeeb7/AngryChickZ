@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -17,6 +16,7 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   
+  // Use a ref to track if we've already done an initial fetch for this query
   const isInitialFetch = useRef(true);
 
   useEffect(() => {
@@ -25,13 +25,15 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
       return;
     }
 
-    // Set loading only on query change, but keep old data to avoid flickering
+    // Only set loading to true if we don't have data or if the query actually changed significantly
+    // Firestore's onSnapshot is very fast if data is already in cache
     if (isInitialFetch.current) {
       setLoading(true);
     }
 
     const unsubscribe = onSnapshot(
       query,
+      { includeMetadataChanges: false }, // Avoid double triggers on metadata
       (snapshot: QuerySnapshot<T>) => {
         const items = snapshot.docs.map((doc) => ({
           ...doc.data(),
@@ -55,7 +57,9 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+    };
   }, [query]);
 
   return { data, loading, error };
