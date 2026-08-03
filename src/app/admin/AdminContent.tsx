@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Plus, 
@@ -69,17 +69,13 @@ export default function AdminContent() {
     badges: [] as string[],
   });
 
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-
   const [settingsForm, setSettingsForm] = useState<Partial<StoreSettings>>({});
   const [newCategoryName, setNewCategoryName] = useState('');
 
   const resetForm = () => {
     setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
     setIsEditing(null);
-    setSelectedFile(null);
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
     setIsProductSaving(false);
@@ -96,91 +92,82 @@ export default function AdminContent() {
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // UPLOAD IMAGE IMMEDIATELY UPON SELECTION
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !storage) return;
 
-    setSelectedFile(file);
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
+    // 1. Local Preview
+    const localUrl = URL.createObjectURL(file);
+    setPreviewUrl(localUrl);
+    
+    // 2. Immediate Cloud Upload
+    setIsImageUploading(true);
+    try {
+      const storageRef = ref(storage, `products/${Date.now()}-${file.name}`);
+      const snapshot = await uploadBytes(storageRef, file);
+      const cloudUrl = await getDownloadURL(snapshot.ref);
+      
+      if (cloudUrl) {
+        setFormData(prev => ({ ...prev, imageUrls: [cloudUrl] }));
+        setPreviewUrl(cloudUrl); // Switch to permanent URL
+        toast({ title: "Image Uploaded Successfully" });
+      }
+    } catch (uploadError) {
+      console.error("Image upload failed:", uploadError);
+      toast({ 
+        variant: "destructive", 
+        title: "Upload Failed", 
+        description: "Could not save image to cloud. Try again." 
+      });
+      setPreviewUrl(null);
+    } finally {
+      setIsImageUploading(false);
+    }
   };
 
+  // SAVE PRODUCT (NO IMAGE LOGIC HERE)
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!db) return;
     
+    // Safety check: Don't submit if an image is still mid-upload
+    if (isImageUploading) {
+      toast({ title: "Wait...", description: "Image is still uploading to cloud." });
+      return;
+    }
+
     setIsProductSaving(true);
-    // Explicitly reset uploading state at start of save cycle
-    setIsImageUploading(false);
 
     try {
-      let finalImageUrls = [...formData.imageUrls];
-
-      // 1. Handle Image Upload if a new file is picked
-      if (selectedFile && storage) {
-        setIsImageUploading(true);
-        try {
-          const storageRef = ref(storage, `products/${Date.now()}-${selectedFile.name}`);
-          // Ensure upload is awaited correctly
-          const snapshot = await uploadBytes(storageRef, selectedFile);
-          // Ensure download URL is awaited correctly
-          const url = await getDownloadURL(snapshot.ref);
-          if (url) {
-            finalImageUrls = [url];
-          }
-        } catch (uploadError) {
-          console.error("Image upload failed, falling back to placeholder:", uploadError);
-          // Graceful fallback to prevent blocking item creation if upload fails
-          if (finalImageUrls.length === 0) {
-            finalImageUrls = ['https://picsum.photos/seed/food/800/800'];
-          }
-        } finally {
-          setIsImageUploading(false);
-        }
-      } else if (finalImageUrls.length === 0) {
-        // Fallback if no image URL is present at all
-        finalImageUrls = ['https://picsum.photos/seed/food/800/800'];
-      }
-
-      // 2. Prepare Product Data with baseline fields
+      // 1. Prepare Data
       const priceVal = parseFloat(formData.price || '0');
+      const finalImage = formData.imageUrls[0] || 'https://picsum.photos/seed/food/800/800';
+      
       const productData = {
         name: formData.name.trim(),
         description: formData.description.trim(),
         price: priceVal,
         category: formData.category,
-        imageUrls: finalImageUrls,
+        imageUrls: [finalImage],
         badges: formData.badges || [],
         isAvailable: true,
         updatedAt: serverTimestamp(),
       };
 
-      // 3. Write to Firestore (Non-blocking as per guidelines)
+      // 2. Write to Firestore
       if (isEditing) {
         const docRef = doc(db, 'products', isEditing);
-        setDoc(docRef, productData, { merge: true })
-          .catch(async (serverError) => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({
-              path: docRef.path,
-              operation: 'update',
-              requestResourceData: productData,
-            } satisfies SecurityRuleContext));
-          });
+        await setDoc(docRef, productData, { merge: true });
       } else {
         const collRef = collection(db, 'products');
-        addDoc(collRef, {
+        await addDoc(collRef, {
           ...productData,
           createdAt: serverTimestamp(),
-        }).catch(async (serverError) => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({
-              path: collRef.path,
-              operation: 'create',
-              requestResourceData: productData,
-            } satisfies SecurityRuleContext));
-          });
+        });
       }
       
-      // 4. Success Cleanup
+      // 3. Success Cleanup
       resetForm();
       toast({ title: isEditing ? "Product Updated" : "Product Created" });
     } catch (err) {
@@ -188,12 +175,10 @@ export default function AdminContent() {
       toast({ 
         variant: "destructive", 
         title: "Save Failed", 
-        description: "Something went wrong while saving the item. Please try again." 
+        description: "Firestore connection error. Please try again." 
       });
     } finally {
-      // 5. Always release the buttons
       setIsProductSaving(false);
-      setIsImageUploading(false);
     }
   };
 
@@ -207,15 +192,7 @@ export default function AdminContent() {
       const categoryData = { name: newCategoryName.trim(), slug };
       const collRef = collection(db, 'categories');
       
-      addDoc(collRef, categoryData)
-        .catch(async (serverError) => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: collRef.path,
-            operation: 'create',
-            requestResourceData: categoryData,
-          } satisfies SecurityRuleContext));
-        });
-        
+      await addDoc(collRef, categoryData);
       setNewCategoryName('');
       toast({ title: "Category Added" });
     } catch (err) {
@@ -338,12 +315,12 @@ export default function AdminContent() {
                     >
                       <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" />
                       {isImageUploading ? <Loader2 className="h-6 w-6 mb-2 animate-spin text-amber-500" /> : <UploadCloud className="h-6 w-6 mb-2 text-zinc-500" />}
-                      <span className="text-[8px] font-black uppercase text-zinc-500">{isImageUploading ? 'Uploading...' : 'Click to Browse Image'}</span>
+                      <span className="text-[8px] font-black uppercase text-zinc-500">{isImageUploading ? 'Uploading to Cloud...' : 'Click to Browse Image'}</span>
                     </div>
-                    {(previewUrl || formData.imageUrls.length > 0) && (
+                    {previewUrl && (
                       <div className="relative h-24 w-full rounded-xl overflow-hidden border border-amber-500/30">
-                        <Image src={previewUrl || formData.imageUrls[0]} alt="Preview" fill className="object-cover" />
-                        <button type="button" onClick={() => { setFormData(prev => ({ ...prev, imageUrls: [] })); setPreviewUrl(null); setSelectedFile(null); }} className="absolute top-2 right-2 bg-red-600/80 p-1 rounded-full backdrop-blur-md">
+                        <Image src={previewUrl} alt="Preview" fill className="object-cover" />
+                        <button type="button" onClick={() => { setFormData(prev => ({ ...prev, imageUrls: [] })); setPreviewUrl(null); if(fileInputRef.current) fileInputRef.current.value = ''; }} className="absolute top-2 right-2 bg-red-600/80 p-1 rounded-full backdrop-blur-md">
                           <X className="h-3 w-3 text-white" />
                         </button>
                       </div>
@@ -356,7 +333,7 @@ export default function AdminContent() {
                         Cancel
                       </Button>
                     )}
-                    <Button disabled={isProductSaving} type="submit" className="flex-[2] h-12 bg-amber-500 text-black font-black rounded-xl uppercase italic text-xs">
+                    <Button disabled={isProductSaving || isImageUploading} type="submit" className="flex-[2] h-12 bg-amber-500 text-black font-black rounded-xl uppercase italic text-xs">
                       {isProductSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : (isEditing ? 'Update Global Item' : 'Add to Cloud')}
                     </Button>
                   </div>
@@ -375,7 +352,7 @@ export default function AdminContent() {
                     <span className="text-amber-500 text-[9px] font-black">${p.price.toFixed(2)}</span>
                   </div>
                   <div className="flex gap-1">
-                    <button onClick={() => { setIsEditing(p.id); setFormData({ ...p, price: p.price.toString() }); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="p-1.5 text-zinc-500 hover:text-white"><Edit2 className="h-3 w-3" /></button>
+                    <button onClick={() => { setIsEditing(p.id); setFormData({ ...p, price: p.price.toString() }); setPreviewUrl(p.imageUrls[0]); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="p-1.5 text-zinc-500 hover:text-white"><Edit2 className="h-3 w-3" /></button>
                     <button disabled={deletingId === p.id} onClick={() => deleteItem(p.id, 'products')} className="p-1.5 text-zinc-500 hover:text-red-500">
                       {deletingId === p.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
                     </button>
