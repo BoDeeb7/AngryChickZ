@@ -13,10 +13,8 @@ import {
   UploadCloud,
   Database,
   Star,
-  MessageSquare,
   Loader2
 } from 'lucide-react';
-import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -85,7 +83,6 @@ export default function AdminContent() {
     }
   };
 
-  // BASE64 IMAGE CONVERSION: Converts local file to string for direct Firestore storage
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -98,7 +95,7 @@ export default function AdminContent() {
       setFormData(prev => ({ ...prev, imageUrls: [base64String] }));
       setPreviewUrl(base64String);
       setIsImageProcessing(false);
-      toast({ title: "Image Prepared" });
+      toast({ title: "Image Prepared (Base64)" });
     };
 
     reader.onerror = () => {
@@ -148,10 +145,10 @@ export default function AdminContent() {
 
   const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCategoryName.trim() || !db) return;
+    const name = newCategoryName.trim();
+    if (!name || !db) return;
     
     setIsCategoryAdding(true);
-    const name = newCategoryName.trim();
     const slug = name.toLowerCase().replace(/\s+/g, '-');
 
     try {
@@ -161,6 +158,7 @@ export default function AdminContent() {
     } catch (err) {
       toast({ variant: "destructive", title: "Add Error" });
     } finally {
+      // Ensuring the spinner stops immediately
       setIsCategoryAdding(false);
     }
   };
@@ -288,7 +286,7 @@ export default function AdminContent() {
                       onClick={() => !isImageProcessing && fileInputRef.current?.click()}
                       className={`border-2 border-dashed border-zinc-700 rounded-xl p-6 flex flex-col items-center justify-center bg-zinc-800/30 cursor-pointer hover:border-amber-500 transition-all ${isImageProcessing ? 'opacity-50' : ''}`}
                     >
-                      <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" />
+                      <input type="file" min="0" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" />
                       {isImageProcessing ? (
                         <div className="flex flex-col items-center">
                           <Loader2 className="h-6 w-6 animate-spin text-amber-500 mb-2" />
