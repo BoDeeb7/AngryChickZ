@@ -13,7 +13,8 @@ import {
   UploadCloud,
   Database,
   Star,
-  Loader2
+  Loader2,
+  Trash
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,6 +36,7 @@ export default function AdminContent() {
   const [isCategoryAdding, setIsCategoryAdding] = useState(false);
   const [isImageProcessing, setIsImageProcessing] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
+  const [isWiping, setIsWiping] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -69,8 +71,6 @@ export default function AdminContent() {
     setIsEditing(null);
     setPreviewUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
-    setIsProductSaving(false);
-    setIsImageProcessing(false);
   };
 
   const handleLogin = (e: React.FormEvent) => {
@@ -113,7 +113,6 @@ export default function AdminContent() {
     setIsProductSaving(true);
     const priceVal = parseFloat(formData.price || '0');
     
-    // Crucial for global sync: Ensure isAvailable is true so MenuGrid shows it
     const productData = {
       name: formData.name.trim(),
       description: formData.description.trim(),
@@ -186,6 +185,26 @@ export default function AdminContent() {
     }
   };
 
+  const handleWipeAll = async () => {
+    if (!db) return;
+    if (!confirm("Are you sure you want to delete ALL products, categories, and reviews? This cannot be undone.")) return;
+    
+    setIsWiping(true);
+    try {
+      const deletions = [
+        ...products.map(p => deleteDoc(doc(db, 'products', p.id!))),
+        ...categories.map(c => deleteDoc(doc(db, 'categories', c.id!))),
+        ...reviews.map(r => deleteDoc(doc(db, 'reviews', r.id!)))
+      ];
+      await Promise.all(deletions);
+      toast({ title: "Database Wiped Successfully" });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Wipe Failed" });
+    } finally {
+      setIsWiping(false);
+    }
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
@@ -223,7 +242,10 @@ export default function AdminContent() {
           </div>
           <div className="flex gap-2">
             <Button onClick={handleSeedData} disabled={isSeeding} variant="outline" className="h-10 border-amber-500/20 bg-amber-500/5 rounded-xl px-4 text-[9px] font-bold uppercase italic text-amber-500 hover:bg-amber-500 hover:text-black">
-              {isSeeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Database className="h-4 w-4 mr-2" /> Seed Database</>}
+              {isSeeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Database className="h-4 w-4 mr-2" /> Seed Data</>}
+            </Button>
+            <Button onClick={handleWipeAll} disabled={isWiping} variant="destructive" className="h-10 rounded-xl px-4 text-[9px] font-bold uppercase italic bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white">
+              {isWiping ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Trash className="h-4 w-4 mr-2" /> Wipe All</>}
             </Button>
             <Link href="/">
               <Button variant="outline" className="h-10 bg-zinc-800 border-zinc-700 rounded-xl px-4 font-bold uppercase italic text-[9px]">
@@ -367,29 +389,35 @@ export default function AdminContent() {
 
           <TabsContent value="reviews" className="max-w-4xl mx-auto space-y-6">
              <div className="grid gap-4">
-               {reviews.map(review => (
-                 <Card key={review.id} className="bg-zinc-900 border-zinc-800 rounded-2xl overflow-hidden">
-                   <CardContent className="p-6 flex justify-between items-start">
-                     <div className="space-y-2">
-                       <div className="flex items-center gap-2">
-                         <span className="font-black text-amber-500 uppercase italic text-sm">{review.customerName}</span>
-                         <div className="flex gap-0.5">
-                           {Array.from({ length: review.rating }).map((_, i) => (
-                             <Star key={i} className="h-3 w-3 fill-amber-500 text-amber-500" />
-                           ))}
+               {reviews.length === 0 ? (
+                 <div className="text-center py-20 opacity-20">
+                   <p className="text-xl font-black uppercase italic">No Feedback Yet</p>
+                 </div>
+               ) : (
+                 reviews.map(review => (
+                   <Card key={review.id} className="bg-zinc-900 border-zinc-800 rounded-2xl overflow-hidden">
+                     <CardContent className="p-6 flex justify-between items-start">
+                       <div className="space-y-2">
+                         <div className="flex items-center gap-2">
+                           <span className="font-black text-amber-500 uppercase italic text-sm">{review.customerName}</span>
+                           <div className="flex gap-0.5">
+                             {Array.from({ length: review.rating }).map((_, i) => (
+                               <Star key={i} className="h-3 w-3 fill-amber-500 text-amber-500" />
+                             ))}
+                           </div>
                          </div>
+                         <p className="text-zinc-400 text-xs font-medium italic">"{review.comment}"</p>
+                         <span className="text-[8px] font-black uppercase text-zinc-600 tracking-widest">
+                           {review.createdAt?.toDate ? review.createdAt.toDate().toLocaleDateString() : 'New Feedback'}
+                         </span>
                        </div>
-                       <p className="text-zinc-400 text-xs font-medium italic">"{review.comment}"</p>
-                       <span className="text-[8px] font-black uppercase text-zinc-600 tracking-widest">
-                         {review.createdAt?.toDate ? review.createdAt.toDate().toLocaleDateString() : 'New Feedback'}
-                       </span>
-                     </div>
-                     <button onClick={() => deleteItem(review.id!, 'reviews')} className="text-zinc-600 hover:text-red-500 p-2">
-                       <Trash2 className="h-4 w-4" />
-                     </button>
-                   </CardContent>
-                 </Card>
-               ))}
+                       <button onClick={() => deleteItem(review.id!, 'reviews')} className="text-zinc-600 hover:text-red-500 p-2">
+                         <Trash2 className="h-4 w-4" />
+                       </button>
+                     </CardContent>
+                   </Card>
+                 ))
+               )}
              </div>
           </TabsContent>
 
