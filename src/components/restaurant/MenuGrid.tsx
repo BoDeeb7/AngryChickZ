@@ -17,9 +17,10 @@ export function MenuGrid() {
   const db = useFirestore();
   const [activeCategory, setActiveCategory] = useState('all');
   
-  // Real-time queries for products and categories
+  // Real-time queries for products and categories with stable refs
   const productsQuery = useMemo(() => {
     if (!db) return null;
+    // FETCH DIRECTLY FROM CLOUD
     return query(
       collection(db, 'products'),
       orderBy('createdAt', 'desc')
@@ -28,6 +29,7 @@ export function MenuGrid() {
 
   const categoriesQuery = useMemo(() => {
     if (!db) return null;
+    // FETCH DIRECTLY FROM CLOUD
     return query(collection(db, 'categories'), orderBy('name', 'asc'));
   }, [db]);
 
@@ -39,11 +41,12 @@ export function MenuGrid() {
   const displayCategories = useMemo(() => {
     const base = [{ id: 'all', name: 'All Dishes', slug: 'all' }];
     
-    // If we have explicit categories, use them. Otherwise, infer from products.
+    // If we have explicit categories from cloud, use them.
     if (cloudCategories.length > 0) {
       return [...base, ...cloudCategories];
     }
     
+    // Fallback: infer from products if categories collection is empty
     const uniqueCats = Array.from(new Set(cloudProducts.map(p => p.category)));
     return [...base, ...uniqueCats.map(cat => ({ 
       id: cat, 
@@ -54,7 +57,7 @@ export function MenuGrid() {
 
   // Filter products based on active category and availability
   const filteredProducts = useMemo(() => {
-    // Show items that are available (isAvailable defaults to true if missing)
+    // Show items that are available (isAvailable defaults to true)
     const availableItems = cloudProducts.filter(p => p.isAvailable !== false);
     
     if (activeCategory === 'all') {
@@ -95,15 +98,16 @@ export function MenuGrid() {
           </div>
         </div>
 
-        {/* Loading and Empty States */}
+        {/* Global Persistence Visibility */}
         {productsLoading && cloudProducts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4 opacity-40">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            <p className="text-[10px] font-black uppercase tracking-widest italic text-white">Synchronizing Cloud Menu...</p>
+            <p className="text-[10px] font-black uppercase tracking-widest italic text-white">Fetching Live Cloud Data...</p>
           </div>
         ) : filteredProducts.length === 0 ? (
           <div className="text-center py-20 opacity-20">
-             <p className="text-xl font-black uppercase italic text-white">No Dishes Found In This Category</p>
+             <p className="text-xl font-black uppercase italic text-white">No Items Found in This Category</p>
+             <p className="text-[8px] font-bold uppercase tracking-widest mt-2">Cloud Database is Empty or Synchronizing</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8 animate-in fade-in duration-500">

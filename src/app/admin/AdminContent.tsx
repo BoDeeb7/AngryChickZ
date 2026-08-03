@@ -42,6 +42,7 @@ export default function AdminContent() {
   const { toast } = useToast();
   const db = useFirestore();
 
+  // Firestore Data Streams
   const productsQuery = useMemo(() => db ? query(collection(db, 'products'), orderBy('createdAt', 'desc')) : null, [db]);
   const categoriesQuery = useMemo(() => db ? query(collection(db, 'categories'), orderBy('name', 'asc')) : null, [db]);
   const reviewsQuery = useMemo(() => db ? query(collection(db, 'reviews'), orderBy('createdAt', 'desc')) : null, [db]);
@@ -108,7 +109,7 @@ export default function AdminContent() {
 
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!db) return;
+    if (!db || isProductSaving) return;
     
     setIsProductSaving(true);
     const priceVal = parseFloat(formData.price || '0');
@@ -127,17 +128,19 @@ export default function AdminContent() {
     try {
       if (isEditing) {
         await setDoc(doc(db, 'products', isEditing), productData, { merge: true });
-        toast({ title: "Updated Successfully" });
+        toast({ title: "Persistent Update Success" });
       } else {
+        // STRICT FIRESTORE PERSISTENCE
         await addDoc(collection(db, 'products'), {
           ...productData,
           createdAt: serverTimestamp(),
         });
-        toast({ title: "Product Saved to Cloud" });
+        toast({ title: "Saved to Cloud Permanently" });
       }
       resetForm();
     } catch (err) {
-      toast({ variant: "destructive", title: "Cloud Save Error" });
+      console.error("Persistence Error:", err);
+      toast({ variant: "destructive", title: "Database Write Failed" });
     } finally {
       setIsProductSaving(false);
     }
@@ -146,17 +149,23 @@ export default function AdminContent() {
   const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = newCategoryName.trim();
-    if (!name || !db) return;
+    if (!name || !db || isCategoryAdding) return;
     
     setIsCategoryAdding(true);
     const slug = name.toLowerCase().replace(/\s+/g, '-');
 
     try {
-      await addDoc(collection(db, 'categories'), { name, slug });
+      // STRICT FIRESTORE PERSISTENCE
+      await addDoc(collection(db, 'categories'), { 
+        name, 
+        slug,
+        createdAt: serverTimestamp() 
+      });
       setNewCategoryName(''); 
-      toast({ title: "Category Synced" });
+      toast({ title: "Category Synced to Cloud" });
     } catch (err) {
-      toast({ variant: "destructive", title: "Sync Error" });
+      console.error("Category Persistence Error:", err);
+      toast({ variant: "destructive", title: "Cloud Sync Failed" });
     } finally {
       setIsCategoryAdding(false);
     }
@@ -164,30 +173,37 @@ export default function AdminContent() {
 
   const deleteItem = async (id: string, coll: string) => {
     if (!db) return;
+    if (!confirm("Are you sure you want to delete this item permanently?")) return;
     try {
       await deleteDoc(doc(db, coll, id));
-      toast({ title: "Deleted from Cloud" });
+      toast({ title: "Removed from Cloud" });
     } catch (err) {
       toast({ variant: "destructive", title: "Delete Error" });
     }
   };
 
   const handleSeedData = async () => {
-    if (!db) return;
+    if (!db || isSeeding) return;
     setIsSeeding(true);
     try {
       await Promise.all(MOCK_PRODUCTS.map(p => 
-        addDoc(collection(db, 'products'), { ...p, isAvailable: true, createdAt: serverTimestamp() })
+        addDoc(collection(db, 'products'), { 
+          ...p, 
+          isAvailable: true, 
+          createdAt: serverTimestamp() 
+        })
       ));
-      toast({ title: "Mock Data Synced" });
+      toast({ title: "Mock Data Seeding Complete" });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Seeding Failed" });
     } finally {
       setIsSeeding(false);
     }
   };
 
   const handleWipeAll = async () => {
-    if (!db) return;
-    if (!confirm("Are you sure you want to delete ALL products, categories, and reviews? This cannot be undone.")) return;
+    if (!db || isWiping) return;
+    if (!confirm("Are you sure you want to delete ALL cloud data? This is irreversible.")) return;
     
     setIsWiping(true);
     try {
@@ -346,23 +362,29 @@ export default function AdminContent() {
             </Card>
 
             <div className="lg:col-span-7 grid sm:grid-cols-2 gap-4">
-              {products.map(p => (
-                <div key={p.id} className="bg-zinc-900 border border-zinc-800 p-3 rounded-[1.2rem] flex gap-3 items-center hover:bg-zinc-800 transition-colors">
-                  <div className="relative h-12 w-12 rounded-lg overflow-hidden bg-zinc-800">
-                    <img src={p.imageUrls?.[0] || 'https://picsum.photos/seed/food/200/200'} alt={p.name} className="h-full w-full object-cover" />
-                  </div>
-                  <div className="flex-grow">
-                    <h4 className="font-black text-[10px] uppercase italic truncate">{p.name}</h4>
-                    <span className="text-amber-500 text-[9px] font-black">${p.price.toFixed(2)}</span>
-                  </div>
-                  <div className="flex gap-1">
-                    <button onClick={() => { setIsEditing(p.id); setFormData({ ...p, price: p.price.toString() }); setPreviewUrl(p.imageUrls[0]); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="p-1.5 text-zinc-500 hover:text-white"><Edit2 className="h-3 w-3" /></button>
-                    <button onClick={() => deleteItem(p.id!, 'products')} className="p-1.5 text-zinc-500 hover:text-red-500">
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </div>
+              {products.length === 0 ? (
+                <div className="col-span-full py-20 text-center opacity-20">
+                  <p className="text-sm font-black uppercase italic">No Products Found in Cloud</p>
                 </div>
-              ))}
+              ) : (
+                products.map(p => (
+                  <div key={p.id} className="bg-zinc-900 border border-zinc-800 p-3 rounded-[1.2rem] flex gap-3 items-center hover:bg-zinc-800 transition-colors">
+                    <div className="relative h-12 w-12 rounded-lg overflow-hidden bg-zinc-800">
+                      <img src={p.imageUrls?.[0] || 'https://picsum.photos/seed/food/200/200'} alt={p.name} className="h-full w-full object-cover" />
+                    </div>
+                    <div className="flex-grow">
+                      <h4 className="font-black text-[10px] uppercase italic truncate">{p.name}</h4>
+                      <span className="text-amber-500 text-[9px] font-black">${p.price.toFixed(2)}</span>
+                    </div>
+                    <div className="flex gap-1">
+                      <button onClick={() => { setIsEditing(p.id); setFormData({ ...p, price: p.price.toString() }); setPreviewUrl(p.imageUrls[0]); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="p-1.5 text-zinc-500 hover:text-white"><Edit2 className="h-3 w-3" /></button>
+                      <button onClick={() => deleteItem(p.id!, 'products')} className="p-1.5 text-zinc-500 hover:text-red-500">
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </TabsContent>
 
