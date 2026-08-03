@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Minus, Plus, ShoppingBag, Trash2, MapPin, User, Phone, Eraser, MessageCircle, ArrowRight, ArrowLeft, Banknote } from 'lucide-react';
+import { Minus, Plus, ShoppingBag, Trash2, MapPin, User, Phone, Eraser, MessageCircle, ArrowRight, ArrowLeft } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,7 +32,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
 
   const handleCheckout = () => {
     if (!details.customerName || !details.phoneNumber || !details.address) {
-      alert("يرجى ملء جميع الحقول المطلوبة (الاسم، الرقم، العنوان)");
+      alert("يرجى ملء الاسم، الرقم، والعنوان لإتمام الطلب");
       return;
     }
 
@@ -52,15 +52,11 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
     const whatsappNumber = '96170105152';
     window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(formattedMessage)}`, '_blank');
     
-    // إعادة تعيين السلة وإغلاقها
+    // إعادة تعيين السلة بعد الإرسال
     clearCart();
     setOrderInstructions('');
     setStep('review');
-    setDetails({
-      customerName: '',
-      phoneNumber: '',
-      address: ''
-    });
+    setDetails({ customerName: '', phoneNumber: '', address: '' });
     onClose();
   };
 
@@ -83,51 +79,49 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
           </SheetTitle>
         </SheetHeader>
 
-        <div className="flex-grow overflow-y-auto custom-scrollbar">
-          <div className="p-6 space-y-8 pb-32">
+        <div className="flex-grow overflow-y-auto">
+          <div className="p-6 space-y-8">
             {cart.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center py-20 opacity-20">
                 <ShoppingBag className="h-24 w-24 mb-6 stroke-1" />
                 <p className="text-xl font-black uppercase italic">السلة فارغة</p>
               </div>
             ) : step === 'review' ? (
-              <div className="space-y-8">
+              <div className="space-y-6">
                 <div className="flex justify-between items-center">
                   <h3 className="text-xs font-black uppercase tracking-[0.2em] text-foreground/40">مراجعة الأصناف</h3>
                   <Button variant="ghost" size="sm" onClick={clearCart} className="text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/5 gap-2">
-                    <Eraser className="h-3 w-3" /> مسح السلة
+                    <Eraser className="h-3 w-3" /> مسح الكل
                   </Button>
                 </div>
                 
                 {cart.map(item => (
-                  <div key={item.id} className="space-y-4 pb-8 border-b border-amber-500/5">
-                    <div className="flex gap-4">
-                      <div className="relative h-20 w-20 rounded-2xl overflow-hidden shadow-lg flex-shrink-0">
-                        <Image src={item.imageUrls?.[0] || 'https://picsum.photos/seed/food/200/200'} alt={item.name} fill className="object-cover" />
+                  <div key={item.id} className="flex gap-4 pb-6 border-b border-amber-500/5">
+                    <div className="relative h-20 w-20 rounded-2xl overflow-hidden shadow-lg flex-shrink-0">
+                      <Image src={item.imageUrls?.[0] || 'https://picsum.photos/seed/food/200/200'} alt={item.name} fill className="object-cover" />
+                    </div>
+                    <div className="flex-grow py-1">
+                      <div className="flex justify-between items-start mb-1">
+                        <h4 className="font-black text-lg text-foreground italic tracking-tighter uppercase">{item.name}</h4>
+                        <button onClick={() => removeFromCart(item.id)} className="text-foreground/10 hover:text-primary transition-colors">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
-                      <div className="flex-grow py-1">
-                        <div className="flex justify-between items-start mb-1">
-                          <h4 className="font-black text-lg text-foreground italic tracking-tighter uppercase">{item.name}</h4>
-                          <button onClick={() => removeFromCart(item.id)} className="text-foreground/10 hover:text-primary transition-colors">
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center bg-white border border-amber-500/10 rounded-xl p-0.5">
+                          <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="p-1.5 hover:text-primary transition-colors"><Minus className="h-3 w-3" /></button>
+                          <span className="w-8 text-center font-black text-xs">{item.quantity}</span>
+                          <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="p-1.5 hover:text-primary transition-colors"><Plus className="h-3 w-3" /></button>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center bg-white border border-amber-500/10 rounded-xl p-0.5">
-                            <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="p-1.5 hover:text-primary transition-colors"><Minus className="h-3 w-3" /></button>
-                            <span className="w-8 text-center font-black text-xs">{item.quantity}</span>
-                            <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="p-1.5 hover:text-primary transition-colors"><Plus className="h-3 w-3" /></button>
-                          </div>
-                          <span className="font-black text-lg italic tracking-tighter text-primary">${(item.price * item.quantity).toFixed(2)}</span>
-                        </div>
+                        <span className="font-black text-lg italic tracking-tighter text-primary">${(item.price * item.quantity).toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
-                <div className="space-y-6">
+              <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="space-y-4">
                   <div className="space-y-2">
                     <Label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest flex items-center gap-2">
                       <User className="h-3 w-3" /> الاسم الكامل *
@@ -166,10 +160,10 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
 
                   <div className="space-y-2">
                     <Label className="text-[10px] font-black text-foreground/40 uppercase tracking-widest">
-                      ملاحظات الطلب
+                      ملاحظات إضافية
                     </Label>
                     <Textarea 
-                      placeholder="أي تعليمات إضافية للمطبخ؟" 
+                      placeholder="أي تعليمات خاصة للمطبخ؟" 
                       value={orderInstructions}
                       onChange={(e) => setOrderInstructions(e.target.value)}
                       className="bg-white border-amber-500/10 rounded-2xl min-h-[80px] text-xs font-bold"
@@ -182,7 +176,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
         </div>
 
         {cart.length > 0 && (
-          <div className="p-6 border-t border-amber-500/10 bg-white/80 backdrop-blur-xl space-y-4 shadow-[0_-10px_40px_-10px_rgba(0,0,0,0.1)] sticky bottom-0 z-50 shrink-0">
+          <div className="p-6 border-t border-amber-500/10 bg-white/80 backdrop-blur-xl space-y-4 shadow-[0_-10px_40px_-10px_rgba(0,0,0,0.1)] shrink-0">
             <div className="flex justify-between items-center px-2">
               <span className="text-foreground/40 font-black text-[10px] uppercase tracking-[0.2em]">المجموع</span>
               <span className="text-3xl font-black italic tracking-tighter text-primary">${subtotal.toFixed(2)}</span>
@@ -198,8 +192,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
             ) : (
               <Button 
                 onClick={handleCheckout}
-                disabled={!details.customerName || !details.phoneNumber || !details.address}
-                className="w-full h-16 bg-green-600 hover:bg-green-700 disabled:bg-zinc-300 rounded-2xl text-lg font-black uppercase italic shadow-lg flex items-center justify-center gap-3 transition-all active:scale-95"
+                className="w-full h-16 bg-green-600 hover:bg-green-700 rounded-2xl text-lg font-black uppercase italic shadow-lg flex items-center justify-center gap-3 transition-all active:scale-95"
               >
                 <MessageCircle className="h-6 w-6" /> اطلب عبر واتساب
               </Button>
