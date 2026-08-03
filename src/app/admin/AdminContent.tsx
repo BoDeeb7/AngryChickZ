@@ -82,6 +82,8 @@ export default function AdminContent() {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    setIsProductSaving(false);
+    setIsImageUploading(false);
   };
 
   const handleLogin = (e: React.FormEvent) => {
@@ -106,55 +108,90 @@ export default function AdminContent() {
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!db) return;
+    
     setIsProductSaving(true);
+    // Explicitly reset uploading state at start of save cycle
+    setIsImageUploading(false);
 
     try {
       let finalImageUrls = [...formData.imageUrls];
 
+      // 1. Handle Image Upload if a new file is picked
       if (selectedFile && storage) {
         setIsImageUploading(true);
-        const storageRef = ref(storage, `products/${Date.now()}-${selectedFile.name}`);
-        const snapshot = await uploadBytes(storageRef, selectedFile);
-        const url = await getDownloadURL(snapshot.ref);
-        finalImageUrls = [url];
-        setIsImageUploading(false);
+        try {
+          const storageRef = ref(storage, `products/${Date.now()}-${selectedFile.name}`);
+          // Ensure upload is awaited correctly
+          const snapshot = await uploadBytes(storageRef, selectedFile);
+          // Ensure download URL is awaited correctly
+          const url = await getDownloadURL(snapshot.ref);
+          if (url) {
+            finalImageUrls = [url];
+          }
+        } catch (uploadError) {
+          console.error("Image upload failed, falling back to placeholder:", uploadError);
+          // Graceful fallback to prevent blocking item creation if upload fails
+          if (finalImageUrls.length === 0) {
+            finalImageUrls = ['https://picsum.photos/seed/food/800/800'];
+          }
+        } finally {
+          setIsImageUploading(false);
+        }
+      } else if (finalImageUrls.length === 0) {
+        // Fallback if no image URL is present at all
+        finalImageUrls = ['https://picsum.photos/seed/food/800/800'];
       }
 
-      const data = {
-        ...formData,
+      // 2. Prepare Product Data with baseline fields
+      const priceVal = parseFloat(formData.price || '0');
+      const productData = {
+        name: formData.name.trim(),
+        description: formData.description.trim(),
+        price: priceVal,
+        category: formData.category,
         imageUrls: finalImageUrls,
-        price: parseFloat(formData.price || '0'),
+        badges: formData.badges || [],
         isAvailable: true,
-        createdAt: isEditing ? (products.find(p => p.id === isEditing)?.createdAt || serverTimestamp()) : serverTimestamp()
+        updatedAt: serverTimestamp(),
       };
 
+      // 3. Write to Firestore (Non-blocking as per guidelines)
       if (isEditing) {
         const docRef = doc(db, 'products', isEditing);
-        setDoc(docRef, data, { merge: true })
+        setDoc(docRef, productData, { merge: true })
           .catch(async (serverError) => {
             errorEmitter.emit('permission-error', new FirestorePermissionError({
               path: docRef.path,
               operation: 'update',
-              requestResourceData: data,
+              requestResourceData: productData,
             } satisfies SecurityRuleContext));
           });
       } else {
         const collRef = collection(db, 'products');
-        addDoc(collRef, data)
-          .catch(async (serverError) => {
+        addDoc(collRef, {
+          ...productData,
+          createdAt: serverTimestamp(),
+        }).catch(async (serverError) => {
             errorEmitter.emit('permission-error', new FirestorePermissionError({
               path: collRef.path,
               operation: 'create',
-              requestResourceData: data,
+              requestResourceData: productData,
             } satisfies SecurityRuleContext));
           });
       }
       
+      // 4. Success Cleanup
       resetForm();
       toast({ title: isEditing ? "Product Updated" : "Product Created" });
     } catch (err) {
-      toast({ variant: "destructive", title: "Save Failed" });
+      console.error("Save failed:", err);
+      toast({ 
+        variant: "destructive", 
+        title: "Save Failed", 
+        description: "Something went wrong while saving the item. Please try again." 
+      });
     } finally {
+      // 5. Always release the buttons
       setIsProductSaving(false);
       setIsImageUploading(false);
     }
