@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Plus, 
@@ -24,9 +24,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Product, Category, StoreSettings, Review } from '@/types/restaurant';
-import { useFirestore, useCollection, useDoc, useStorage } from '@/firebase';
+import { useFirestore, useCollection, useDoc } from '@/firebase';
 import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import Link from 'next/link';
 import { MOCK_PRODUCTS } from '@/lib/mock-data';
 
@@ -34,18 +33,15 @@ export default function AdminContent() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   
-  // States for individual button loading to prevent full-UI lockups
   const [isProductSaving, setIsProductSaving] = useState(false);
   const [isCategoryAdding, setIsCategoryAdding] = useState(false);
-  const [isImageUploading, setIsImageUploading] = useState(false);
+  const [isImageProcessing, setIsImageProcessing] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const db = useFirestore();
-  const storage = useStorage();
 
-  // Queries
   const productsQuery = useMemo(() => db ? query(collection(db, 'products'), orderBy('createdAt', 'desc')) : null, [db]);
   const categoriesQuery = useMemo(() => db ? query(collection(db, 'categories'), orderBy('name', 'asc')) : null, [db]);
   const reviewsQuery = useMemo(() => db ? query(collection(db, 'reviews'), orderBy('createdAt', 'desc')) : null, [db]);
@@ -76,7 +72,7 @@ export default function AdminContent() {
     setPreviewUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
     setIsProductSaving(false);
-    setIsImageUploading(false);
+    setIsImageProcessing(false);
   };
 
   const handleLogin = (e: React.FormEvent) => {
@@ -89,34 +85,30 @@ export default function AdminContent() {
     }
   };
 
-  // UPLOAD LOGIC: Immediately sets the imageUrl state upon success
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // BASE64 IMAGE CONVERSION: Converts local file to string for direct Firestore storage
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !storage) return;
+    if (!file) return;
 
-    // Show local preview immediately for UX
-    setPreviewUrl(URL.createObjectURL(file));
-    setIsImageUploading(true);
+    setIsImageProcessing(true);
+    const reader = new FileReader();
+    
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      setFormData(prev => ({ ...prev, imageUrls: [base64String] }));
+      setPreviewUrl(base64String);
+      setIsImageProcessing(false);
+      toast({ title: "Image Prepared" });
+    };
 
-    try {
-      const storageRef = ref(storage, `products/${Date.now()}-${file.name}`);
-      const snapshot = await uploadBytes(storageRef, file);
-      const cloudUrl = await getDownloadURL(snapshot.ref);
-      
-      if (cloudUrl) {
-        // STRICT FIX: Ensure state is updated with the real HTTPS URL immediately
-        setFormData(prev => ({ ...prev, imageUrls: [cloudUrl] }));
-        setPreviewUrl(cloudUrl);
-        toast({ title: "Image Uploaded" });
-      }
-    } catch (err) {
-      toast({ variant: "destructive", title: "Upload Failed" });
-    } finally {
-      setIsImageUploading(false);
-    }
+    reader.onerror = () => {
+      toast({ variant: "destructive", title: "Failed to read image" });
+      setIsImageProcessing(false);
+    };
+
+    reader.readAsDataURL(file);
   };
 
-  // SAVE PRODUCT: Uses the already uploaded imageUrl from state
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!db) return;
@@ -124,15 +116,12 @@ export default function AdminContent() {
     setIsProductSaving(true);
     const priceVal = parseFloat(formData.price || '0');
     
-    // Check if we have a valid uploaded image, otherwise fallback
-    const finalImage = formData.imageUrls[0] || 'https://picsum.photos/seed/food/800/800';
-    
     const productData = {
       name: formData.name.trim(),
       description: formData.description.trim(),
       price: priceVal,
       category: formData.category,
-      imageUrls: [finalImage],
+      imageUrls: formData.imageUrls,
       badges: formData.badges || [],
       isAvailable: true,
       updatedAt: serverTimestamp(),
@@ -157,7 +146,6 @@ export default function AdminContent() {
     }
   };
 
-  // ADD CATEGORY: Cleanly reset states in finally block
   const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCategoryName.trim() || !db) return;
@@ -168,7 +156,7 @@ export default function AdminContent() {
 
     try {
       await addDoc(collection(db, 'categories'), { name, slug });
-      setNewCategoryName(''); // Clear instantly
+      setNewCategoryName(''); 
       toast({ title: "Category Added" });
     } catch (err) {
       toast({ variant: "destructive", title: "Add Error" });
@@ -295,27 +283,27 @@ export default function AdminContent() {
                   </div>
 
                   <div className="space-y-3">
-                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Media Upload</Label>
+                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Device Image</Label>
                     <div 
-                      onClick={() => !isImageUploading && fileInputRef.current?.click()}
-                      className={`border-2 border-dashed border-zinc-700 rounded-xl p-6 flex flex-col items-center justify-center bg-zinc-800/30 cursor-pointer hover:border-amber-500 transition-all ${isImageUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      onClick={() => !isImageProcessing && fileInputRef.current?.click()}
+                      className={`border-2 border-dashed border-zinc-700 rounded-xl p-6 flex flex-col items-center justify-center bg-zinc-800/30 cursor-pointer hover:border-amber-500 transition-all ${isImageProcessing ? 'opacity-50' : ''}`}
                     >
                       <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" />
-                      {isImageUploading ? (
+                      {isImageProcessing ? (
                         <div className="flex flex-col items-center">
                           <Loader2 className="h-6 w-6 animate-spin text-amber-500 mb-2" />
-                          <span className="text-[8px] font-black uppercase text-amber-500">Uploading to Cloud...</span>
+                          <span className="text-[8px] font-black uppercase text-amber-500">Processing...</span>
                         </div>
                       ) : (
                         <>
                           <UploadCloud className="h-6 w-6 mb-2 text-zinc-500" />
-                          <span className="text-[8px] font-black uppercase text-zinc-500">Pick from Device</span>
+                          <span className="text-[8px] font-black uppercase text-zinc-500">Pick from Phone</span>
                         </>
                       )}
                     </div>
                     {previewUrl && (
                       <div className="relative h-24 w-full rounded-xl overflow-hidden border border-amber-500/30">
-                        <Image src={previewUrl} alt="Preview" fill className="object-cover" />
+                        <img src={previewUrl} alt="Preview" className="h-full w-full object-cover" />
                         <button type="button" onClick={() => { setFormData(prev => ({ ...prev, imageUrls: [] })); setPreviewUrl(null); }} className="absolute top-2 right-2 bg-red-600/80 p-1 rounded-full backdrop-blur-md">
                           <X className="h-3 w-3 text-white" />
                         </button>
@@ -329,7 +317,7 @@ export default function AdminContent() {
                         Cancel
                       </Button>
                     )}
-                    <Button type="submit" disabled={isProductSaving || isImageUploading} className="flex-[2] h-12 bg-amber-500 text-black font-black rounded-xl uppercase italic text-xs">
+                    <Button type="submit" disabled={isProductSaving || isImageProcessing} className="flex-[2] h-12 bg-amber-500 text-black font-black rounded-xl uppercase italic text-xs">
                        {isProductSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : (isEditing ? 'Update Item' : 'Add to Cloud')}
                     </Button>
                   </div>
@@ -341,7 +329,7 @@ export default function AdminContent() {
               {products.map(p => (
                 <div key={p.id} className="bg-zinc-900 border border-zinc-800 p-3 rounded-[1.2rem] flex gap-3 items-center hover:bg-zinc-800 transition-colors">
                   <div className="relative h-12 w-12 rounded-lg overflow-hidden bg-zinc-800">
-                    <Image src={p.imageUrls?.[0] || 'https://picsum.photos/seed/food/200/200'} alt={p.name} fill className="object-cover" />
+                    <img src={p.imageUrls?.[0] || 'https://picsum.photos/seed/food/200/200'} alt={p.name} className="h-full w-full object-cover" />
                   </div>
                   <div className="flex-grow">
                     <h4 className="font-black text-[10px] uppercase italic truncate">{p.name}</h4>
@@ -404,12 +392,6 @@ export default function AdminContent() {
                    </CardContent>
                  </Card>
                ))}
-               {reviews.length === 0 && (
-                 <div className="text-center py-20 opacity-20">
-                   <MessageSquare className="h-12 w-12 mx-auto mb-4" />
-                   <p className="text-xl font-black uppercase italic">No Reviews Yet</p>
-                 </div>
-               )}
              </div>
           </TabsContent>
 
