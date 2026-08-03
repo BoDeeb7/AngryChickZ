@@ -27,8 +27,6 @@ import { Product, Category, StoreSettings, Review } from '@/types/restaurant';
 import { useFirestore, useCollection, useDoc, useStorage } from '@/firebase';
 import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 import Link from 'next/link';
 import { MOCK_PRODUCTS } from '@/lib/mock-data';
 
@@ -92,22 +90,13 @@ export default function AdminContent() {
     }
   };
 
-  // UPLOAD IMAGE IMMEDIATELY UPON SELECTION
+  // IMMEDIATE UPLOAD LOGIC
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !storage) return;
 
-    // 1. Local Preview
-    const localUrl = URL.createObjectURL(file);
-    setPreviewUrl(localUrl);
-    
-    // 2. Immediate Cloud Upload
     setIsImageUploading(true);
-
-    // Safety timeout to prevent infinite spinning if network hangs
-    const safetyTimer = setTimeout(() => {
-      setIsImageUploading(false);
-    }, 15000);
+    setPreviewUrl(URL.createObjectURL(file));
 
     try {
       const storageRef = ref(storage, `products/${Date.now()}-${file.name}`);
@@ -116,35 +105,22 @@ export default function AdminContent() {
       
       if (cloudUrl) {
         setFormData(prev => ({ ...prev, imageUrls: [cloudUrl] }));
-        setPreviewUrl(cloudUrl); // Switch to permanent URL
-        toast({ title: "Image Uploaded Successfully" });
+        setPreviewUrl(cloudUrl);
+        toast({ title: "Image Ready" });
       }
-    } catch (uploadError) {
-      console.error("Image upload failed:", uploadError);
-      toast({ 
-        variant: "destructive", 
-        title: "Upload Failed", 
-        description: "Could not save image to cloud. Try again." 
-      });
-      setPreviewUrl(null);
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Upload Failed" });
     } finally {
-      clearTimeout(safetyTimer);
-      // FORCE STATE RESET
       setIsImageUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  // SAVE PRODUCT - Reads from state, does not re-trigger upload
+  // SAVE PRODUCT LOGIC
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!db) return;
+    if (!db || isImageUploading) return;
     
-    if (isImageUploading) {
-      toast({ title: "Wait...", description: "Image is still uploading to cloud." });
-      return;
-    }
-
     setIsProductSaving(true);
 
     try {
@@ -163,52 +139,41 @@ export default function AdminContent() {
       };
 
       if (isEditing) {
-        const docRef = doc(db, 'products', isEditing);
-        await setDoc(docRef, productData, { merge: true });
+        await setDoc(doc(db, 'products', isEditing), productData, { merge: true });
+        toast({ title: "Updated Successfully" });
       } else {
-        const collRef = collection(db, 'products');
-        await addDoc(collRef, {
+        await addDoc(collection(db, 'products'), {
           ...productData,
           createdAt: serverTimestamp(),
         });
+        toast({ title: "Created Successfully" });
       }
-      
       resetForm();
-      toast({ title: isEditing ? "Product Updated" : "Product Created" });
     } catch (err) {
-      console.error("Save failed:", err);
-      toast({ 
-        variant: "destructive", 
-        title: "Save Failed", 
-        description: "Firestore connection error. Please try again." 
-      });
+      console.error(err);
+      toast({ variant: "destructive", title: "Save Failed" });
     } finally {
-      // FORCE STATE RESET
       setIsProductSaving(false);
     }
   };
 
+  // ADD CATEGORY LOGIC
   const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCategoryName || !db) return;
-    setIsCategoryAdding(true);
+    if (!newCategoryName.trim() || !db) return;
     
+    setIsCategoryAdding(true);
     try {
       const slug = newCategoryName.toLowerCase().trim().replace(/\s+/g, '-');
-      const categoryData = { name: newCategoryName.trim(), slug };
-      const collRef = collection(db, 'categories');
-      
-      await addDoc(collRef, categoryData);
-      setNewCategoryName('');
+      await addDoc(collection(db, 'categories'), { 
+        name: newCategoryName.trim(), 
+        slug 
+      });
       toast({ title: "Category Added" });
     } catch (err) {
-      toast({ 
-        variant: "destructive", 
-        title: "Failed to Add Category",
-        description: "Check your connection and try again."
-      });
+      console.error(err);
+      toast({ variant: "destructive", title: "Add Failed" });
     } finally {
-      // FORCE STATE RESET & INPUT CLEAR
       setIsCategoryAdding(false);
       setNewCategoryName('');
     }
@@ -219,7 +184,7 @@ export default function AdminContent() {
     setDeletingId(id);
     try {
       await deleteDoc(doc(db, coll, id));
-      toast({ title: "Deleted Successfully" });
+      toast({ title: "Deleted" });
     } finally {
       setDeletingId(null);
     }
@@ -414,14 +379,9 @@ export default function AdminContent() {
                          {review.createdAt?.toDate ? review.createdAt.toDate().toLocaleDateString() : 'Just now'}
                        </span>
                      </div>
-                     <Button 
-                       variant="ghost" 
-                       size="sm" 
-                       onClick={() => deleteItem(review.id!, 'reviews')}
-                       className="text-zinc-600 hover:text-red-500"
-                     >
-                       <Trash2 className="h-4 w-4" />
-                     </Button>
+                     <button disabled={deletingId === review.id} onClick={() => deleteItem(review.id!, 'reviews')} className="text-zinc-600 hover:text-red-500 p-2">
+                       {deletingId === review.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                     </button>
                    </CardContent>
                  </Card>
                ))}
