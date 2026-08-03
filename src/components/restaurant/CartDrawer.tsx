@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { Minus, Plus, ShoppingBag, Trash2, MapPin, User, Phone, Eraser, MessageCircle } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
@@ -56,15 +56,15 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="w-full sm:max-w-md p-0 flex flex-col h-full bg-[#FFFBEB] border-l border-amber-500/10 text-foreground">
-        <SheetHeader className="p-8 border-b border-amber-500/5 bg-white/40 glass-card">
+      <SheetContent className="w-full sm:max-w-md p-0 flex flex-col h-full bg-[#FFFBEB] border-l border-amber-500/10 text-foreground z-[100]">
+        <SheetHeader className="p-6 border-b border-amber-500/5 bg-white/40 backdrop-blur-md">
           <SheetTitle className="flex items-center justify-between text-2xl font-black uppercase italic tracking-tighter">
             Your Basket
             <span className="text-[10px] font-black bg-primary text-white px-4 py-1.5 rounded-full shadow-lg">{itemCount} ITEMS</span>
           </SheetTitle>
         </SheetHeader>
 
-        <div className="flex-grow overflow-y-auto p-8 space-y-8 custom-scrollbar">
+        <div className="flex-grow overflow-y-auto p-6 space-y-8 custom-scrollbar pb-10">
           {cart.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center py-20 opacity-20">
               <ShoppingBag className="h-24 w-24 mb-6 stroke-1" />
@@ -81,10 +81,10 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
               </div>
               
               {cart.map(item => (
-                <div key={item.id} className="space-y-4 pb-8 border-b border-amber-500/5 animate-in slide-in-from-right-4">
+                <div key={item.id} className="space-y-4 pb-8 border-b border-amber-500/5">
                   <div className="flex gap-4">
                     <div className="relative h-20 w-20 rounded-2xl overflow-hidden glass-card shadow-lg flex-shrink-0">
-                      <Image src={item.imageUrls[0] || 'https://picsum.photos/seed/food/200/200'} alt={item.name} fill className="object-cover" />
+                      <Image src={item.imageUrls?.[0] || 'https://picsum.photos/seed/food/200/200'} alt={item.name} fill className="object-cover" />
                     </div>
                     <div className="flex-grow py-1">
                       <div className="flex justify-between items-start mb-1">
@@ -163,8 +163,8 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
         </div>
 
         {cart.length > 0 && (
-          <div className="p-8 border-t border-amber-500/10 glass-card space-y-6 bg-white/60">
-            <div className="flex justify-between items-center">
+          <div className="p-6 border-t border-amber-500/10 bg-white/60 backdrop-blur-lg space-y-4 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)]">
+            <div className="flex justify-between items-center px-2">
               <span className="text-foreground/40 font-black text-[10px] uppercase tracking-[0.2em]">Total Bill</span>
               <span className="text-3xl font-black italic tracking-tighter text-primary">${subtotal.toFixed(2)}</span>
             </div>
@@ -172,7 +172,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
             <Button 
               onClick={handleCheckout}
               disabled={!details.customerName || !details.phoneNumber || !details.address}
-              className="w-full h-16 bg-green-600 hover:bg-green-700 rounded-2xl text-lg font-black uppercase italic shadow-lg flex items-center justify-center gap-3 transition-all active:scale-95"
+              className="w-full h-16 bg-green-600 hover:bg-green-700 disabled:bg-zinc-300 rounded-2xl text-lg font-black uppercase italic shadow-lg flex items-center justify-center gap-3 transition-all active:scale-95"
             >
               <MessageCircle className="h-6 w-6" /> Order via WhatsApp
             </Button>
