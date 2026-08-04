@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Minus, Plus, ShoppingBag, Trash2, MapPin, User, Phone, Eraser, MessageCircle, ArrowRight, ArrowLeft, DollarSign, Landmark } from 'lucide-react';
+import { Minus, Plus, ShoppingBag, Trash2, MapPin, User, Phone, Eraser, MessageCircle, ArrowRight, ArrowLeft } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,7 @@ import Image from 'next/image';
 type CheckoutStep = 'review' | 'details';
 
 export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
-  const { cart, removeFromCart, updateQuantity, subtotal, itemCount, clearCart, currency, formatPrice, exchangeRate } = useCart();
+  const { cart, removeFromCart, updateQuantity, subtotal, itemCount, clearCart, formatPrice, exchangeRate, currency } = useCart();
   const [step, setStep] = useState<CheckoutStep>('review');
   const [details, setDetails] = useState({
     customerName: '',
@@ -65,9 +65,10 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => { if(!open) setStep('review'); onClose(); }}>
-      <SheetContent className="w-full sm:max-w-md p-0 bg-[#FFFBEB] border-l border-amber-500/10 text-foreground z-[100] flex flex-col h-full overflow-hidden">
-        {/* Header: ثابت في القمة */}
-        <SheetHeader className="p-4 border-b border-amber-500/5 bg-white/40 backdrop-blur-md shrink-0">
+      <SheetContent className="fixed inset-y-0 right-0 w-full max-w-md bg-[#FFFBEB] border-l border-amber-500/10 text-foreground z-[100] flex flex-col h-full overflow-hidden p-0">
+        
+        {/* TOP HEADER SECTION */}
+        <SheetHeader className="flex-none p-4 border-b border-amber-500/5 bg-white/40 backdrop-blur-md shrink-0 z-10">
           <SheetTitle className="flex items-center justify-between text-xl font-black uppercase italic tracking-tighter">
             <div className="flex items-center gap-2">
               {step === 'details' && (
@@ -83,14 +84,14 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
           </SheetTitle>
         </SheetHeader>
 
-        {/* Body: منطقة التمرير الوسطى */}
-        <main className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-amber-200">
+        {/* MIDDLE CONTENT AREA (Items & Notes) */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
           {cart.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center py-16 opacity-20">
+            <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
               <ShoppingBag className="h-16 w-16 mb-4 stroke-1" />
               <p className="text-lg font-black uppercase italic">السلة فارغة</p>
             </div>
-          ) : step === 'review' ? (
+          ) : (
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-foreground/40">مراجعة الأصناف</h3>
@@ -137,53 +138,13 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
                 />
               </div>
             </div>
-          ) : (
-            <div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-200">
-              <div className="grid gap-3">
-                <div className="space-y-1">
-                  <Label className="text-[9px] font-black text-foreground/40 uppercase tracking-widest flex items-center gap-1.5">
-                    <User className="h-2.5 w-2.5" /> الاسم الكامل *
-                  </Label>
-                  <Input 
-                    className="rounded-xl h-11 bg-white border-amber-500/10 font-bold text-sm" 
-                    placeholder="أدخل اسمك" 
-                    value={details.customerName} 
-                    onChange={e => setDetails(d => ({ ...d, customerName: e.target.value }))} 
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-[9px] font-black text-foreground/40 uppercase tracking-widest flex items-center gap-1.5">
-                    <Phone className="h-2.5 w-2.5" /> رقم الهاتف *
-                  </Label>
-                  <Input 
-                    className="rounded-xl h-11 bg-white border-amber-500/10 font-bold text-sm" 
-                    placeholder="رقم الواتساب" 
-                    value={details.phoneNumber} 
-                    onChange={e => setDetails(d => ({ ...d, phoneNumber: e.target.value }))} 
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-[9px] font-black text-foreground/40 uppercase tracking-widest flex items-center gap-1.5">
-                    <MapPin className="h-2.5 w-2.5" /> عنوان التوصيل *
-                  </Label>
-                  <Input 
-                    className="rounded-xl h-11 bg-white border-amber-500/10 font-bold text-sm" 
-                    placeholder="الشارع، البناية، الطابق..." 
-                    value={details.address} 
-                    onChange={e => setDetails(d => ({ ...d, address: e.target.value }))} 
-                  />
-                </div>
-              </div>
-            </div>
           )}
-        </main>
+        </div>
 
-        {/* Footer: المجموع وزر الواتساب مثبتان بالأسفل تماماً */}
+        {/* BOTTOM FOOTER SECTION (Checkout Form & Buttons) */}
         {cart.length > 0 && (
-          <footer className="p-4 border-t border-amber-500/10 bg-white/80 backdrop-blur-xl shrink-0 sticky bottom-0 shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.05)]">
-            <div className="flex justify-between items-center mb-3 px-1">
+          <footer className="flex-none p-4 border-t bg-white/80 backdrop-blur-xl shadow-lg z-20 sticky bottom-0">
+            <div className="flex justify-between items-center mb-4 px-1">
               <span className="text-foreground/40 font-black text-[9px] uppercase tracking-[0.2em]">المجموع الإجمالي</span>
               <span className="text-xl font-black italic tracking-tighter text-primary">{formatPrice(subtotal)}</span>
             </div>
@@ -196,12 +157,52 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
                 المتابعة للعنوان <ArrowRight className="h-5 w-5" />
               </Button>
             ) : (
-              <Button 
-                onClick={handleCheckout}
-                className="w-full h-14 bg-green-600 hover:bg-green-700 rounded-xl text-base font-black uppercase italic shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
-              >
-                <MessageCircle className="h-5 w-5" /> اطلب عبر واتساب
-              </Button>
+              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="grid gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-[8px] font-black text-foreground/40 uppercase tracking-widest flex items-center gap-1.5">
+                      <User className="h-2 w-2" /> الاسم الكامل *
+                    </Label>
+                    <Input 
+                      className="rounded-xl h-10 bg-white border-amber-500/10 font-bold text-xs" 
+                      placeholder="أدخل اسمك" 
+                      value={details.customerName} 
+                      onChange={e => setDetails(d => ({ ...d, customerName: e.target.value }))} 
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[8px] font-black text-foreground/40 uppercase tracking-widest flex items-center gap-1.5">
+                      <Phone className="h-2 w-2" /> رقم الهاتف *
+                    </Label>
+                    <Input 
+                      className="rounded-xl h-10 bg-white border-amber-500/10 font-bold text-xs" 
+                      placeholder="رقم الواتساب" 
+                      value={details.phoneNumber} 
+                      onChange={e => setDetails(d => ({ ...d, phoneNumber: e.target.value }))} 
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[8px] font-black text-foreground/40 uppercase tracking-widest flex items-center gap-1.5">
+                      <MapPin className="h-2 w-2" /> عنوان التوصيل *
+                    </Label>
+                    <Input 
+                      className="rounded-xl h-10 bg-white border-amber-500/10 font-bold text-xs" 
+                      placeholder="الشارع، البناية، الطابق..." 
+                      value={details.address} 
+                      onChange={e => setDetails(d => ({ ...d, address: e.target.value }))} 
+                    />
+                  </div>
+                </div>
+
+                <Button 
+                  onClick={handleCheckout}
+                  className="w-full h-14 bg-green-600 hover:bg-green-700 rounded-xl text-base font-black uppercase italic shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
+                >
+                  <MessageCircle className="h-5 w-5" /> اطلب عبر واتساب
+                </Button>
+              </div>
             )}
           </footer>
         )}
