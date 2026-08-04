@@ -32,7 +32,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
 
   const handleCheckout = () => {
     if (!details.customerName || !details.phoneNumber || !details.address) {
-      alert("يرجى ملء الاسم، الرقم، والعنوان لإتمام الطلب");
+      alert("Please fill in your name, phone, and address to complete the order.");
       return;
     }
 
@@ -43,15 +43,15 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
     const totalInLBP = (subtotal * exchangeRate).toLocaleString();
 
     const formattedMessage = 
-      `🍗 *طلب جديد: ANGRY CHICKZ* 🍗\n\n` +
-      `👤 الاسم: ${details.customerName}\n` +
-      `📞 الرقم: ${details.phoneNumber}\n` +
-      `📍 العنوان: ${details.address}\n\n` +
-      `*تفاصيل الطلب:*\n${orderItems}\n` +
-      (orderInstructions ? `📝 *ملاحظات:* ${orderInstructions}\n\n` : '') +
-      `💰 *المجموع الإجمالي: ${formatPrice(subtotal)}*\n` +
-      (currency === 'USD' ? `💵 المجموع بالليرة: ${totalInLBP} ل.ل.` : `💵 المجموع بالدولار: $${subtotal.toFixed(2)}`) +
-      ` \n(سعر الصرف المعتمد: ${exchangeRate.toLocaleString()} ل.ل.)`;
+      `🍗 *NEW ORDER: ANGRY CHICKZ* 🍗\n\n` +
+      `👤 Name: ${details.customerName}\n` +
+      `📞 Phone: ${details.phoneNumber}\n` +
+      `📍 Address: ${details.address}\n\n` +
+      `*Order Details:*\n${orderItems}\n` +
+      (orderInstructions ? `📝 *Notes:* ${orderInstructions}\n\n` : '') +
+      `💰 *Total: ${formatPrice(subtotal)}*\n` +
+      (currency === 'USD' ? `💵 Total in LBP: ${totalInLBP} L.L.` : `💵 Total in USD: $${subtotal.toFixed(2)}`) +
+      ` \n(Rate: ${exchangeRate.toLocaleString()} L.L.)`;
 
     const whatsappNumber = '96170105152';
     window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(formattedMessage)}`, '_blank');
@@ -80,11 +80,11 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
                   <X className="h-5 w-5 text-primary" />
                 </button>
               )}
-              {step === 'review' ? 'سلة المشتريات' : 'تفاصيل التوصيل'}
+              {step === 'review' ? 'My Basket' : 'Delivery Details'}
             </div>
             <div className="flex items-center gap-2">
                <span className="text-[9px] font-black bg-primary text-white px-3 py-1 rounded-full shadow-md">
-                 {itemCount} أصناف
+                 {itemCount} items
                </span>
             </div>
           </SheetTitle>
@@ -95,9 +95,9 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
           {cart.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center opacity-40">
               <ShoppingBag className="h-16 w-16 mb-4 stroke-1 text-primary" />
-              <p className="text-lg font-black uppercase italic">السلة فارغة</p>
+              <p className="text-lg font-black uppercase italic">Basket is Empty</p>
               <Button onClick={onClose} variant="outline" className="mt-4 rounded-xl border-primary/40 text-primary font-black uppercase italic text-xs">
-                العودة للمنيو
+                Back to Menu
               </Button>
             </div>
           ) : (
@@ -105,13 +105,13 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
               {step === 'review' ? (
                 <>
                   <div className="flex justify-between items-center">
-                    <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-foreground/40">مراجعة الأصناف</h3>
+                    <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-foreground/40">Review Items</h3>
                     <div className="flex gap-2">
                       <Button variant="ghost" size="sm" onClick={onClose} className="h-7 text-[9px] font-black uppercase tracking-widest text-zinc-500 hover:bg-zinc-500/5 gap-1.5">
-                        <ArrowLeft className="h-3 w-3" /> متابعة التسوق
+                        <ArrowLeft className="h-3 w-3" /> Continue Shopping
                       </Button>
                       <Button variant="ghost" size="sm" onClick={clearCart} className="h-7 text-[9px] font-black uppercase tracking-widest text-primary hover:bg-primary/5 gap-1.5">
-                        <Eraser className="h-3 w-3" /> مسح الكل
+                        <Eraser className="h-3 w-3" /> Clear All
                       </Button>
                     </div>
                   </div>
@@ -144,31 +144,26 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
 
                   <div className="space-y-2">
                     <Label className="text-[9px] font-black text-foreground/40 uppercase tracking-widest mb-1.5 block">
-                      ملاحظات إضافية (اختياري)
+                      Extra Notes (Optional)
                     </Label>
                     <Textarea 
-                      placeholder="أي تعليمات خاصة للمطبخ؟" 
+                      placeholder="Any special kitchen instructions?" 
                       value={orderInstructions}
                       onChange={(e) => setOrderInstructions(e.target.value)}
                       className="bg-foreground/[0.03] border-amber-500/10 rounded-xl min-h-[80px] text-xs font-bold"
                     />
                   </div>
-                  
-                  {/* زر إضافي للرجوع للموقع من وسط السلة */}
-                  <Button onClick={onClose} variant="ghost" className="w-full text-zinc-500 text-[10px] font-black uppercase italic gap-2">
-                    <ArrowLeft className="h-4 w-4" /> العودة لاختيار أصناف أخرى
-                  </Button>
                 </>
               ) : (
                 <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
                   <div className="grid gap-4">
                     <div className="space-y-1.5">
                       <Label className="text-[9px] font-black text-foreground/40 uppercase tracking-widest flex items-center gap-1.5">
-                        <User className="h-3 w-3" /> الاسم الكامل *
+                        <User className="h-3 w-3" /> Full Name *
                       </Label>
                       <Input 
                         className="rounded-xl h-12 bg-foreground/[0.03] border-amber-500/10 font-bold text-xs" 
-                        placeholder="أدخل اسمك" 
+                        placeholder="Enter your name" 
                         value={details.customerName} 
                         onChange={e => setDetails(d => ({ ...d, customerName: e.target.value }))} 
                       />
@@ -176,11 +171,11 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
 
                     <div className="space-y-1.5">
                       <Label className="text-[9px] font-black text-foreground/40 uppercase tracking-widest flex items-center gap-1.5">
-                        <Phone className="h-3 w-3" /> رقم الهاتف (واتساب) *
+                        <Phone className="h-3 w-3" /> Phone Number (WhatsApp) *
                       </Label>
                       <Input 
                         className="rounded-xl h-12 bg-foreground/[0.03] border-amber-500/10 font-bold text-xs" 
-                        placeholder="رقم الواتساب" 
+                        placeholder="Your phone number" 
                         value={details.phoneNumber} 
                         onChange={e => setDetails(d => ({ ...d, phoneNumber: e.target.value }))} 
                       />
@@ -188,11 +183,11 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
 
                     <div className="space-y-1.5">
                       <Label className="text-[9px] font-black text-foreground/40 uppercase tracking-widest flex items-center gap-1.5">
-                        <MapPin className="h-3 w-3" /> عنوان التوصيل بالتفصيل *
+                        <MapPin className="h-3 w-3" /> Detailed Delivery Address *
                       </Label>
                       <Textarea 
                         className="rounded-xl bg-foreground/[0.03] border-amber-500/10 font-bold text-xs min-h-[100px]" 
-                        placeholder="المنطقة، الشارع، البناية، الطابق..." 
+                        placeholder="Region, Street, Building, Floor..." 
                         value={details.address} 
                         onChange={e => setDetails(d => ({ ...d, address: e.target.value }))} 
                       />
@@ -208,7 +203,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
         {cart.length > 0 && (
           <footer className="flex-none border-t p-4 bg-background shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-20">
             <div className="flex justify-between items-center mb-4 px-1">
-              <span className="text-foreground/40 font-black text-[9px] uppercase tracking-[0.2em]">المجموع الإجمالي</span>
+              <span className="text-foreground/40 font-black text-[9px] uppercase tracking-[0.2em]">Total Amount</span>
               <span className="text-xl font-black italic tracking-tighter text-primary">{formatPrice(subtotal)}</span>
             </div>
             
@@ -217,14 +212,14 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
                 onClick={handleNextStep}
                 className="w-full h-14 bg-primary hover:bg-primary/90 text-white rounded-xl text-base font-black uppercase italic shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
               >
-                المتابعة للعنوان <ArrowRight className="h-5 w-5" />
+                Continue to Address <ArrowRight className="h-5 w-5" />
               </Button>
             ) : (
               <Button 
                 onClick={handleCheckout}
                 className="w-full h-14 bg-green-600 hover:bg-green-700 rounded-xl text-base font-black uppercase italic shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
               >
-                <MessageCircle className="h-5 w-5" /> اطلب عبر واتساب
+                <MessageCircle className="h-5 w-5" /> Order via WhatsApp
               </Button>
             )}
           </footer>

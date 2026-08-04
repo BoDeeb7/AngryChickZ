@@ -15,7 +15,6 @@ export function FloatingCart() {
     setMounted(true);
   }, []);
 
-  // Show only after mounting and when items are present
   if (!mounted || itemCount === 0) return null;
 
   return (
@@ -25,22 +24,18 @@ export function FloatingCart() {
         className="fixed bottom-6 left-6 md:bottom-10 md:left-10 z-[9999] animate-in fade-in zoom-in slide-in-from-bottom-10 duration-500 cursor-pointer group"
       >
         <div className="relative">
-          {/* Glow effect behind button */}
           <div className="absolute inset-0 bg-primary/40 rounded-full blur-2xl group-hover:bg-primary/60 transition-all duration-300 animate-pulse" />
           
-          {/* Main Button Body */}
           <div className="relative h-16 w-16 md:h-20 md:w-20 bg-primary rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(245,158,11,0.5)] border-2 border-white/20 active:scale-90 transition-all hover:rotate-6">
             <ShoppingBag className="h-7 w-7 md:h-9 md:w-9 text-white" />
             
-            {/* Item Counter */}
             <span className="absolute -top-1 -right-1 bg-white text-primary text-[11px] md:text-sm font-black h-6 w-6 md:h-8 md:w-8 rounded-full flex items-center justify-center border-2 border-primary shadow-lg animate-bounce">
               {itemCount}
             </span>
           </div>
           
-          {/* Hint text */}
           <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap bg-black/80 text-white text-[9px] font-black px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity uppercase italic tracking-widest">
-            عرض السلة
+            View Basket
           </div>
         </div>
       </div>

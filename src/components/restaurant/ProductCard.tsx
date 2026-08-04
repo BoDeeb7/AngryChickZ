@@ -15,8 +15,8 @@ export function ProductCard({ product }: { product: Product }) {
   const handleAdd = () => {
     addToCart(product);
     toast({
-      title: "تمت الإضافة للسلة",
-      description: `${product.name} جاهز للطلب.`,
+      title: "Added to Basket",
+      description: `${product.name} is ready for order.`,
       className: "bg-zinc-900 border-zinc-800 text-zinc-100",
     });
   };
