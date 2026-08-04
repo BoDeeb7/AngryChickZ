@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Minus, Plus, ShoppingBag, Trash2, MapPin, User, Phone, Eraser, MessageCircle, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Minus, Plus, ShoppingBag, Trash2, MapPin, User, Phone, Eraser, MessageCircle, ArrowRight, ArrowLeft, X } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -71,9 +71,13 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
         <SheetHeader className="flex-none p-4 border-b border-amber-500/5 bg-background shrink-0 z-10">
           <SheetTitle className="flex items-center justify-between text-xl font-black uppercase italic tracking-tighter">
             <div className="flex items-center gap-2">
-              {step === 'details' && (
+              {step === 'details' ? (
                 <button onClick={handlePrevStep} className="mr-1 hover:text-primary transition-colors">
                   <ArrowLeft className="h-5 w-5" />
+                </button>
+              ) : (
+                <button onClick={onClose} className="mr-1 hover:text-primary transition-colors">
+                  <X className="h-5 w-5" />
                 </button>
               )}
               {step === 'review' ? 'سلة المشتريات' : 'تفاصيل التوصيل'}
@@ -90,6 +94,9 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
             <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
               <ShoppingBag className="h-16 w-16 mb-4 stroke-1" />
               <p className="text-lg font-black uppercase italic">السلة فارغة</p>
+              <Button onClick={onClose} variant="outline" className="mt-4 rounded-xl border-primary/20 text-primary font-black uppercase italic text-xs">
+                العودة للمنيو
+              </Button>
             </div>
           ) : (
             <div className="space-y-6">
@@ -97,9 +104,14 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
                 <>
                   <div className="flex justify-between items-center">
                     <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-foreground/40">مراجعة الأصناف</h3>
-                    <Button variant="ghost" size="sm" onClick={clearCart} className="h-7 text-[9px] font-black uppercase tracking-widest text-primary hover:bg-primary/5 gap-1.5">
-                      <Eraser className="h-3 w-3" /> مسح الكل
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm" onClick={onClose} className="h-7 text-[9px] font-black uppercase tracking-widest text-zinc-500 hover:bg-zinc-500/5 gap-1.5">
+                        <ArrowLeft className="h-3 w-3" /> متابعة التسوق
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={clearCart} className="h-7 text-[9px] font-black uppercase tracking-widest text-primary hover:bg-primary/5 gap-1.5">
+                        <Eraser className="h-3 w-3" /> مسح الكل
+                      </Button>
+                    </div>
                   </div>
                   
                   <div className="grid gap-3">
