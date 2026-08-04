@@ -65,10 +65,10 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => { if(!open) setStep('review'); onClose(); }}>
-      <SheetContent className="fixed inset-y-0 right-0 w-full max-w-md bg-background border-l border-amber-500/10 text-foreground z-[100] flex flex-col h-full overflow-hidden p-0">
+      <SheetContent className="fixed inset-y-0 right-0 w-full max-w-md bg-background border-l border-amber-500/10 text-foreground z-[100] flex flex-col h-[100dvh] overflow-hidden p-0 outline-none">
         
-        {/* TOP HEADER SECTION - FIXED */}
-        <SheetHeader className="flex-none p-4 border-b border-amber-500/5 bg-background/50 backdrop-blur-md shrink-0 z-10">
+        {/* Header: Fixed at top */}
+        <SheetHeader className="flex-none p-4 border-b border-amber-500/5 bg-background shrink-0 z-10">
           <SheetTitle className="flex items-center justify-between text-xl font-black uppercase italic tracking-tighter">
             <div className="flex items-center gap-2">
               {step === 'details' && (
@@ -84,66 +84,110 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
           </SheetTitle>
         </SheetHeader>
 
-        {/* MIDDLE CONTENT AREA - SCROLLABLE */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
+        {/* Body: Scrollable items and details */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar bg-background">
           {cart.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
               <ShoppingBag className="h-16 w-16 mb-4 stroke-1" />
               <p className="text-lg font-black uppercase italic">السلة فارغة</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-foreground/40">مراجعة الأصناف</h3>
-                <Button variant="ghost" size="sm" onClick={clearCart} className="h-7 text-[9px] font-black uppercase tracking-widest text-primary hover:bg-primary/5 gap-1.5">
-                  <Eraser className="h-3 w-3" /> مسح الكل
-                </Button>
-              </div>
-              
-              <div className="grid gap-3">
-                {cart.map(item => (
-                  <div key={item.id} className="flex gap-3 pb-3 border-b border-amber-500/5">
-                    <div className="relative h-14 w-14 rounded-xl overflow-hidden shadow-sm flex-shrink-0">
-                      <Image src={item.imageUrls?.[0] || 'https://picsum.photos/seed/food/200/200'} alt={item.name} fill className="object-cover" />
-                    </div>
-                    <div className="flex-grow py-0.5">
-                      <div className="flex justify-between items-start mb-0.5">
-                        <h4 className="font-black text-sm text-foreground italic tracking-tighter uppercase line-clamp-1">{item.name}</h4>
-                        <button onClick={() => removeFromCart(item.id)} className="text-foreground/10 hover:text-primary transition-colors p-1">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center bg-white/5 border border-amber-500/10 rounded-lg p-0.5">
-                          <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="p-1 hover:text-primary transition-colors"><Minus className="h-2.5 w-2.5" /></button>
-                          <span className="w-6 text-center font-black text-[10px]">{item.quantity}</span>
-                          <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="p-1 hover:text-primary transition-colors"><Plus className="h-2.5 w-2.5" /></button>
+            <div className="space-y-6">
+              {step === 'review' ? (
+                <>
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-foreground/40">مراجعة الأصناف</h3>
+                    <Button variant="ghost" size="sm" onClick={clearCart} className="h-7 text-[9px] font-black uppercase tracking-widest text-primary hover:bg-primary/5 gap-1.5">
+                      <Eraser className="h-3 w-3" /> مسح الكل
+                    </Button>
+                  </div>
+                  
+                  <div className="grid gap-3">
+                    {cart.map(item => (
+                      <div key={item.id} className="flex gap-3 pb-3 border-b border-amber-500/5">
+                        <div className="relative h-14 w-14 rounded-xl overflow-hidden shadow-sm flex-shrink-0">
+                          <Image src={item.imageUrls?.[0] || 'https://picsum.photos/seed/food/200/200'} alt={item.name} fill className="object-cover" />
                         </div>
-                        <span className="font-black text-sm italic tracking-tighter text-primary">{formatPrice(item.price * item.quantity)}</span>
+                        <div className="flex-grow py-0.5">
+                          <div className="flex justify-between items-start mb-0.5">
+                            <h4 className="font-black text-sm text-foreground italic tracking-tighter uppercase line-clamp-1">{item.name}</h4>
+                            <button onClick={() => removeFromCart(item.id)} className="text-foreground/20 hover:text-primary transition-colors p-1">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center bg-foreground/5 border border-amber-500/10 rounded-lg p-0.5">
+                              <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="p-1 hover:text-primary transition-colors"><Minus className="h-2.5 w-2.5" /></button>
+                              <span className="w-6 text-center font-black text-[10px]">{item.quantity}</span>
+                              <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="p-1 hover:text-primary transition-colors"><Plus className="h-2.5 w-2.5" /></button>
+                            </div>
+                            <span className="font-black text-sm italic tracking-tighter text-primary">{formatPrice(item.price * item.quantity)}</span>
+                          </div>
+                        </div>
                       </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-[9px] font-black text-foreground/40 uppercase tracking-widest mb-1.5 block">
+                      ملاحظات إضافية (اختياري)
+                    </Label>
+                    <Textarea 
+                      placeholder="أي تعليمات خاصة للمطبخ؟" 
+                      value={orderInstructions}
+                      onChange={(e) => setOrderInstructions(e.target.value)}
+                      className="bg-foreground/[0.03] border-amber-500/10 rounded-xl min-h-[80px] text-xs font-bold"
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                  <div className="grid gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-[9px] font-black text-foreground/40 uppercase tracking-widest flex items-center gap-1.5">
+                        <User className="h-3 w-3" /> الاسم الكامل *
+                      </Label>
+                      <Input 
+                        className="rounded-xl h-12 bg-foreground/[0.03] border-amber-500/10 font-bold text-xs" 
+                        placeholder="أدخل اسمك" 
+                        value={details.customerName} 
+                        onChange={e => setDetails(d => ({ ...d, customerName: e.target.value }))} 
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-[9px] font-black text-foreground/40 uppercase tracking-widest flex items-center gap-1.5">
+                        <Phone className="h-3 w-3" /> رقم الهاتف (واتساب) *
+                      </Label>
+                      <Input 
+                        className="rounded-xl h-12 bg-foreground/[0.03] border-amber-500/10 font-bold text-xs" 
+                        placeholder="رقم الواتساب" 
+                        value={details.phoneNumber} 
+                        onChange={e => setDetails(d => ({ ...d, phoneNumber: e.target.value }))} 
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-[9px] font-black text-foreground/40 uppercase tracking-widest flex items-center gap-1.5">
+                        <MapPin className="h-3 w-3" /> عنوان التوصيل بالتفصيل *
+                      </Label>
+                      <Textarea 
+                        className="rounded-xl bg-foreground/[0.03] border-amber-500/10 font-bold text-xs min-h-[100px]" 
+                        placeholder="المنطقة، الشارع، البناية، الطابق..." 
+                        value={details.address} 
+                        onChange={e => setDetails(d => ({ ...d, address: e.target.value }))} 
+                      />
                     </div>
                   </div>
-                ))}
-              </div>
-
-              <div className="pt-2">
-                <Label className="text-[9px] font-black text-foreground/40 uppercase tracking-widest mb-1.5 block">
-                  ملاحظات إضافية (اختياري)
-                </Label>
-                <Textarea 
-                  placeholder="أي تعليمات خاصة للمطبخ؟" 
-                  value={orderInstructions}
-                  onChange={(e) => setOrderInstructions(e.target.value)}
-                  className="bg-white/5 border-amber-500/10 rounded-xl min-h-[60px] text-xs font-bold"
-                />
-              </div>
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        {/* BOTTOM FOOTER SECTION - FIXED */}
+        {/* Footer: Fixed at bottom */}
         {cart.length > 0 && (
-          <footer className="flex-none border-t p-4 bg-background sticky bottom-0 z-50 shadow-lg">
+          <footer className="flex-none border-t p-4 bg-background shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-20">
             <div className="flex justify-between items-center mb-4 px-1">
               <span className="text-foreground/40 font-black text-[9px] uppercase tracking-[0.2em]">المجموع الإجمالي</span>
               <span className="text-xl font-black italic tracking-tighter text-primary">{formatPrice(subtotal)}</span>
@@ -157,52 +201,12 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
                 المتابعة للعنوان <ArrowRight className="h-5 w-5" />
               </Button>
             ) : (
-              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <div className="grid gap-2">
-                  <div className="space-y-1">
-                    <Label className="text-[8px] font-black text-foreground/40 uppercase tracking-widest flex items-center gap-1.5">
-                      <User className="h-2 w-2" /> الاسم الكامل *
-                    </Label>
-                    <Input 
-                      className="rounded-xl h-10 bg-white/5 border-amber-500/10 font-bold text-xs" 
-                      placeholder="أدخل اسمك" 
-                      value={details.customerName} 
-                      onChange={e => setDetails(d => ({ ...d, customerName: e.target.value }))} 
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-[8px] font-black text-foreground/40 uppercase tracking-widest flex items-center gap-1.5">
-                      <Phone className="h-2 w-2" /> رقم الهاتف *
-                    </Label>
-                    <Input 
-                      className="rounded-xl h-10 bg-white/5 border-amber-500/10 font-bold text-xs" 
-                      placeholder="رقم الواتساب" 
-                      value={details.phoneNumber} 
-                      onChange={e => setDetails(d => ({ ...d, phoneNumber: e.target.value }))} 
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-[8px] font-black text-foreground/40 uppercase tracking-widest flex items-center gap-1.5">
-                      <MapPin className="h-2 w-2" /> عنوان التوصيل *
-                    </Label>
-                    <Input 
-                      className="rounded-xl h-10 bg-white/5 border-amber-500/10 font-bold text-xs" 
-                      placeholder="الشارع، البناية، الطابق..." 
-                      value={details.address} 
-                      onChange={e => setDetails(d => ({ ...d, address: e.target.value }))} 
-                    />
-                  </div>
-                </div>
-
-                <Button 
-                  onClick={handleCheckout}
-                  className="w-full h-14 bg-green-600 hover:bg-green-700 rounded-xl text-base font-black uppercase italic shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
-                >
-                  <MessageCircle className="h-5 w-5" /> اطلب عبر واتساب
-                </Button>
-              </div>
+              <Button 
+                onClick={handleCheckout}
+                className="w-full h-14 bg-green-600 hover:bg-green-700 rounded-xl text-base font-black uppercase italic shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
+              >
+                <MessageCircle className="h-5 w-5" /> اطلب عبر واتساب
+              </Button>
             )}
           </footer>
         )}
