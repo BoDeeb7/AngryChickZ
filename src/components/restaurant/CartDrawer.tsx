@@ -65,36 +65,38 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => { if(!open) setStep('review'); onClose(); }}>
-      <SheetContent className="fixed inset-y-0 right-0 w-full max-w-md bg-background border-l border-amber-500/10 text-foreground z-[100] flex flex-col h-[100dvh] overflow-hidden p-0 outline-none">
+      <SheetContent className="fixed inset-y-0 right-0 w-full max-w-md bg-background border-l border-amber-500/10 text-foreground z-[10000] flex flex-col h-[100dvh] overflow-hidden p-0 outline-none">
         
         {/* Header: Fixed at top */}
         <SheetHeader className="flex-none p-4 border-b border-amber-500/5 bg-background shrink-0 z-10">
           <SheetTitle className="flex items-center justify-between text-xl font-black uppercase italic tracking-tighter">
             <div className="flex items-center gap-2">
               {step === 'details' ? (
-                <button onClick={handlePrevStep} className="mr-1 hover:text-primary transition-colors">
-                  <ArrowLeft className="h-5 w-5" />
+                <button onClick={handlePrevStep} className="p-2 hover:bg-primary/10 rounded-full transition-colors">
+                  <ArrowLeft className="h-5 w-5 text-primary" />
                 </button>
               ) : (
-                <button onClick={onClose} className="mr-1 hover:text-primary transition-colors">
-                  <X className="h-5 w-5" />
+                <button onClick={onClose} className="p-2 hover:bg-primary/10 rounded-full transition-colors">
+                  <X className="h-5 w-5 text-primary" />
                 </button>
               )}
               {step === 'review' ? 'سلة المشتريات' : 'تفاصيل التوصيل'}
             </div>
-            <span className="text-[9px] font-black bg-primary text-white px-3 py-1 rounded-full shadow-md">
-              {itemCount} أصناف
-            </span>
+            <div className="flex items-center gap-2">
+               <span className="text-[9px] font-black bg-primary text-white px-3 py-1 rounded-full shadow-md">
+                 {itemCount} أصناف
+               </span>
+            </div>
           </SheetTitle>
         </SheetHeader>
 
         {/* Body: Scrollable items and details */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar bg-background">
           {cart.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
-              <ShoppingBag className="h-16 w-16 mb-4 stroke-1" />
+            <div className="h-full flex flex-col items-center justify-center text-center opacity-40">
+              <ShoppingBag className="h-16 w-16 mb-4 stroke-1 text-primary" />
               <p className="text-lg font-black uppercase italic">السلة فارغة</p>
-              <Button onClick={onClose} variant="outline" className="mt-4 rounded-xl border-primary/20 text-primary font-black uppercase italic text-xs">
+              <Button onClick={onClose} variant="outline" className="mt-4 rounded-xl border-primary/40 text-primary font-black uppercase italic text-xs">
                 العودة للمنيو
               </Button>
             </div>
@@ -151,6 +153,11 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
                       className="bg-foreground/[0.03] border-amber-500/10 rounded-xl min-h-[80px] text-xs font-bold"
                     />
                   </div>
+                  
+                  {/* زر إضافي للرجوع للموقع من وسط السلة */}
+                  <Button onClick={onClose} variant="ghost" className="w-full text-zinc-500 text-[10px] font-black uppercase italic gap-2">
+                    <ArrowLeft className="h-4 w-4" /> العودة لاختيار أصناف أخرى
+                  </Button>
                 </>
               ) : (
                 <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
