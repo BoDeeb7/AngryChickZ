@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ShoppingBag, Shield } from 'lucide-react';
+import { ShoppingBag, Shield, DollarSign, Landmark } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { StoreSettings } from '@/types/restaurant';
 import Image from 'next/image';
 
 export function Navbar() {
-  const { itemCount } = useCart();
+  const { itemCount, currency, setCurrency } = useCart();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
 
@@ -49,11 +49,22 @@ export function Navbar() {
           </Link>
 
           <div className="flex items-center gap-2 md:gap-4">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setCurrency(currency === 'USD' ? 'LBP' : 'USD')}
+              className="h-8 md:h-10 rounded-xl bg-white/5 border border-white/10 hover:bg-amber-500/10 transition-all font-black text-[9px] uppercase italic text-amber-500 gap-1.5"
+            >
+              {currency === 'USD' ? <DollarSign className="h-3 w-3" /> : <Landmark className="h-3 w-3" />}
+              <span className="hidden sm:inline">{currency}</span>
+            </Button>
+
             <Link href="/admin">
               <Button variant="ghost" size="icon" className="h-8 w-8 md:h-10 md:w-10 rounded-full bg-white/5 border border-white/10 hover:bg-amber-500/20 transition-all">
                 <Shield className="h-3.5 w-3.5 md:h-4 md:w-4 text-amber-500" />
               </Button>
             </Link>
+            
             <Button 
               className="relative h-8 w-8 md:h-10 md:w-10 rounded-full bg-amber-500 hover:bg-amber-600 text-black shadow-lg shadow-amber-500/20 active:scale-90 transition-all" 
               onClick={() => setIsCartOpen(true)}

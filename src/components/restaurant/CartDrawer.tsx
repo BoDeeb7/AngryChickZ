@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Minus, Plus, ShoppingBag, Trash2, MapPin, User, Phone, Eraser, MessageCircle, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Minus, Plus, ShoppingBag, Trash2, MapPin, User, Phone, Eraser, MessageCircle, ArrowRight, ArrowLeft, DollarSign, Landmark } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,7 @@ import Image from 'next/image';
 type CheckoutStep = 'review' | 'details';
 
 export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
-  const { cart, removeFromCart, updateQuantity, subtotal, itemCount, clearCart } = useCart();
+  const { cart, removeFromCart, updateQuantity, subtotal, itemCount, clearCart, currency, formatPrice, exchangeRate } = useCart();
   const [step, setStep] = useState<CheckoutStep>('review');
   const [details, setDetails] = useState({
     customerName: '',
@@ -37,8 +37,10 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
     }
 
     const orderItems = cart.map(item => (
-      `• *${item.quantity}x ${item.name}* - *$${(item.price * item.quantity).toFixed(2)}*\n`
+      `• *${item.quantity}x ${item.name}* - *${formatPrice(item.price * item.quantity)}*\n`
     )).join('');
+
+    const totalInLBP = (subtotal * exchangeRate).toLocaleString();
 
     const formattedMessage = 
       `🍗 *طلب جديد: ANGRY CHICKZ* 🍗\n\n` +
@@ -47,7 +49,9 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
       `📍 العنوان: ${details.address}\n\n` +
       `*تفاصيل الطلب:*\n${orderItems}\n` +
       (orderInstructions ? `📝 *ملاحظات:* ${orderInstructions}\n\n` : '') +
-      `💰 *المجموع الإجمالي: $${subtotal.toFixed(2)}*`;
+      `💰 *المجموع الإجمالي: ${formatPrice(subtotal)}*\n` +
+      (currency === 'USD' ? `💵 المجموع بالليرة: ${totalInLBP} ل.ل.` : `💵 المجموع بالدولار: $${subtotal.toFixed(2)}`) +
+      ` \n(سعر الصرف المعتمد: ${exchangeRate.toLocaleString()} ل.ل.)`;
 
     const whatsappNumber = '96170105152';
     window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(formattedMessage)}`, '_blank');
@@ -61,8 +65,8 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => { if(!open) setStep('review'); onClose(); }}>
-      <SheetContent className="w-full sm:max-w-md p-0 bg-[#FFFBEB] border-l border-amber-500/10 text-foreground z-[100] flex flex-col h-full max-h-screen">
-        {/* Header: القمة ثابتة */}
+      <SheetContent className="w-full sm:max-w-md p-0 bg-[#FFFBEB] border-l border-amber-500/10 text-foreground z-[100] flex flex-col h-full overflow-hidden">
+        {/* Header: ثابت في القمة */}
         <SheetHeader className="p-4 border-b border-amber-500/5 bg-white/40 backdrop-blur-md shrink-0">
           <SheetTitle className="flex items-center justify-between text-xl font-black uppercase italic tracking-tighter">
             <div className="flex items-center gap-2">
@@ -79,7 +83,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
           </SheetTitle>
         </SheetHeader>
 
-        {/* Body: قائمة المنتجات تتمدد تلقائياً بدون تكبير قسري */}
+        {/* Body: منطقة التمرير الوسطى */}
         <main className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-amber-200">
           {cart.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center py-16 opacity-20">
@@ -114,7 +118,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
                           <span className="w-6 text-center font-black text-[10px]">{item.quantity}</span>
                           <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="p-1 hover:text-primary transition-colors"><Plus className="h-2.5 w-2.5" /></button>
                         </div>
-                        <span className="font-black text-sm italic tracking-tighter text-primary">${(item.price * item.quantity).toFixed(2)}</span>
+                        <span className="font-black text-sm italic tracking-tighter text-primary">{formatPrice(item.price * item.quantity)}</span>
                       </div>
                     </div>
                   </div>
@@ -180,8 +184,8 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
         {cart.length > 0 && (
           <footer className="p-4 border-t border-amber-500/10 bg-white/80 backdrop-blur-xl shrink-0 sticky bottom-0 shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.05)]">
             <div className="flex justify-between items-center mb-3 px-1">
-              <span className="text-foreground/40 font-black text-[9px] uppercase tracking-[0.2em]">المجموع</span>
-              <span className="text-2xl font-black italic tracking-tighter text-primary">${subtotal.toFixed(2)}</span>
+              <span className="text-foreground/40 font-black text-[9px] uppercase tracking-[0.2em]">المجموع الإجمالي</span>
+              <span className="text-xl font-black italic tracking-tighter text-primary">{formatPrice(subtotal)}</span>
             </div>
             
             {step === 'review' ? (

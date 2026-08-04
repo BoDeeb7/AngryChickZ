@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Product } from '@/types/restaurant';
@@ -10,14 +9,14 @@ import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 
 export function ProductCard({ product }: { product: Product }) {
-  const { addToCart } = useCart();
+  const { addToCart, formatPrice } = useCart();
   const { toast } = useToast();
 
   const handleAdd = () => {
     addToCart(product);
     toast({
-      title: "Added to Basket",
-      description: `${product.name} ready for checkout.`,
+      title: "تمت الإضافة للسلة",
+      description: `${product.name} جاهز للطلب.`,
       className: "bg-zinc-900 border-zinc-800 text-zinc-100",
     });
   };
@@ -60,8 +59,8 @@ export function ProductCard({ product }: { product: Product }) {
         </p>
         
         <div className="flex items-center justify-between gap-2 mt-auto pt-2 border-t border-zinc-800/50">
-          <span className="text-base md:text-xl font-black text-amber-500 italic">
-            ${product.price.toFixed(2)}
+          <span className="text-sm md:text-lg font-black text-amber-500 italic">
+            {formatPrice(product.price)}
           </span>
           <Button 
             onClick={handleAdd}

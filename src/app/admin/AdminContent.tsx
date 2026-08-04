@@ -14,7 +14,8 @@ import {
   Database,
   Star,
   Loader2,
-  Trash
+  Trash,
+  DollarSign
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,7 +45,6 @@ export default function AdminContent() {
   const { toast } = useToast();
   const db = useFirestore();
 
-  // Firestore Data Streams - PERSISTENT CLOUD SYNC
   const productsQuery = useMemo(() => db ? query(collection(db, 'products'), orderBy('createdAt', 'desc')) : null, [db]);
   const categoriesQuery = useMemo(() => db ? query(collection(db, 'categories'), orderBy('name', 'asc')) : null, [db]);
   const reviewsQuery = useMemo(() => db ? query(collection(db, 'reviews'), orderBy('createdAt', 'desc')) : null, [db]);
@@ -89,10 +89,7 @@ export default function AdminContent() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     setIsImageProcessing(true);
-    
-    // IMAGE COMPRESSION TO ENSURE FIRESTORE SYNC (Max 1MB per document)
     const reader = new FileReader();
     reader.onloadend = () => {
       const img = new Image();
@@ -103,47 +100,25 @@ export default function AdminContent() {
         const MAX_HEIGHT = 800;
         let width = img.width;
         let height = img.height;
-
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
-          }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
-            height = MAX_HEIGHT;
-          }
-        }
-        canvas.width = width;
-        canvas.height = height;
+        if (width > height) { if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; } }
+        else { if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; } }
+        canvas.width = width; canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        
-        // Convert to quality compressed Base64
         const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
         setFormData(prev => ({ ...prev, imageUrls: [compressedBase64] }));
         setPreviewUrl(compressedBase64);
         setIsImageProcessing(false);
-        toast({ title: "Image Prepared for Cloud" });
       };
     };
-
-    reader.onerror = () => {
-      toast({ variant: "destructive", title: "Failed to read image" });
-      setIsImageProcessing(false);
-    };
-
     reader.readAsDataURL(file);
   };
 
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!db || isProductSaving) return;
-    
     setIsProductSaving(true);
     const priceVal = parseFloat(formData.price || '0');
-    
     const productData = {
       name: formData.name.trim(),
       description: formData.description.trim(),
@@ -154,28 +129,20 @@ export default function AdminContent() {
       isAvailable: true,
       updatedAt: serverTimestamp(),
     };
-
     try {
       if (isEditing) {
         await setDoc(doc(db, 'products', isEditing), productData, { merge: true });
-        toast({ title: "Cloud Sync: Update Successful" });
       } else {
-        // DIRECT CLOUD PERSISTENCE
-        await addDoc(collection(db, 'products'), {
-          ...productData,
-          createdAt: serverTimestamp(),
-        });
-        toast({ title: "Cloud Sync: Item Added Globally" });
+        await addDoc(collection(db, 'products'), { ...productData, createdAt: serverTimestamp() });
       }
       resetForm();
+      toast({ title: "Success" });
     } catch (err: any) {
-      console.error("Cloud Write Error:", err);
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: 'products',
         operation: isEditing ? 'update' : 'create',
         requestResourceData: productData
       }));
-      toast({ variant: "destructive", title: "Database Write Failed" });
     } finally {
       setIsProductSaving(false);
     }
@@ -185,27 +152,12 @@ export default function AdminContent() {
     e.preventDefault();
     const name = newCategoryName.trim();
     if (!name || !db || isCategoryAdding) return;
-    
     setIsCategoryAdding(true);
     const slug = name.toLowerCase().replace(/\s+/g, '-');
-
     try {
-      // DIRECT CLOUD PERSISTENCE
-      await addDoc(collection(db, 'categories'), { 
-        name, 
-        slug,
-        createdAt: serverTimestamp() 
-      });
-      setNewCategoryName(''); 
-      toast({ title: "Category Synced Globally" });
-    } catch (err: any) {
-      console.error("Category Error:", err);
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: 'categories',
-        operation: 'create',
-        requestResourceData: { name, slug }
-      }));
-      toast({ variant: "destructive", title: "Cloud Sync Failed" });
+      await addDoc(collection(db, 'categories'), { name, slug, createdAt: serverTimestamp() });
+      setNewCategoryName('');
+      toast({ title: "Category Added" });
     } finally {
       setIsCategoryAdding(false);
     }
@@ -213,51 +165,12 @@ export default function AdminContent() {
 
   const deleteItem = async (id: string, coll: string) => {
     if (!db) return;
-    if (!confirm("Are you sure you want to delete this item permanently from the cloud?")) return;
+    if (!confirm("Confirm permanent deletion?")) return;
     try {
       await deleteDoc(doc(db, coll, id));
-      toast({ title: "Removed from Cloud" });
+      toast({ title: "Deleted" });
     } catch (err) {
-      toast({ variant: "destructive", title: "Delete Error" });
-    }
-  };
-
-  const handleSeedData = async () => {
-    if (!db || isSeeding) return;
-    setIsSeeding(true);
-    try {
-      await Promise.all(MOCK_PRODUCTS.map(p => 
-        addDoc(collection(db, 'products'), { 
-          ...p, 
-          isAvailable: true, 
-          createdAt: serverTimestamp() 
-        })
-      ));
-      toast({ title: "Cloud Seeding Complete" });
-    } catch (err) {
-      toast({ variant: "destructive", title: "Seeding Failed" });
-    } finally {
-      setIsSeeding(false);
-    }
-  };
-
-  const handleWipeAll = async () => {
-    if (!db || isWiping) return;
-    if (!confirm("Are you sure you want to delete ALL cloud data? This is irreversible and affects all users.")) return;
-    
-    setIsWiping(true);
-    try {
-      const deletions = [
-        ...products.map(p => deleteDoc(doc(db, 'products', p.id!))),
-        ...categories.map(c => deleteDoc(doc(db, 'categories', c.id!))),
-        ...reviews.map(r => deleteDoc(doc(db, 'reviews', r.id!)))
-      ];
-      await Promise.all(deletions);
-      toast({ title: "Cloud Database Wiped" });
-    } catch (err) {
-      toast({ variant: "destructive", title: "Wipe Failed" });
-    } finally {
-      setIsWiping(false);
+      toast({ variant: "destructive", title: "Error" });
     }
   };
 
@@ -293,30 +206,21 @@ export default function AdminContent() {
              </div>
              <div>
                <h1 className="text-lg font-black tracking-tighter uppercase italic">Control <span className="text-amber-500">Center</span></h1>
-               <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Live Cloud Sync Active</p>
+               <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Global Management</p>
              </div>
           </div>
-          <div className="flex gap-2">
-            <Button onClick={handleSeedData} disabled={isSeeding} variant="outline" className="h-10 border-amber-500/20 bg-amber-500/5 rounded-xl px-4 text-[9px] font-bold uppercase italic text-amber-500 hover:bg-amber-500 hover:text-black">
-              {isSeeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Database className="h-4 w-4 mr-2" /> Seed Data</>}
+          <Link href="/">
+            <Button variant="outline" className="h-10 bg-zinc-800 border-zinc-700 rounded-xl px-4 font-bold uppercase italic text-[9px]">
+              <ArrowLeft className="h-4 w-4 mr-2" /> View Portal
             </Button>
-            <Button onClick={handleWipeAll} disabled={isWiping} variant="destructive" className="h-10 rounded-xl px-4 text-[9px] font-bold uppercase italic bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white">
-              {isWiping ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Trash className="h-4 w-4 mr-2" /> Wipe All</>}
-            </Button>
-            <Link href="/">
-              <Button variant="outline" className="h-10 bg-zinc-800 border-zinc-700 rounded-xl px-4 font-bold uppercase italic text-[9px]">
-                <ArrowLeft className="h-4 w-4 mr-2" /> View Portal
-              </Button>
-            </Link>
-          </div>
+          </Link>
         </header>
 
         <Tabs defaultValue="products" className="space-y-8">
           <TabsList className="bg-zinc-900 border border-zinc-800 p-1 rounded-xl h-auto w-full justify-start gap-1 flex-wrap">
             <TabsTrigger value="products" className="px-4 py-2 rounded-lg font-black text-[9px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-black">Products</TabsTrigger>
             <TabsTrigger value="categories" className="px-4 py-2 rounded-lg font-black text-[9px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-black">Categories</TabsTrigger>
-            <TabsTrigger value="reviews" className="px-4 py-2 rounded-lg font-black text-[9px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-black">Reviews</TabsTrigger>
-            <TabsTrigger value="contact" className="px-4 py-2 rounded-lg font-black text-[9px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-black">Branding</TabsTrigger>
+            <TabsTrigger value="settings" className="px-4 py-2 rounded-lg font-black text-[9px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-black">Store Settings</TabsTrigger>
           </TabsList>
 
           <TabsContent value="products" className="grid lg:grid-cols-12 gap-8">
@@ -335,13 +239,7 @@ export default function AdminContent() {
                   
                   <div className="space-y-2">
                     <Label className="text-[9px] font-black text-zinc-500 uppercase">Description</Label>
-                    <Textarea 
-                      required 
-                      value={formData.description} 
-                      onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} 
-                      className="bg-zinc-800 border-zinc-700 rounded-xl min-h-[100px] text-xs font-bold" 
-                      placeholder="Dish details..."
-                    />
+                    <Textarea required value={formData.description} onChange={e => setFormData(f => ({ ...f, description: e.target.value }))} className="bg-zinc-800 border-zinc-700 rounded-xl min-h-[100px] text-xs font-bold" />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -359,42 +257,23 @@ export default function AdminContent() {
                   </div>
 
                   <div className="space-y-3">
-                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Device Image (Cloud Sync)</Label>
-                    <div 
-                      onClick={() => !isImageProcessing && fileInputRef.current?.click()}
-                      className={`border-2 border-dashed border-zinc-700 rounded-xl p-6 flex flex-col items-center justify-center bg-zinc-800/30 cursor-pointer hover:border-amber-500 transition-all ${isImageProcessing ? 'opacity-50' : ''}`}
-                    >
+                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Device Image</Label>
+                    <div onClick={() => !isImageProcessing && fileInputRef.current?.click()} className={`border-2 border-dashed border-zinc-700 rounded-xl p-6 flex flex-col items-center justify-center bg-zinc-800/30 cursor-pointer hover:border-amber-500 transition-all ${isImageProcessing ? 'opacity-50' : ''}`}>
                       <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*" />
-                      {isImageProcessing ? (
-                        <div className="flex flex-col items-center">
-                          <Loader2 className="h-6 w-6 animate-spin text-amber-500 mb-2" />
-                          <span className="text-[8px] font-black uppercase text-amber-500">Processing...</span>
-                        </div>
-                      ) : (
-                        <>
-                          <UploadCloud className="h-6 w-6 mb-2 text-zinc-500" />
-                          <span className="text-[8px] font-black uppercase text-zinc-500">Pick from Phone</span>
-                        </>
-                      )}
+                      {isImageProcessing ? <Loader2 className="h-6 w-6 animate-spin text-amber-500" /> : <UploadCloud className="h-6 w-6 text-zinc-500" />}
                     </div>
                     {previewUrl && (
                       <div className="relative h-24 w-full rounded-xl overflow-hidden border border-amber-500/30">
                         <img src={previewUrl} alt="Preview" className="h-full w-full object-cover" />
-                        <button type="button" onClick={() => { setFormData(prev => ({ ...prev, imageUrls: [] })); setPreviewUrl(null); }} className="absolute top-2 right-2 bg-red-600/80 p-1 rounded-full backdrop-blur-md">
-                          <X className="h-3 w-3 text-white" />
-                        </button>
+                        <button type="button" onClick={() => { setFormData(prev => ({ ...prev, imageUrls: [] })); setPreviewUrl(null); }} className="absolute top-2 right-2 bg-red-600/80 p-1 rounded-full"><X className="h-3 w-3 text-white" /></button>
                       </div>
                     )}
                   </div>
 
                   <div className="flex gap-2">
-                    {isEditing && (
-                      <Button type="button" onClick={resetForm} variant="outline" className="flex-1 h-12 bg-zinc-800 border-zinc-700 text-zinc-100 rounded-xl font-black uppercase italic text-xs">
-                        Cancel
-                      </Button>
-                    )}
+                    {isEditing && <Button type="button" onClick={resetForm} variant="outline" className="flex-1 rounded-xl font-black uppercase italic text-xs">Cancel</Button>}
                     <Button type="submit" disabled={isProductSaving || isImageProcessing} className="flex-[2] h-12 bg-amber-500 text-black font-black rounded-xl uppercase italic text-xs">
-                       {isProductSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : (isEditing ? 'Update Item' : 'Add to Cloud')}
+                       {isProductSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : (isEditing ? 'Update' : 'Add Item')}
                     </Button>
                   </div>
                 </form>
@@ -402,105 +281,77 @@ export default function AdminContent() {
             </Card>
 
             <div className="lg:col-span-7 grid sm:grid-cols-2 gap-4">
-              {products.length === 0 ? (
-                <div className="col-span-full py-20 text-center opacity-20">
-                  <p className="text-sm font-black uppercase italic">No Products in Cloud</p>
-                </div>
-              ) : (
-                products.map(p => (
-                  <div key={p.id} className="bg-zinc-900 border border-zinc-800 p-3 rounded-[1.2rem] flex gap-3 items-center hover:bg-zinc-800 transition-colors">
-                    <div className="relative h-12 w-12 rounded-lg overflow-hidden bg-zinc-800">
-                      <img src={p.imageUrls?.[0] || 'https://picsum.photos/seed/food/200/200'} alt={p.name} className="h-full w-full object-cover" />
-                    </div>
-                    <div className="flex-grow">
-                      <h4 className="font-black text-[10px] uppercase italic truncate">{p.name}</h4>
-                      <span className="text-amber-500 text-[9px] font-black">${p.price.toFixed(2)}</span>
-                    </div>
-                    <div className="flex gap-1">
-                      <button onClick={() => { setIsEditing(p.id); setFormData({ ...p, price: p.price.toString() }); setPreviewUrl(p.imageUrls[0]); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="p-1.5 text-zinc-500 hover:text-white"><Edit2 className="h-3 w-3" /></button>
-                      <button onClick={() => deleteItem(p.id!, 'products')} className="p-1.5 text-zinc-500 hover:text-red-500">
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    </div>
+              {products.map(p => (
+                <div key={p.id} className="bg-zinc-900 border border-zinc-800 p-3 rounded-[1.2rem] flex gap-3 items-center">
+                  <div className="relative h-12 w-12 rounded-lg overflow-hidden bg-zinc-800">
+                    <img src={p.imageUrls?.[0] || 'https://picsum.photos/seed/food/200/200'} alt={p.name} className="h-full w-full object-cover" />
                   </div>
-                ))
-              )}
+                  <div className="flex-grow">
+                    <h4 className="font-black text-[10px] uppercase italic truncate">{p.name}</h4>
+                    <span className="text-amber-500 text-[9px] font-black">${p.price.toFixed(2)}</span>
+                  </div>
+                  <div className="flex gap-1">
+                    <button onClick={() => { setIsEditing(p.id); setFormData({ ...p, price: p.price.toString() }); setPreviewUrl(p.imageUrls[0]); }} className="p-1.5 text-zinc-500 hover:text-white"><Edit2 className="h-3 w-3" /></button>
+                    <button onClick={() => deleteItem(p.id!, 'products')} className="p-1.5 text-zinc-500 hover:text-red-500"><Trash2 className="h-3 w-3" /></button>
+                  </div>
+                </div>
+              ))}
             </div>
           </TabsContent>
 
           <TabsContent value="categories" className="max-w-xl mx-auto space-y-6">
             <Card className="bg-zinc-900 border-zinc-800 rounded-[2rem] p-8">
-              <form onSubmit={handleAddCategory} className="flex flex-col sm:flex-row gap-3 mb-6">
+              <form onSubmit={handleAddCategory} className="flex gap-3 mb-6">
                 <Input required placeholder="Category Name" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} className="bg-zinc-800 border-zinc-700 h-12 rounded-xl flex-grow font-bold" />
-                <Button type="submit" disabled={isCategoryAdding} className="bg-amber-500 text-black rounded-xl font-black px-8 h-12 uppercase italic text-[10px]">
-                  {isCategoryAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add Category'}
-                </Button>
+                <Button type="submit" disabled={isCategoryAdding} className="bg-amber-500 text-black rounded-xl font-black px-8 h-12 uppercase italic text-[10px]">Add</Button>
               </form>
               <div className="grid gap-2">
                 {categories.map(cat => (
                   <div key={cat.id} className="flex items-center justify-between p-3 bg-zinc-800/30 border border-zinc-800 rounded-xl">
                     <span className="font-black text-[9px] uppercase italic text-zinc-300">{cat.name}</span>
-                    <button onClick={() => deleteItem(cat.id!, 'categories')} className="text-zinc-600 hover:text-red-500">
-                       <Trash2 className="h-3 w-3" />
-                    </button>
+                    <button onClick={() => deleteItem(cat.id!, 'categories')} className="text-zinc-600 hover:text-red-500"><Trash2 className="h-3 w-3" /></button>
                   </div>
                 ))}
               </div>
             </Card>
           </TabsContent>
 
-          <TabsContent value="reviews" className="max-w-4xl mx-auto space-y-6">
-             <div className="grid gap-4">
-               {reviews.length === 0 ? (
-                 <div className="text-center py-20 opacity-20">
-                   <p className="text-xl font-black uppercase italic">No Feedback Yet</p>
-                 </div>
-               ) : (
-                 reviews.map(review => (
-                   <Card key={review.id} className="bg-zinc-900 border-zinc-800 rounded-2xl overflow-hidden">
-                     <CardContent className="p-6 flex justify-between items-start">
-                       <div className="space-y-2">
-                         <div className="flex items-center gap-2">
-                           <span className="font-black text-amber-500 uppercase italic text-sm">{review.customerName}</span>
-                           <div className="flex gap-0.5">
-                             {Array.from({ length: review.rating }).map((_, i) => (
-                               <Star key={i} className="h-3 w-3 fill-amber-500 text-amber-500" />
-                             ))}
-                           </div>
-                         </div>
-                         <p className="text-zinc-400 text-xs font-medium italic">"{review.comment}"</p>
-                         <span className="text-[8px] font-black uppercase text-zinc-600 tracking-widest">
-                           {review.createdAt?.toDate ? review.createdAt.toDate().toLocaleDateString() : 'New Feedback'}
-                         </span>
-                       </div>
-                       <button onClick={() => deleteItem(review.id!, 'reviews')} className="text-zinc-600 hover:text-red-500 p-2">
-                         <Trash2 className="h-4 w-4" />
-                       </button>
-                     </CardContent>
-                   </Card>
-                 ))
-               )}
-             </div>
-          </TabsContent>
-
-          <TabsContent value="contact" className="max-w-2xl mx-auto space-y-6">
+          <TabsContent value="settings" className="max-w-2xl mx-auto space-y-6">
             <Card className="bg-zinc-900 border-zinc-800 rounded-[2rem] p-8">
               <div className="space-y-6">
-                 <div className="space-y-2">
-                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Logo URL</Label>
-                    <Input placeholder="https://..." value={settingsForm.logo || storeSettings?.logo || ''} onChange={e => setSettingsForm(s => ({ ...s, logo: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                 <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/10 space-y-3">
+                    <div className="flex items-center gap-2 text-amber-500">
+                      <DollarSign className="h-4 w-4" />
+                      <span className="font-black text-[10px] uppercase tracking-widest">Finance Settings</span>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[9px] font-black text-zinc-500 uppercase">Exchange Rate (1 USD = ? LBP)</Label>
+                      <Input 
+                        type="number" 
+                        placeholder="e.g. 90000" 
+                        value={settingsForm.exchangeRate || storeSettings?.exchangeRate || 90000} 
+                        onChange={e => setSettingsForm(s => ({ ...s, exchangeRate: parseInt(e.target.value) || 0 }))} 
+                        className="bg-zinc-800 border-zinc-700 h-11 rounded-xl font-black text-amber-500" 
+                      />
+                    </div>
                  </div>
-                 <div className="grid sm:grid-cols-2 gap-4">
-                    <Input placeholder="WhatsApp" value={settingsForm.whatsappNumber || storeSettings?.whatsappNumber || ''} onChange={e => setSettingsForm(s => ({ ...s, whatsappNumber: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
-                    <Input placeholder="Support Phone" value={settingsForm.phone || storeSettings?.phone || ''} onChange={e => setSettingsForm(s => ({ ...s, phone: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+
+                 <div className="space-y-4">
+                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Branding & Contact</Label>
+                    <Input placeholder="Logo URL" value={settingsForm.logo || storeSettings?.logo || ''} onChange={e => setSettingsForm(s => ({ ...s, logo: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <Input placeholder="WhatsApp" value={settingsForm.whatsappNumber || storeSettings?.whatsappNumber || ''} onChange={e => setSettingsForm(s => ({ ...s, whatsappNumber: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                      <Input placeholder="Support Phone" value={settingsForm.phone || storeSettings?.phone || ''} onChange={e => setSettingsForm(s => ({ ...s, phone: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                    </div>
+                    <Input placeholder="Store Address" value={settingsForm.address || storeSettings?.address || ''} onChange={e => setSettingsForm(s => ({ ...s, address: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                    <div className="grid sm:grid-cols-3 gap-4">
+                      <Input placeholder="TikTok" value={settingsForm.tiktok || storeSettings?.tiktok || ''} onChange={e => setSettingsForm(s => ({ ...s, tiktok: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                      <Input placeholder="Instagram" value={settingsForm.instagram || storeSettings?.instagram || ''} onChange={e => setSettingsForm(s => ({ ...s, instagram: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                      <Input placeholder="Facebook" value={settingsForm.facebook || storeSettings?.facebook || ''} onChange={e => setSettingsForm(s => ({ ...s, facebook: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
+                    </div>
                  </div>
-                 <Input placeholder="Store Address" value={settingsForm.address || storeSettings?.address || ''} onChange={e => setSettingsForm(s => ({ ...s, address: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
-                 <div className="grid sm:grid-cols-3 gap-4">
-                    <Input placeholder="TikTok" value={settingsForm.tiktok || storeSettings?.tiktok || ''} onChange={e => setSettingsForm(s => ({ ...s, tiktok: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
-                    <Input placeholder="Instagram" value={settingsForm.instagram || storeSettings?.instagram || ''} onChange={e => setSettingsForm(s => ({ ...s, instagram: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
-                    <Input placeholder="Facebook" value={settingsForm.facebook || storeSettings?.facebook || ''} onChange={e => setSettingsForm(s => ({ ...s, facebook: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
-                 </div>
-                 <Button onClick={async () => { if(!db) return; await setDoc(doc(db, 'settings', 'store'), { ...storeSettings, ...settingsForm }, { merge: true }); toast({title: "Settings Saved"}); }} className="w-full h-12 bg-amber-500 text-black font-black rounded-xl uppercase italic shadow-lg">Save Settings</Button>
+                 
+                 <Button onClick={async () => { if(!db) return; await setDoc(doc(db, 'settings', 'store'), { ...storeSettings, ...settingsForm }, { merge: true }); toast({title: "Settings Updated"}); }} className="w-full h-12 bg-amber-500 text-black font-black rounded-xl uppercase italic shadow-lg">Save Global Settings</Button>
               </div>
             </Card>
           </TabsContent>
