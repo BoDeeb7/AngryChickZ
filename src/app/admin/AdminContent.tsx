@@ -11,11 +11,10 @@ import {
   X,
   ShieldCheck,
   UploadCloud,
-  Database,
   Star,
   Loader2,
-  Trash,
-  DollarSign
+  DollarSign,
+  MessageSquare
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,7 +26,6 @@ import { Product, Category, StoreSettings, Review } from '@/types/restaurant';
 import { useFirestore, useCollection, useDoc } from '@/firebase';
 import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import Link from 'next/link';
-import { MOCK_PRODUCTS } from '@/lib/mock-data';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -38,8 +36,6 @@ export default function AdminContent() {
   const [isProductSaving, setIsProductSaving] = useState(false);
   const [isCategoryAdding, setIsCategoryAdding] = useState(false);
   const [isImageProcessing, setIsImageProcessing] = useState(false);
-  const [isSeeding, setIsSeeding] = useState(false);
-  const [isWiping, setIsWiping] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -220,7 +216,8 @@ export default function AdminContent() {
           <TabsList className="bg-zinc-900 border border-zinc-800 p-1 rounded-xl h-auto w-full justify-start gap-1 flex-wrap">
             <TabsTrigger value="products" className="px-4 py-2 rounded-lg font-black text-[9px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-black">Products</TabsTrigger>
             <TabsTrigger value="categories" className="px-4 py-2 rounded-lg font-black text-[9px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-black">Categories</TabsTrigger>
-            <TabsTrigger value="settings" className="px-4 py-2 rounded-lg font-black text-[9px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-black">Store Settings</TabsTrigger>
+            <TabsTrigger value="reviews" className="px-4 py-2 rounded-lg font-black text-[9px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-black">Reviews</TabsTrigger>
+            <TabsTrigger value="settings" className="px-4 py-2 rounded-lg font-black text-[9px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-black">Settings</TabsTrigger>
           </TabsList>
 
           <TabsContent value="products" className="grid lg:grid-cols-12 gap-8">
@@ -314,6 +311,38 @@ export default function AdminContent() {
                 ))}
               </div>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="reviews" className="max-w-3xl mx-auto space-y-6">
+            <div className="grid gap-4">
+              {reviews.length === 0 ? (
+                <div className="text-center py-20 bg-zinc-900 rounded-[2rem] border border-zinc-800">
+                  <MessageSquare className="h-12 w-12 text-zinc-800 mx-auto mb-4" />
+                  <p className="text-zinc-500 font-bold uppercase italic text-xs">No reviews found</p>
+                </div>
+              ) : (
+                reviews.map(review => (
+                  <Card key={review.id} className="bg-zinc-900 border-zinc-800 rounded-2xl overflow-hidden">
+                    <CardContent className="p-6">
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <h4 className="font-black text-sm uppercase italic text-amber-500">{review.customerName}</h4>
+                          <div className="flex gap-1 mt-1">
+                            {[1,2,3,4,5].map(i => (
+                              <Star key={i} className={`h-3 w-3 ${i <= review.rating ? 'fill-amber-500 text-amber-500' : 'text-zinc-800'}`} />
+                            ))}
+                          </div>
+                        </div>
+                        <button onClick={() => deleteItem(review.id!, 'reviews')} className="text-zinc-700 hover:text-red-500 p-2">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <p className="text-zinc-400 text-xs font-medium leading-relaxed">{review.comment}</p>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
           </TabsContent>
 
           <TabsContent value="settings" className="max-w-2xl mx-auto space-y-6">
