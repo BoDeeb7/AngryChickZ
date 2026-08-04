@@ -65,10 +65,10 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => { if(!open) setStep('review'); onClose(); }}>
-      <SheetContent className="fixed inset-y-0 right-0 w-full max-w-md bg-[#FFFBEB] border-l border-amber-500/10 text-foreground z-[100] flex flex-col h-full overflow-hidden p-0">
+      <SheetContent className="fixed inset-y-0 right-0 w-full max-w-md bg-background border-l border-amber-500/10 text-foreground z-[100] flex flex-col h-full overflow-hidden p-0">
         
-        {/* TOP HEADER SECTION */}
-        <SheetHeader className="flex-none p-4 border-b border-amber-500/5 bg-white/40 backdrop-blur-md shrink-0 z-10">
+        {/* TOP HEADER SECTION - FIXED */}
+        <SheetHeader className="flex-none p-4 border-b border-amber-500/5 bg-background/50 backdrop-blur-md shrink-0 z-10">
           <SheetTitle className="flex items-center justify-between text-xl font-black uppercase italic tracking-tighter">
             <div className="flex items-center gap-2">
               {step === 'details' && (
@@ -84,7 +84,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
           </SheetTitle>
         </SheetHeader>
 
-        {/* MIDDLE CONTENT AREA (Items & Notes) */}
+        {/* MIDDLE CONTENT AREA - SCROLLABLE */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
           {cart.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
@@ -114,7 +114,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
                         </button>
                       </div>
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center bg-white border border-amber-500/10 rounded-lg p-0.5">
+                        <div className="flex items-center bg-white/5 border border-amber-500/10 rounded-lg p-0.5">
                           <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="p-1 hover:text-primary transition-colors"><Minus className="h-2.5 w-2.5" /></button>
                           <span className="w-6 text-center font-black text-[10px]">{item.quantity}</span>
                           <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="p-1 hover:text-primary transition-colors"><Plus className="h-2.5 w-2.5" /></button>
@@ -134,16 +134,16 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
                   placeholder="أي تعليمات خاصة للمطبخ؟" 
                   value={orderInstructions}
                   onChange={(e) => setOrderInstructions(e.target.value)}
-                  className="bg-white border-amber-500/10 rounded-xl min-h-[60px] text-xs font-bold"
+                  className="bg-white/5 border-amber-500/10 rounded-xl min-h-[60px] text-xs font-bold"
                 />
               </div>
             </div>
           )}
         </div>
 
-        {/* BOTTOM FOOTER SECTION (Checkout Form & Buttons) */}
+        {/* BOTTOM FOOTER SECTION - FIXED */}
         {cart.length > 0 && (
-          <footer className="flex-none p-4 border-t bg-white/80 backdrop-blur-xl shadow-lg z-20 sticky bottom-0">
+          <footer className="flex-none border-t p-4 bg-background sticky bottom-0 z-50 shadow-lg">
             <div className="flex justify-between items-center mb-4 px-1">
               <span className="text-foreground/40 font-black text-[9px] uppercase tracking-[0.2em]">المجموع الإجمالي</span>
               <span className="text-xl font-black italic tracking-tighter text-primary">{formatPrice(subtotal)}</span>
@@ -164,7 +164,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
                       <User className="h-2 w-2" /> الاسم الكامل *
                     </Label>
                     <Input 
-                      className="rounded-xl h-10 bg-white border-amber-500/10 font-bold text-xs" 
+                      className="rounded-xl h-10 bg-white/5 border-amber-500/10 font-bold text-xs" 
                       placeholder="أدخل اسمك" 
                       value={details.customerName} 
                       onChange={e => setDetails(d => ({ ...d, customerName: e.target.value }))} 
@@ -176,7 +176,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
                       <Phone className="h-2 w-2" /> رقم الهاتف *
                     </Label>
                     <Input 
-                      className="rounded-xl h-10 bg-white border-amber-500/10 font-bold text-xs" 
+                      className="rounded-xl h-10 bg-white/5 border-amber-500/10 font-bold text-xs" 
                       placeholder="رقم الواتساب" 
                       value={details.phoneNumber} 
                       onChange={e => setDetails(d => ({ ...d, phoneNumber: e.target.value }))} 
@@ -188,7 +188,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
                       <MapPin className="h-2 w-2" /> عنوان التوصيل *
                     </Label>
                     <Input 
-                      className="rounded-xl h-10 bg-white border-amber-500/10 font-bold text-xs" 
+                      className="rounded-xl h-10 bg-white/5 border-amber-500/10 font-bold text-xs" 
                       placeholder="الشارع، البناية، الطابق..." 
                       value={details.address} 
                       onChange={e => setDetails(d => ({ ...d, address: e.target.value }))} 
