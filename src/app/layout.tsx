@@ -5,7 +5,6 @@ import { CartProvider } from '@/context/CartContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { Toaster } from '@/components/ui/toaster';
 import { AmbientSparks } from '@/components/restaurant/AmbientSparks';
-import { FloatingCart } from '@/components/restaurant/FloatingCart';
 
 export const metadata: Metadata = {
   title: 'Angry ChickZ | Gourmet Fast Food',
@@ -49,7 +48,6 @@ export default function RootLayout({
             <CartProvider>
               <AmbientSparks />
               {children}
-              <FloatingCart />
               <Toaster />
             </CartProvider>
           </ThemeProvider>

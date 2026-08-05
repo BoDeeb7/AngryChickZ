@@ -93,7 +93,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const formatPrice = (price: number) => {
     if (currency === 'USD') return `$${price.toFixed(2)}`;
-    return `${(Math.round(price * exchangeRate / 1000) * 1000).toLocaleString()} ل.ل.`;
+    return `${(Math.round(price * exchangeRate / 1000) * 1000).toLocaleString()} L.L.`;
   };
 
   return (

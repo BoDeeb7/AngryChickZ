@@ -7,16 +7,15 @@ import { getStorage, FirebaseStorage } from 'firebase/storage';
 import { firebaseConfig } from './config';
 
 /**
- * تهيئة خدمات Firebase بشكل آمن.
- * في حال كان مفتاح API مفقوداً أو غير صالح، يتم إرجاع قيم فارغة (null) لمنع انهيار التطبيق بالكامل.
+ * Initializes Firebase services securely.
+ * If the API key is missing or invalid, it returns empty (null) values to prevent application crashes.
  */
 export function initializeFirebase() {
   try {
-    // التحقق من صلاحية الإعدادات قبل البدء
     const isConfigValid = !!(firebaseConfig.apiKey && firebaseConfig.apiKey.length > 10);
 
     if (!isConfigValid) {
-      console.warn("إعدادات Firebase غير مكتملة أو مفقودة. سيتم تعطيل ميزات المزامنة والمصادقة مؤقتاً.");
+      console.warn("Firebase configuration is incomplete or missing. Authentication and synchronization features will be temporarily disabled.");
       return { 
         app: null as unknown as FirebaseApp, 
         firestore: null as unknown as Firestore, 
@@ -32,7 +31,7 @@ export function initializeFirebase() {
     
     return { app, firestore, auth, storage };
   } catch (error) {
-    console.error("خطأ أثناء تهيئة Firebase:", error);
+    console.error("Error during Firebase initialization:", error);
     return { 
       app: null as unknown as FirebaseApp, 
       firestore: null as unknown as Firestore, 

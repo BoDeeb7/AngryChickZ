@@ -2,6 +2,7 @@ import { Navbar } from '@/components/restaurant/Navbar';
 import { Hero } from '@/components/restaurant/Hero';
 import { MenuGrid } from '@/components/restaurant/MenuGrid';
 import { Footer } from '@/components/restaurant/Footer';
+import { FloatingCart } from '@/components/restaurant/FloatingCart';
 
 /**
  * CRITICAL: These settings ensure the page is never statically cached.
@@ -19,6 +20,7 @@ export default function Home() {
         <MenuGrid />
       </main>
       <Footer />
+      <FloatingCart />
     </div>
   );
 }
