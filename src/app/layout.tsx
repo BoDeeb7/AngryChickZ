@@ -7,7 +7,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { AmbientSparks } from '@/components/restaurant/AmbientSparks';
 
 export const metadata: Metadata = {
-  title: 'Angry ChickZ | Gourmet Fast Food',
+  title: 'Angry ChickZ | Premium Fried Chicken',
   description: 'Angry ChickZ Official Ordering & Menu App',
   manifest: '/manifest.json',
   appleWebApp: {

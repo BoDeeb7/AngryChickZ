@@ -20,6 +20,7 @@ export default function Home() {
         <MenuGrid />
       </main>
       <Footer />
+      {/* The Floating Cart is explicitly placed here so it only appears on the visitor menu */}
       <FloatingCart />
     </div>
   );
