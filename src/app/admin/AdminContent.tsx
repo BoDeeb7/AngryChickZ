@@ -22,7 +22,8 @@ import {
   CheckCircle2,
   Clock,
   ChevronRight,
-  ExternalLink
+  ExternalLink,
+  User
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -355,7 +356,7 @@ export default function AdminContent() {
                       className="w-full h-14 bg-amber-500 hover:bg-amber-600 text-black font-black uppercase italic rounded-xl gap-2 shadow-lg"
                       onClick={() => handleCompleteOrder(selectedOrder.id!)}
                     >
-                      <CheckCircle2 className="h-5 w-5" /> Mark as Completed / تم التسليم
+                      <CheckCircle2 className="h-5 w-5" /> Mark as Completed
                     </Button>
                   </div>
                 )}

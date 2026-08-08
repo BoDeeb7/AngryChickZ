@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Minus, Plus, ShoppingBag, Trash2, MapPin, User, Phone, Eraser, MessageCircle, ArrowRight, ArrowLeft, X } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
@@ -10,14 +10,19 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import Image from 'next/image';
-import { useFirestore } from '@/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useFirestore, useDoc } from '@/firebase';
+import { collection, addDoc, serverTimestamp, doc } from 'firebase/firestore';
+import { StoreSettings } from '@/types/restaurant';
 
 type CheckoutStep = 'review' | 'details';
 
 export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
   const { cart, removeFromCart, updateQuantity, subtotal, itemCount, clearCart, formatPrice, exchangeRate, currency } = useCart();
   const db = useFirestore();
+
+  const storeSettingsRef = useMemo(() => db ? doc(db, 'settings', 'store') : null, [db]);
+  const { data: storeSettings } = useDoc<StoreSettings>(storeSettingsRef);
+
   const [step, setStep] = useState<CheckoutStep>('review');
   const [details, setDetails] = useState({
     customerName: '',
@@ -77,8 +82,12 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
       (currency === 'USD' ? `💵 Total in LBP: ${totalInLBP} L.L.` : `💵 Total in USD: $${subtotal.toFixed(2)}`) +
       ` \n(Rate: ${exchangeRate.toLocaleString()} L.L.)`;
 
-    const whatsappNumber = '96170105152';
-    window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(formattedMessage)}`, '_blank');
+    // Extract raw numbers only for the URL
+    const rawNumber = (storeSettings?.whatsappNumber || '96170105152').replace(/\D/g, '');
+    const whatsappUrl = `https://wa.me/${rawNumber}?text=${encodeURIComponent(formattedMessage)}`;
+    
+    // Use a clean redirection
+    window.location.href = whatsappUrl;
     
     clearCart();
     setOrderInstructions('');
