@@ -7,6 +7,7 @@ export interface Product {
   category: string;
   imageUrls: string[];
   badges: string[];
+  currency?: 'USD' | 'LBP';
   isAvailable?: boolean;
   createdAt?: any;
 }

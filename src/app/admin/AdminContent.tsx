@@ -23,7 +23,8 @@ import {
   Clock,
   ChevronRight,
   ExternalLink,
-  User
+  User,
+  Layout
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -74,6 +75,7 @@ export default function AdminContent() {
     name: '',
     description: '',
     price: '',
+    currency: 'USD' as 'USD' | 'LBP',
     category: '',
     imageUrls: [] as string[],
     badges: [] as string[],
@@ -84,7 +86,7 @@ export default function AdminContent() {
   const [newCategoryName, setNewCategoryName] = useState('');
 
   const resetForm = () => {
-    setFormData({ name: '', description: '', price: '', category: '', imageUrls: [], badges: [] });
+    setFormData({ name: '', description: '', price: '', currency: 'USD', category: '', imageUrls: [], badges: [] });
     setIsEditing(null);
     setPreviewUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -137,6 +139,7 @@ export default function AdminContent() {
       name: formData.name.trim(),
       description: formData.description.trim(),
       price: priceVal,
+      currency: formData.currency,
       category: formData.category,
       imageUrls: formData.imageUrls,
       badges: formData.badges || [],
@@ -332,7 +335,9 @@ export default function AdminContent() {
                             {selectedOrder.items.map((item, idx) => (
                               <div key={idx} className="flex justify-between items-center text-[10px] font-bold">
                                 <span className="text-zinc-400">{item.quantity}x <span className="text-zinc-100">{item.name}</span></span>
-                                <span className="text-amber-500">${(item.price * item.quantity).toFixed(2)}</span>
+                                <span className="text-amber-500">
+                                  {item.currency === 'LBP' ? `${(item.price * item.quantity).toLocaleString()} L.L.` : `$${(item.price * item.quantity).toFixed(2)}`}
+                                </span>
                               </div>
                             ))}
                           </div>
@@ -385,16 +390,24 @@ export default function AdminContent() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-[9px] font-black text-zinc-500 uppercase">Price ($)</Label>
+                      <Label className="text-[9px] font-black text-zinc-500 uppercase">Price</Label>
                       <Input required type="number" step="0.01" value={formData.price} onChange={e => setFormData(f => ({ ...f, price: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[9px] font-black text-zinc-500 uppercase">Category</Label>
-                      <select required className="w-full h-11 px-4 bg-zinc-800 border border-zinc-700 rounded-xl text-xs font-bold" value={formData.category} onChange={e => setFormData(f => ({ ...f, category: e.target.value }))}>
-                        <option value="">Select...</option>
-                        {categories.map(c => <option key={c.id} value={c.slug}>{c.name}</option>)}
+                      <Label className="text-[9px] font-black text-zinc-500 uppercase">Currency</Label>
+                      <select required className="w-full h-11 px-4 bg-zinc-800 border border-zinc-700 rounded-xl text-xs font-bold" value={formData.currency} onChange={e => setFormData(f => ({ ...f, currency: e.target.value as any }))}>
+                        <option value="USD">USD ($)</option>
+                        <option value="LBP">LBP (ل.ل.)</option>
                       </select>
                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-[9px] font-black text-zinc-500 uppercase">Category</Label>
+                    <select required className="w-full h-11 px-4 bg-zinc-800 border border-zinc-700 rounded-xl text-xs font-bold" value={formData.category} onChange={e => setFormData(f => ({ ...f, category: e.target.value }))}>
+                      <option value="">Select...</option>
+                      {categories.map(c => <option key={c.id} value={c.slug}>{c.name}</option>)}
+                    </select>
                   </div>
 
                   <div className="space-y-3">
@@ -429,10 +442,12 @@ export default function AdminContent() {
                   </div>
                   <div className="flex-grow">
                     <h4 className="font-black text-[10px] uppercase italic truncate">{p.name}</h4>
-                    <span className="text-amber-500 text-[9px] font-black">${p.price.toFixed(2)}</span>
+                    <span className="text-amber-500 text-[9px] font-black">
+                      {p.currency === 'LBP' ? `${p.price.toLocaleString()} L.L.` : `$${p.price.toFixed(2)}`}
+                    </span>
                   </div>
                   <div className="flex gap-1">
-                    <button onClick={() => { setIsEditing(p.id); setFormData({ ...p, price: p.price.toString() }); setPreviewUrl(p.imageUrls[0]); }} className="p-1.5 text-zinc-500 hover:text-white"><Edit2 className="h-3 w-3" /></button>
+                    <button onClick={() => { setIsEditing(p.id); setFormData({ ...p, price: p.price.toString(), currency: p.currency || 'USD' }); setPreviewUrl(p.imageUrls[0]); }} className="p-1.5 text-zinc-500 hover:text-white"><Edit2 className="h-3 w-3" /></button>
                     <button onClick={() => deleteItem(p.id!, 'products')} className="p-1.5 text-zinc-500 hover:text-red-500"><Trash2 className="h-3 w-3" /></button>
                   </div>
                 </div>
@@ -492,23 +507,6 @@ export default function AdminContent() {
           <TabsContent value="settings" className="max-w-2xl mx-auto space-y-6">
             <Card className="bg-zinc-900 border-zinc-800 rounded-[2rem] p-8">
               <div className="space-y-6">
-                 <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/10 space-y-3">
-                    <div className="flex items-center gap-2 text-amber-500">
-                      <DollarSign className="h-4 w-4" />
-                      <span className="font-black text-[10px] uppercase tracking-widest">Finance Settings</span>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[9px] font-black text-zinc-500 uppercase">Exchange Rate (1 USD = ? LBP)</Label>
-                      <Input 
-                        type="number" 
-                        placeholder="e.g. 90000" 
-                        value={settingsForm.exchangeRate || storeSettings?.exchangeRate || 90000} 
-                        onChange={e => setSettingsForm(s => ({ ...s, exchangeRate: parseInt(e.target.value) || 0 }))} 
-                        className="bg-zinc-800 border-zinc-700 h-11 rounded-xl font-black text-amber-500" 
-                      />
-                    </div>
-                 </div>
-
                  <div className="space-y-4">
                     <Label className="text-[9px] font-black text-zinc-500 uppercase">Branding & Contact</Label>
                     <Input placeholder="Logo URL" value={settingsForm.logo || storeSettings?.logo || ''} onChange={e => setSettingsForm(s => ({ ...s, logo: e.target.value }))} className="bg-zinc-800 border-zinc-700 h-11 rounded-xl" />

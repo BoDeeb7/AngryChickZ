@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Product } from '@/types/restaurant';
@@ -60,7 +61,7 @@ export function ProductCard({ product }: { product: Product }) {
         
         <div className="flex items-center justify-between gap-2 mt-auto pt-2 border-t border-zinc-800/50">
           <span className="text-sm md:text-lg font-black text-amber-500 italic">
-            {formatPrice(product.price)}
+            {formatPrice(product.price, product.currency)}
           </span>
           <Button 
             onClick={handleAdd}

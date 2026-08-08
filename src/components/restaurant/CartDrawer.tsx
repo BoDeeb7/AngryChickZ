@@ -17,7 +17,7 @@ import { StoreSettings } from '@/types/restaurant';
 type CheckoutStep = 'review' | 'details';
 
 export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
-  const { cart, removeFromCart, updateQuantity, subtotal, itemCount, clearCart, formatPrice, exchangeRate, currency } = useCart();
+  const { cart, removeFromCart, updateQuantity, itemCount, clearCart, formatPrice } = useCart();
   const db = useFirestore();
 
   const storeSettingsRef = useMemo(() => db ? doc(db, 'settings', 'store') : null, [db]);
@@ -45,13 +45,12 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
       return;
     }
 
-    // Prepare order data for Firestore
     const orderData = {
       customerName: details.customerName,
       phoneNumber: details.phoneNumber,
       address: details.address,
       items: cart,
-      totalAmount: subtotal,
+      totalAmount: cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
       status: 'pending',
       createdAt: serverTimestamp(),
       notes: orderInstructions
@@ -66,10 +65,8 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
     }
 
     const orderItems = cart.map(item => (
-      `• *${item.quantity}x ${item.name}* - *${formatPrice(item.price * item.quantity)}*\n`
+      `• *${item.quantity}x ${item.name}* - *${formatPrice(item.price * item.quantity, item.currency)}*\n`
     )).join('');
-
-    const totalInLBP = (subtotal * exchangeRate).toLocaleString();
 
     const formattedMessage = 
       `🍗 *NEW ORDER: ANGRY CHICKZ* 🍗\n\n` +
@@ -78,15 +75,11 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
       `📍 Address: ${details.address}\n\n` +
       `*Order Details:*\n${orderItems}\n` +
       (orderInstructions ? `📝 *Notes:* ${orderInstructions}\n\n` : '') +
-      `💰 *Total: ${formatPrice(subtotal)}*\n` +
-      (currency === 'USD' ? `💵 Total in LBP: ${totalInLBP} L.L.` : `💵 Total in USD: $${subtotal.toFixed(2)}`) +
-      ` \n(Rate: ${exchangeRate.toLocaleString()} L.L.)`;
+      `🚀 Thank you for ordering from Angry ChickZ!`;
 
-    // Extract raw numbers only for the URL
     const rawNumber = (storeSettings?.whatsappNumber || '96170105152').replace(/\D/g, '');
     const whatsappUrl = `https://wa.me/${rawNumber}?text=${encodeURIComponent(formattedMessage)}`;
     
-    // Use a clean redirection
     window.location.href = whatsappUrl;
     
     clearCart();
@@ -166,7 +159,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
                               <span className="w-6 text-center font-black text-[10px]">{item.quantity}</span>
                               <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="p-1 hover:text-primary transition-colors"><Plus className="h-2.5 w-2.5" /></button>
                             </div>
-                            <span className="font-black text-sm italic tracking-tighter text-primary">{formatPrice(item.price * item.quantity)}</span>
+                            <span className="font-black text-sm italic tracking-tighter text-primary">{formatPrice(item.price * item.quantity, item.currency)}</span>
                           </div>
                         </div>
                       </div>
@@ -232,11 +225,6 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
 
         {cart.length > 0 && (
           <footer className="flex-none border-t p-4 bg-background shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-20">
-            <div className="flex justify-between items-center mb-4 px-1">
-              <span className="text-foreground/40 font-black text-[9px] uppercase tracking-[0.2em]">Total Amount</span>
-              <span className="text-xl font-black italic tracking-tighter text-primary">{formatPrice(subtotal)}</span>
-            </div>
-            
             {step === 'review' ? (
               <Button 
                 onClick={handleNextStep}
