@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -9,11 +10,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import Image from 'next/image';
+import { useFirestore } from '@/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 type CheckoutStep = 'review' | 'details';
 
 export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
   const { cart, removeFromCart, updateQuantity, subtotal, itemCount, clearCart, formatPrice, exchangeRate, currency } = useCart();
+  const db = useFirestore();
   const [step, setStep] = useState<CheckoutStep>('review');
   const [details, setDetails] = useState({
     customerName: '',
@@ -30,10 +34,30 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
     setStep('review');
   };
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (!details.customerName || !details.phoneNumber || !details.address) {
       alert("Please fill in your name, phone, and address to complete the order.");
       return;
+    }
+
+    // Prepare order data for Firestore
+    const orderData = {
+      customerName: details.customerName,
+      phoneNumber: details.phoneNumber,
+      address: details.address,
+      items: cart,
+      totalAmount: subtotal,
+      status: 'pending',
+      createdAt: serverTimestamp(),
+      notes: orderInstructions
+    };
+
+    try {
+      if (db) {
+        await addDoc(collection(db, 'orders'), orderData);
+      }
+    } catch (e) {
+      console.error("Error saving order to Firestore:", e);
     }
 
     const orderItems = cart.map(item => (
@@ -67,7 +91,6 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
     <Sheet open={isOpen} onOpenChange={(open) => { if(!open) setStep('review'); onClose(); }}>
       <SheetContent className="fixed inset-y-0 right-0 w-full max-w-md bg-background border-l border-amber-500/10 text-foreground z-[10000] flex flex-col h-[100dvh] overflow-hidden p-0 outline-none">
         
-        {/* Header: Fixed at top */}
         <SheetHeader className="flex-none p-4 border-b border-amber-500/5 bg-background shrink-0 z-10">
           <SheetTitle className="flex items-center justify-between text-xl font-black uppercase italic tracking-tighter">
             <div className="flex items-center gap-2">
@@ -90,7 +113,6 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
           </SheetTitle>
         </SheetHeader>
 
-        {/* Body: Scrollable items and details */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar bg-background">
           {cart.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center opacity-40">
@@ -199,7 +221,6 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
           )}
         </div>
 
-        {/* Footer: Fixed at bottom */}
         {cart.length > 0 && (
           <footer className="flex-none border-t p-4 bg-background shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-20">
             <div className="flex justify-between items-center mb-4 px-1">

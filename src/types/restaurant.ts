@@ -1,3 +1,4 @@
+
 export interface Product {
   id: string;
   name: string;
@@ -18,6 +19,18 @@ export interface Category {
 
 export interface CartItem extends Product {
   quantity: number;
+  notes?: string;
+}
+
+export interface Order {
+  id?: string;
+  customerName: string;
+  phoneNumber: string;
+  address: string;
+  items: CartItem[];
+  totalAmount: number;
+  status: 'pending' | 'completed';
+  createdAt: any;
   notes?: string;
 }
 

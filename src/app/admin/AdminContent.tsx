@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
@@ -14,7 +15,14 @@ import {
   Star,
   Loader2,
   DollarSign,
-  MessageSquare
+  MessageSquare,
+  ShoppingBag,
+  MapPin,
+  Phone,
+  CheckCircle2,
+  Clock,
+  ChevronRight,
+  ExternalLink
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,12 +30,18 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Product, Category, StoreSettings, Review } from '@/types/restaurant';
+import { Product, Category, StoreSettings, Review, Order } from '@/types/restaurant';
 import { useFirestore, useCollection, useDoc } from '@/firebase';
-import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, addDoc, serverTimestamp, query, orderBy, where, updateDoc } from 'firebase/firestore';
 import Link from 'next/link';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function AdminContent() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -44,13 +58,16 @@ export default function AdminContent() {
   const productsQuery = useMemo(() => db ? query(collection(db, 'products'), orderBy('createdAt', 'desc')) : null, [db]);
   const categoriesQuery = useMemo(() => db ? query(collection(db, 'categories'), orderBy('name', 'asc')) : null, [db]);
   const reviewsQuery = useMemo(() => db ? query(collection(db, 'reviews'), orderBy('createdAt', 'desc')) : null, [db]);
+  const ordersQuery = useMemo(() => db ? query(collection(db, 'orders'), where('status', '==', 'pending'), orderBy('createdAt', 'desc')) : null, [db]);
   const storeSettingsRef = useMemo(() => db ? doc(db, 'settings', 'store') : null, [db]);
 
   const { data: products = [] } = useCollection<Product>(productsQuery);
   const { data: categories = [] } = useCollection<Category>(categoriesQuery);
   const { data: reviews = [] } = useCollection<Review>(reviewsQuery);
+  const { data: orders = [] } = useCollection<Order>(ordersQuery);
   const { data: storeSettings } = useDoc<StoreSettings>(storeSettingsRef);
 
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -144,6 +161,17 @@ export default function AdminContent() {
     }
   };
 
+  const handleCompleteOrder = async (orderId: string) => {
+    if (!db) return;
+    try {
+      await updateDoc(doc(db, 'orders', orderId), { status: 'completed' });
+      toast({ title: "Order Completed", description: "Order has been moved to archives." });
+      setSelectedOrder(null);
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to update order status." });
+    }
+  };
+
   const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = newCategoryName.trim();
@@ -212,13 +240,128 @@ export default function AdminContent() {
           </Link>
         </header>
 
-        <Tabs defaultValue="products" className="space-y-8">
+        <Tabs defaultValue="orders" className="space-y-8">
           <TabsList className="bg-zinc-900 border border-zinc-800 p-1 rounded-xl h-auto w-full justify-start gap-1 flex-wrap">
+            <TabsTrigger value="orders" className="px-4 py-2 rounded-lg font-black text-[9px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-black">Orders</TabsTrigger>
             <TabsTrigger value="products" className="px-4 py-2 rounded-lg font-black text-[9px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-black">Products</TabsTrigger>
             <TabsTrigger value="categories" className="px-4 py-2 rounded-lg font-black text-[9px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-black">Categories</TabsTrigger>
             <TabsTrigger value="reviews" className="px-4 py-2 rounded-lg font-black text-[9px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-black">Reviews</TabsTrigger>
             <TabsTrigger value="settings" className="px-4 py-2 rounded-lg font-black text-[9px] uppercase italic data-[state=active]:bg-amber-500 data-[state=active]:text-black">Settings</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="orders" className="space-y-6">
+            <div className="grid gap-4">
+              {orders.length === 0 ? (
+                <div className="text-center py-20 bg-zinc-900 rounded-[2rem] border border-zinc-800">
+                  <ShoppingBag className="h-12 w-12 text-zinc-800 mx-auto mb-4" />
+                  <p className="text-zinc-500 font-bold uppercase italic text-xs">No active orders</p>
+                </div>
+              ) : (
+                orders.map(order => (
+                  <Card key={order.id} className="bg-zinc-900 border-zinc-800 rounded-2xl overflow-hidden hover:border-amber-500/30 transition-all cursor-pointer" onClick={() => setSelectedOrder(order)}>
+                    <CardContent className="p-6">
+                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div className="flex items-center gap-4">
+                          <div className="h-12 w-12 rounded-xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
+                            <Clock className="text-amber-500 h-6 w-6" />
+                          </div>
+                          <div>
+                            <h4 className="font-black text-sm uppercase italic text-zinc-100">{order.customerName}</h4>
+                            <p className="text-[10px] text-zinc-500 uppercase font-black tracking-widest">
+                              {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-6">
+                          <div className="text-right">
+                            <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-1">Total Amount</p>
+                            <p className="text-sm font-black text-amber-500 italic">${order.totalAmount.toFixed(2)}</p>
+                          </div>
+                          <ChevronRight className="h-5 w-5 text-zinc-700" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+
+            <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
+              <DialogContent className="bg-zinc-900 border-zinc-800 text-zinc-100 max-w-2xl rounded-[2rem]">
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-black uppercase italic text-amber-500">Order Details</DialogTitle>
+                </DialogHeader>
+                {selectedOrder && (
+                  <div className="space-y-6 mt-4">
+                    <div className="grid md:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                        <div className="space-y-1">
+                          <Label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Customer Information</Label>
+                          <div className="flex items-center gap-2 p-3 bg-zinc-800/50 rounded-xl border border-zinc-700">
+                            <User className="h-4 w-4 text-amber-500" />
+                            <span className="text-xs font-bold">{selectedOrder.customerName}</span>
+                          </div>
+                          <div className="flex items-center gap-2 p-3 bg-zinc-800/50 rounded-xl border border-zinc-700">
+                            <Phone className="h-4 w-4 text-amber-500" />
+                            <span className="text-xs font-bold">{selectedOrder.phoneNumber}</span>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Delivery Address</Label>
+                          <div className="p-3 bg-zinc-800/50 rounded-xl border border-zinc-700 space-y-2">
+                            <div className="flex items-start gap-2">
+                              <MapPin className="h-4 w-4 text-amber-500 mt-0.5" />
+                              <span className="text-xs font-bold leading-relaxed">{selectedOrder.address}</span>
+                            </div>
+                            <Button 
+                              variant="outline" 
+                              className="w-full h-8 text-[9px] font-black uppercase italic border-zinc-700 bg-zinc-800 hover:bg-zinc-700 gap-2"
+                              onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedOrder.address)}`, '_blank')}
+                            >
+                              <ExternalLink className="h-3 w-3" /> View on Maps
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <Label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Order Summary</Label>
+                        <div className="bg-zinc-800/50 rounded-xl border border-zinc-700 overflow-hidden">
+                          <div className="p-4 space-y-3">
+                            {selectedOrder.items.map((item, idx) => (
+                              <div key={idx} className="flex justify-between items-center text-[10px] font-bold">
+                                <span className="text-zinc-400">{item.quantity}x <span className="text-zinc-100">{item.name}</span></span>
+                                <span className="text-amber-500">${(item.price * item.quantity).toFixed(2)}</span>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="p-4 bg-zinc-950/30 border-t border-zinc-700 flex justify-between items-center">
+                            <span className="text-[9px] font-black uppercase text-zinc-500">Grand Total</span>
+                            <span className="text-lg font-black text-amber-500 italic">${selectedOrder.totalAmount.toFixed(2)}</span>
+                          </div>
+                        </div>
+                        {selectedOrder.notes && (
+                          <div className="space-y-1">
+                            <Label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Special Instructions</Label>
+                            <div className="p-3 bg-amber-500/5 rounded-xl border border-amber-500/10">
+                              <p className="text-xs font-bold italic text-amber-200">"{selectedOrder.notes}"</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <Button 
+                      className="w-full h-14 bg-amber-500 hover:bg-amber-600 text-black font-black uppercase italic rounded-xl gap-2 shadow-lg"
+                      onClick={() => handleCompleteOrder(selectedOrder.id!)}
+                    >
+                      <CheckCircle2 className="h-5 w-5" /> Mark as Completed / تم التسليم
+                    </Button>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
+          </TabsContent>
 
           <TabsContent value="products" className="grid lg:grid-cols-12 gap-8">
             <Card className="lg:col-span-5 bg-zinc-900 border-zinc-800 rounded-[2rem] shadow-xl h-fit overflow-hidden">

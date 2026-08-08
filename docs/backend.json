@@ -37,6 +37,21 @@
         "createdAt": { "type": "string", "format": "date-time" }
       }
     },
+    "Order": {
+      "title": "Order",
+      "description": "Customer order details",
+      "type": "object",
+      "properties": {
+        "customerName": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "address": { "type": "string" },
+        "items": { "type": "array" },
+        "totalAmount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "completed"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "notes": { "type": "string" }
+      }
+    },
     "StoreSettings": {
       "title": "Store Settings",
       "description": "Global store contact and branding information",
@@ -48,7 +63,8 @@
         "address": { "type": "string" },
         "instagram": { "type": "string" },
         "facebook": { "type": "string" },
-        "tiktok": { "type": "string" }
+        "tiktok": { "type": "string" },
+        "exchangeRate": { "type": "number" }
       }
     },
     "HeroSettings": {
@@ -78,6 +94,10 @@
     "/reviews/{reviewId}": {
       "schema": "Review",
       "description": "Customer feedback"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Customer orders"
     },
     "/settings/store": {
       "schema": "StoreSettings",
