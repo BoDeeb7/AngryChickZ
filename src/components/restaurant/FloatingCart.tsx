@@ -6,6 +6,13 @@ import { useState, useEffect } from 'react';
 import { CartDrawer } from './CartDrawer';
 import { cn } from '@/lib/utils';
 
+/**
+ * FloatingCart Component
+ * 1. Remains hidden if the cart is empty.
+ * 2. Dynamically appears with animation on first item addition.
+ * 3. Real-time badge counter linked to global state.
+ * 4. Clickable navigation to the Cart Drawer.
+ */
 export function FloatingCart() {
   const { itemCount } = useCart();
   const [isOpen, setIsOpen] = useState(false);
@@ -25,6 +32,7 @@ export function FloatingCart() {
     }
   }, [itemCount]);
 
+  // Hidden by default when cart is empty or component not mounted
   if (!mounted || itemCount === 0) return null;
 
   return (

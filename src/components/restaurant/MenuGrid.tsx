@@ -11,6 +11,7 @@ import { Loader2 } from 'lucide-react';
 /**
  * MenuGrid Component
  * Fetches products and categories directly from Firestore in real-time.
+ * Optimistic UI handling prevents flickering of empty states during fetch.
  */
 export function MenuGrid() {
   const db = useFirestore();
@@ -88,7 +89,8 @@ export function MenuGrid() {
           </div>
         </div>
 
-        {productsLoading && cloudProducts.length === 0 ? (
+        {/* Improved loading state handling to prevent flash of "No Items Found" */}
+        {productsLoading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4 opacity-40">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
             <p className="text-[10px] font-black uppercase tracking-widest italic text-white">Fetching Live Menu...</p>

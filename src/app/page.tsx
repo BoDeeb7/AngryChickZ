@@ -5,8 +5,9 @@ import { Footer } from '@/components/restaurant/Footer';
 import { FloatingCart } from '@/components/restaurant/FloatingCart';
 
 /**
- * CRITICAL: These settings ensure the page is never statically cached.
- * This guarantees real-time cross-device data synchronization.
+ * Main Application Home Page
+ * 1. Server-side segment configuration for dynamic data.
+ * 2. Scopes the FloatingCart exclusively to the visitor view.
  */
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -20,7 +21,10 @@ export default function Home() {
         <MenuGrid />
       </main>
       <Footer />
-      {/* The Floating Cart is explicitly placed here so it only appears on the visitor menu */}
+      {/* 
+        The Floating Cart is rendered here to ensure it only appears 
+        on the Home page and never in the Admin dashboard.
+      */}
       <FloatingCart />
     </div>
   );
