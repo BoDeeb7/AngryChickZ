@@ -48,8 +48,7 @@
     @apply bg-background text-foreground antialiased font-body transition-colors duration-300;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* Trigger GPU for smoother rendering */
-    transform: translateZ(0);
+    /* Removed transform: translateZ(0) to ensure position: fixed works correctly across all browsers */
   }
 }
 
@@ -57,7 +56,6 @@
   @apply bg-background/70 border-b border-primary/5;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  transform: translateZ(0);
 }
 
 .glass-card {
@@ -65,12 +63,6 @@
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   will-change: transform, opacity;
-  transform: translateZ(0);
-}
-
-.animate-gpu {
-  will-change: transform;
-  transform: translateZ(0);
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -90,5 +82,4 @@
 
 .animate-spark {
   animation: spark-float linear infinite;
-  transform: translateZ(0);
 }
