@@ -9,10 +9,10 @@ import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 
 /**
- * MenuGrid Component
- * 1. Optimized for instant load via SWR caching in useCollection.
- * 2. Permanently removed "Item Not Found" states to prevent UI flickering.
- * 3. Strictly displays either a loader or the grid.
+ * MenuGrid Component - High Performance Mode
+ * 1. Zero-Delay: Uses cached data instantly via SWR logic in useCollection.
+ * 2. No Black Screens: The loader only appears if no data is present AND fetch is active.
+ * 3. No "Not Found" States: UI strictly shows products or the loading sync.
  */
 export function MenuGrid() {
   const db = useFirestore();
@@ -31,7 +31,7 @@ export function MenuGrid() {
     return query(collection(db, 'categories'), orderBy('name', 'asc'));
   }, [db]);
 
-  // Hook handles internal localStorage caching for < 3s load times
+  // Hook hydrates INSTANTLY from localStorage
   const { data: cloudProducts = [], loading: productsLoading } = useCollection<Product>(productsQuery);
   const { data: cloudCategories = [] } = useCollection<Category>(categoriesQuery);
 
@@ -92,14 +92,14 @@ export function MenuGrid() {
         </div>
 
         {/* 
-          Strict Loading Control:
-          We ONLY show the loader if we have NO data yet AND we are still fetching.
-          If we have cached data, productsLoading will be handled by the hook to show data immediately.
+          ZERO-DELAY UI:
+          Show loader ONLY if we have absolutely NO data (first time user).
+          If we have cached data, we show it instantly even if loading=true.
         */}
         {productsLoading && cloudProducts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            <p className="text-[10px] font-black uppercase tracking-widest italic text-white/40">Synchronizing Menu...</p>
+            <p className="text-[10px] font-black uppercase tracking-widest italic text-white/40">Syncing Live Menu...</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8 animate-in fade-in duration-500">

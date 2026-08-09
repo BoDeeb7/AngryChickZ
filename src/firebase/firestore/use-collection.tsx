@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -13,34 +12,32 @@ import { errorEmitter } from '../error-emitter';
 import { FirestorePermissionError } from '../errors';
 
 /**
- * useCollection Hook with Persistent Caching
- * 1. Hydrates instantly from localStorage for < 1s initial render.
- * 2. Synchronizes with Firestore in background (SWR pattern).
- * 3. Prevents UI flickering by prioritizing cached data.
- * 4. Resilient to LocalStorage QuotaExceeded errors.
+ * useCollection Hook with Strict Zero-Delay Caching
+ * 1. Immediate Hydration: Reads from localStorage during initialization to prevent flashes.
+ * 2. 2s Safety Timeout: Force-stops the loading state if the network is slow.
+ * 3. Stale-While-Revalidate: Renders cached data instantly, updates in background.
  */
 export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey?: string) {
-  const [data, setData] = useState<T[]>([]);
-  const [loading, setLoading] = useState(true);
+  const internalCacheKey = cacheKey || (query ? 'firestore_cache_' + (query as any)._query?.path?.segments?.join('_') : null);
+  
+  // Get initial data from cache to prevent hydration delay
+  const getCachedData = (): T[] => {
+    if (typeof window === 'undefined' || !internalCacheKey) return [];
+    try {
+      const cached = localStorage.getItem(internalCacheKey);
+      return cached ? JSON.parse(cached) : [];
+    } catch (e) {
+      return [];
+    }
+  };
+
+  const cachedData = getCachedData();
+  const [data, setData] = useState<T[]>(cachedData);
+  // If we have cached data, we don't need a blocking loader
+  const [loading, setLoading] = useState(cachedData.length === 0);
   const [error, setError] = useState<Error | null>(null);
   
   const isInitialFetch = useRef(true);
-  const internalCacheKey = cacheKey || (query ? 'firestore_cache_' + (query as any)._query?.path?.segments?.join('_') : null);
-
-  // Initial Hydration from LocalStorage for instant load
-  useEffect(() => {
-    if (internalCacheKey) {
-      const cached = localStorage.getItem(internalCacheKey);
-      if (cached) {
-        try {
-          setData(JSON.parse(cached));
-          setLoading(false); // Mark as not loading because we have data
-        } catch (e) {
-          console.warn("Failed to parse firestore cache", e);
-        }
-      }
-    }
-  }, [internalCacheKey]);
 
   useEffect(() => {
     if (!query) {
@@ -48,10 +45,10 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
       return;
     }
 
-    // Safety Timeout to prevent stuck loading states
+    // STRICT 2-SECOND TIMEOUT: Stop the loading spinner even if DB is slow
     const safetyTimeout = setTimeout(() => {
       setLoading(false);
-    }, 3000);
+    }, 2000);
 
     const unsubscribe = onSnapshot(
       query,
@@ -67,27 +64,16 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
         clearTimeout(safetyTimeout);
         isInitialFetch.current = false;
 
-        // Persist to cache for next visit with error handling for quota limits
+        // Persist to cache for next visit with error handling
         if (internalCacheKey) {
           try {
             localStorage.setItem(internalCacheKey, JSON.stringify(items));
           } catch (e: any) {
-            // Handle QuotaExceededError gracefully
             if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
-              console.warn("Firestore cache quota exceeded. Attempting to clear space.");
-              // Clear only the firestore cache keys to make room, rather than everything
               Object.keys(localStorage).forEach(key => {
-                if (key.startsWith('firestore_cache_')) {
-                  localStorage.removeItem(key);
-                }
+                if (key.startsWith('firestore_cache_')) localStorage.removeItem(key);
               });
-              // Try one last time after clearing space
-              try {
-                localStorage.setItem(internalCacheKey, JSON.stringify(items));
-              } catch (retryError) {
-                // If it's still too big (e.g. single item > 5MB), just stop caching for this session
-                console.error("Item list too large for local storage even after clearing cache.");
-              }
+              try { localStorage.setItem(internalCacheKey, JSON.stringify(items)); } catch (retryError) {}
             }
           }
         }
