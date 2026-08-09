@@ -11,12 +11,34 @@ import {
 import { errorEmitter } from '../error-emitter';
 import { FirestorePermissionError } from '../errors';
 
-export function useCollection<T = DocumentData>(query: Query<T> | null) {
+/**
+ * useCollection Hook with Persistent Caching
+ * 1. Hydrates instantly from localStorage for < 1s initial render.
+ * 2. Synchronizes with Firestore in background (SWR pattern).
+ * 3. Prevents UI flickering by prioritizing cached data.
+ */
+export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey?: string) {
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   
   const isInitialFetch = useRef(true);
+  const internalCacheKey = cacheKey || (query ? 'firestore_cache_' + (query as any)._query?.path?.segments?.join('_') : null);
+
+  // Initial Hydration from LocalStorage for instant load
+  useEffect(() => {
+    if (internalCacheKey) {
+      const cached = localStorage.getItem(internalCacheKey);
+      if (cached) {
+        try {
+          setData(JSON.parse(cached));
+          setLoading(false); // Mark as not loading because we have data
+        } catch (e) {
+          console.warn("Failed to parse firestore cache", e);
+        }
+      }
+    }
+  }, [internalCacheKey]);
 
   useEffect(() => {
     if (!query) {
@@ -24,10 +46,10 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
       return;
     }
 
-    // Defensive timeout to ensure UI is never stuck on "loading"
+    // Safety Timeout to prevent stuck loading states
     const safetyTimeout = setTimeout(() => {
       setLoading(false);
-    }, 5000);
+    }, 3000);
 
     const unsubscribe = onSnapshot(
       query,
@@ -42,6 +64,11 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
         setLoading(false);
         clearTimeout(safetyTimeout);
         isInitialFetch.current = false;
+
+        // Persist to cache for next visit
+        if (internalCacheKey) {
+          localStorage.setItem(internalCacheKey, JSON.stringify(items));
+        }
       },
       async (serverError: FirestoreError) => {
         clearTimeout(safetyTimeout);
@@ -61,7 +88,7 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
       unsubscribe();
       clearTimeout(safetyTimeout);
     };
-  }, [query]);
+  }, [query, internalCacheKey]);
 
   return { data, loading, error };
 }

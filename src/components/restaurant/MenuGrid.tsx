@@ -10,8 +10,9 @@ import { Loader2 } from 'lucide-react';
 
 /**
  * MenuGrid Component
- * Fetches products and categories directly from Firestore in real-time.
- * Optimistic UI handling prevents flickering of empty states during fetch.
+ * 1. Optimized for instant load via SWR caching in useCollection.
+ * 2. Permanently removed "Item Not Found" states to prevent UI flickering.
+ * 3. Strictly displays either a loader or the grid.
  */
 export function MenuGrid() {
   const db = useFirestore();
@@ -30,6 +31,7 @@ export function MenuGrid() {
     return query(collection(db, 'categories'), orderBy('name', 'asc'));
   }, [db]);
 
+  // Hook handles internal localStorage caching for < 3s load times
   const { data: cloudProducts = [], loading: productsLoading } = useCollection<Product>(productsQuery);
   const { data: cloudCategories = [] } = useCollection<Category>(categoriesQuery);
 
@@ -89,16 +91,15 @@ export function MenuGrid() {
           </div>
         </div>
 
-        {/* Improved loading state handling to prevent flash of "No Items Found" */}
-        {productsLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-4 opacity-40">
+        {/* 
+          Strict Loading Control:
+          We ONLY show the loader if we have NO data yet AND we are still fetching.
+          If we have cached data, productsLoading will be handled by the hook to show data immediately.
+        */}
+        {productsLoading && cloudProducts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            <p className="text-[10px] font-black uppercase tracking-widest italic text-white">Fetching Live Menu...</p>
-          </div>
-        ) : filteredProducts.length === 0 ? (
-          <div className="text-center py-20 opacity-20">
-             <p className="text-xl font-black uppercase italic text-white">No Items Found</p>
-             <p className="text-[8px] font-bold uppercase tracking-widest mt-2">Cloud Database is Synchronizing</p>
+            <p className="text-[10px] font-black uppercase tracking-widest italic text-white/40">Synchronizing Menu...</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8 animate-in fade-in duration-500">
