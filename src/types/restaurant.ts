@@ -59,5 +59,4 @@ export interface StoreSettings {
   whatsappNumber: string;
   openingHours: string;
   logo?: string;
-  exchangeRate?: number;
 }
