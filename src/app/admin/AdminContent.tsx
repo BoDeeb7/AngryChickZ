@@ -317,13 +317,24 @@ export default function AdminContent() {
                               <MapPin className="h-4 w-4 text-amber-500 mt-0.5" />
                               <span className="text-xs font-bold leading-relaxed">{selectedOrder.address}</span>
                             </div>
-                            <Button 
-                              variant="outline" 
-                              className="w-full h-8 text-[9px] font-black uppercase italic border-zinc-700 bg-zinc-800 hover:bg-zinc-700 gap-2"
-                              onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedOrder.address)}`, '_blank')}
-                            >
-                              <ExternalLink className="h-3 w-3" /> View on Maps
-                            </Button>
+                            <div className="flex flex-col gap-2 pt-2">
+                              <Button 
+                                variant="outline" 
+                                className="w-full h-8 text-[9px] font-black uppercase italic border-zinc-700 bg-zinc-800 hover:bg-zinc-700 gap-2"
+                                onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedOrder.address)}`, '_blank')}
+                              >
+                                <ExternalLink className="h-3 w-3" /> Search Address
+                              </Button>
+                              {selectedOrder.gpsLocation && (
+                                <Button 
+                                  variant="secondary" 
+                                  className="w-full h-10 text-[9px] font-black uppercase italic bg-amber-500/20 text-amber-500 hover:bg-amber-500/30 gap-2"
+                                  onClick={() => window.open(selectedOrder.gpsLocation, '_blank')}
+                                >
+                                  <MapPin className="h-3 w-3" /> Open Exact GPS Location
+                                </Button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>

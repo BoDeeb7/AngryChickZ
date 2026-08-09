@@ -24,6 +24,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
   const { data: storeSettings } = useDoc<StoreSettings>(storeSettingsRef);
 
   const [step, setStep] = useState<CheckoutStep>('review');
+  const [isLocating, setIsLocating] = useState(false);
   const [details, setDetails] = useState({
     customerName: '',
     phoneNumber: '',
@@ -45,6 +46,24 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
       return;
     }
 
+    setIsLocating(true);
+
+    // Attempt to get GPS Location
+    let gpsLink = '';
+    if (typeof window !== 'undefined' && 'geolocation' in navigator) {
+      try {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { 
+            enableHighAccuracy: true, 
+            timeout: 8000 
+          });
+        });
+        gpsLink = `https://maps.google.com/?q=${position.coords.latitude},${position.coords.longitude}`;
+      } catch (e) {
+        console.warn("Geolocation failed or was denied:", e);
+      }
+    }
+
     const orderData = {
       customerName: details.customerName,
       phoneNumber: details.phoneNumber,
@@ -53,7 +72,8 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
       totalAmount: cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
       status: 'pending',
       createdAt: serverTimestamp(),
-      notes: orderInstructions
+      notes: orderInstructions,
+      gpsLocation: gpsLink || undefined
     };
 
     try {
@@ -72,7 +92,8 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
       `🍗 *NEW ORDER: ANGRY CHICKZ* 🍗\n\n` +
       `👤 Name: ${details.customerName}\n` +
       `📞 Phone: ${details.phoneNumber}\n` +
-      `📍 Address: ${details.address}\n\n` +
+      `📍 Address: ${details.address}\n` +
+      (gpsLink ? `📍 GPS Location: ${gpsLink}\n\n` : `\n`) +
       `*Order Details:*\n${orderItems}\n` +
       (orderInstructions ? `📝 *Notes:* ${orderInstructions}\n\n` : '') +
       `🚀 Thank you for ordering from Angry ChickZ!`;
@@ -80,6 +101,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
     const rawNumber = (storeSettings?.whatsappNumber || '96170105152').replace(/\D/g, '');
     const whatsappUrl = `https://wa.me/${rawNumber}?text=${encodeURIComponent(formattedMessage)}`;
     
+    setIsLocating(false);
     window.location.href = whatsappUrl;
     
     clearCart();
@@ -235,9 +257,18 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
             ) : (
               <Button 
                 onClick={handleCheckout}
-                className="w-full h-14 bg-green-600 hover:bg-green-700 rounded-xl text-base font-black uppercase italic shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
+                disabled={isLocating}
+                className="w-full h-14 bg-green-600 hover:bg-green-700 rounded-xl text-base font-black uppercase italic shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-70"
               >
-                <MessageCircle className="h-5 w-5" /> Order via WhatsApp
+                {isLocating ? (
+                  <span className="flex items-center gap-2">
+                    <X className="h-5 w-5 animate-spin" /> Fetching GPS...
+                  </span>
+                ) : (
+                  <>
+                    <MessageCircle className="h-5 w-5" /> Order via WhatsApp
+                  </>
+                )}
               </Button>
             )}
           </footer>

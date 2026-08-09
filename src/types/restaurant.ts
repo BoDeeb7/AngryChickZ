@@ -33,6 +33,7 @@ export interface Order {
   status: 'pending' | 'completed';
   createdAt: any;
   notes?: string;
+  gpsLocation?: string;
 }
 
 export interface OrderDetails {
