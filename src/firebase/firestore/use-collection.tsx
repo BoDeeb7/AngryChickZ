@@ -12,15 +12,15 @@ import { errorEmitter } from '../error-emitter';
 import { FirestorePermissionError } from '../errors';
 
 /**
- * useCollection Hook with Strict Zero-Delay Caching
- * 1. Immediate Hydration: Reads from localStorage during initialization to prevent flashes.
- * 2. 2s Safety Timeout: Force-stops the loading state if the network is slow.
- * 3. Stale-While-Revalidate: Renders cached data instantly, updates in background.
+ * useCollection Hook - Zero-Latency Hydration Mode
+ * 1. Immediate Hydration: Loads from localStorage synchronously during state initialization.
+ * 2. Silent Revalidation: Updates data in background. 'loading' is only true if ZERO data (cache or server) exists.
+ * 3. Persistence: Automatically caches results for instant future loads.
  */
 export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey?: string) {
   const internalCacheKey = cacheKey || (query ? 'firestore_cache_' + (query as any)._query?.path?.segments?.join('_') : null);
   
-  // Get initial data from cache to prevent hydration delay
+  // Instant Hydration from local storage
   const getCachedData = (): T[] => {
     if (typeof window === 'undefined' || !internalCacheKey) return [];
     try {
@@ -33,11 +33,9 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
 
   const cachedData = getCachedData();
   const [data, setData] = useState<T[]>(cachedData);
-  // If we have cached data, we don't need a blocking loader
+  // Silent loading: Only true if we have absolutely nothing to show
   const [loading, setLoading] = useState(cachedData.length === 0);
   const [error, setError] = useState<Error | null>(null);
-  
-  const isInitialFetch = useRef(true);
 
   useEffect(() => {
     if (!query) {
@@ -45,11 +43,7 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
       return;
     }
 
-    // STRICT 2-SECOND TIMEOUT: Stop the loading spinner even if DB is slow
-    const safetyTimeout = setTimeout(() => {
-      setLoading(false);
-    }, 2000);
-
+    // Silent background synchronization
     const unsubscribe = onSnapshot(
       query,
       { includeMetadataChanges: true },
@@ -61,25 +55,23 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
         
         setData(items);
         setLoading(false);
-        clearTimeout(safetyTimeout);
-        isInitialFetch.current = false;
 
-        // Persist to cache for next visit with error handling
+        // Update persistence layer silently
         if (internalCacheKey) {
           try {
             localStorage.setItem(internalCacheKey, JSON.stringify(items));
           } catch (e: any) {
+            // Graceful cleanup on storage quota errors
             if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
               Object.keys(localStorage).forEach(key => {
                 if (key.startsWith('firestore_cache_')) localStorage.removeItem(key);
               });
-              try { localStorage.setItem(internalCacheKey, JSON.stringify(items)); } catch (retryError) {}
+              try { localStorage.setItem(internalCacheKey, JSON.stringify(items)); } catch (retry) {}
             }
           }
         }
       },
       async (serverError: FirestoreError) => {
-        clearTimeout(safetyTimeout);
         if (serverError.code === 'permission-denied') {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: 'collection',
@@ -88,14 +80,10 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
         }
         setError(serverError);
         setLoading(false);
-        isInitialFetch.current = false;
       }
     );
 
-    return () => {
-      unsubscribe();
-      clearTimeout(safetyTimeout);
-    };
+    return () => unsubscribe();
   }, [query, internalCacheKey]);
 
   return { data, loading, error };
