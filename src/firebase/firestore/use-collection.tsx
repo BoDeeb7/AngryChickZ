@@ -12,17 +12,17 @@ import { errorEmitter } from '../error-emitter';
 import { FirestorePermissionError } from '../errors';
 
 /**
- * useCollection Hook - Direct Client-Side SWR Implementation
- * 1. Synchronous Hydration: Reads from localStorage during initial state setup.
- * 2. Non-Blocking: returns data immediately (cached or empty) without setting a 'loading' block.
- * 3. Silent Sync: Revalidates against the database in the background.
+ * useCollection Hook - Optimized Zero-Wait Architecture
+ * 1. Synchronous Hydration: State is initialized directly from localStorage.
+ * 2. Background Revalidation: Firestore syncs silently.
+ * 3. Quota Safety: Automatically manages localStorage limits.
  */
 export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey?: string) {
-  // Generate a path-based cache key if one isn't provided
-  const internalCacheKey = cacheKey || (query ? 'fs_swr_' + (query as any)._query?.path?.segments?.join('_') : null);
+  // Generate a stable cache key based on the query path
+  const internalCacheKey = cacheKey || (query ? 'fs_cache_' + (query as any)._query?.path?.segments?.join('_') : null);
   
-  // 1. Sync Cache Retrieval (Internal helper)
-  const getInitialData = (): T[] => {
+  // Helper to get cached data synchronously
+  const getCachedData = (): T[] => {
     if (typeof window === 'undefined' || !internalCacheKey) return [];
     try {
       const cached = localStorage.getItem(internalCacheKey);
@@ -32,8 +32,7 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
     }
   };
 
-  // 2. Initialize state with cached data for 0-second render
-  const [data, setData] = useState<T[]>(getInitialData);
+  const [data, setData] = useState<T[]>(getCachedData);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -43,7 +42,7 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
       return;
     }
 
-    // 3. Background Revalidation (Non-blocking)
+    // Start Firestore listener
     const unsubscribe = onSnapshot(
       query,
       { includeMetadataChanges: true },
@@ -56,14 +55,13 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
         setData(items);
         setLoading(false);
 
-        // 4. Update Persistence Silently
+        // Update persistence silently
         if (internalCacheKey) {
           try {
             localStorage.setItem(internalCacheKey, JSON.stringify(items));
           } catch (e: any) {
-            // Cleanup on storage limits
             if (e.name === 'QuotaExceededError') {
-              localStorage.clear(); 
+              localStorage.clear(); // Emergency purge if full
             }
           }
         }
@@ -80,7 +78,13 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
       }
     );
 
-    return () => unsubscribe();
+    // Safety timeout: If live sync takes > 2s, stop the loading state and show what we have (cache)
+    const timer = setTimeout(() => setLoading(false), 2000);
+
+    return () => {
+      unsubscribe();
+      clearTimeout(timer);
+    };
   }, [query, internalCacheKey]);
 
   return { data, loading, error };

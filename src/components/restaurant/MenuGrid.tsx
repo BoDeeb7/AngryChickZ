@@ -6,12 +6,13 @@ import { collection, query, orderBy } from 'firebase/firestore';
 import { Product, Category } from '@/types/restaurant';
 import { ProductCard } from './ProductCard';
 import { cn } from '@/lib/utils';
+import { Loader2 } from 'lucide-react';
 
 /**
- * MenuGrid Component - Zero-Wait SWR Architecture
- * 1. Immediate Mount: Category list and layout shell render instantly.
- * 2. Instant Hydration: Products populate immediately from localStorage cache.
- * 3. Background Sync: Silent update from Firestore without spinners or blocking UI.
+ * MenuGrid Component - High Performance SWR
+ * 1. Immediate Shell: Categories and headers mount instantly.
+ * 2. Synchronous Hydration: Items appear instantly from local cache.
+ * 3. Silent Sync: Background update from Firestore with no UI blocking.
  */
 export function MenuGrid() {
   const db = useFirestore();
@@ -30,8 +31,7 @@ export function MenuGrid() {
     return query(collection(db, 'categories'), orderBy('name', 'asc'));
   }, [db]);
 
-  // Synchronous initial data from useCollection (Cache-First)
-  const { data: cloudProducts = [] } = useCollection<Product>(productsQuery);
+  const { data: cloudProducts = [], loading: productsLoading } = useCollection<Product>(productsQuery);
   const { data: cloudCategories = [] } = useCollection<Category>(categoriesQuery);
 
   const displayProducts = useMemo(() => {
@@ -48,7 +48,6 @@ export function MenuGrid() {
   return (
     <section id="menu" className="py-16 md:py-32 relative w-full overflow-hidden bg-zinc-950 min-h-[50vh]">
       <div className="container mx-auto px-4 md:px-6 relative z-10 w-full">
-        {/* Header Shell - Renders Instantly */}
         <div className="flex flex-col items-center text-center mb-12 md:mb-20 gap-8">
           <div className="space-y-3">
             <span className="text-primary font-bold uppercase tracking-[0.4em] text-[10px] block">Premium Selection</span>
@@ -79,21 +78,24 @@ export function MenuGrid() {
         </div>
 
         {/* 
-          INSTANT GRID RENDER: 
-          1. Renders cached data immediately if available.
-          2. Renders empty grid shell if no data (silent until background sync).
-          3. ZERO Loading Spinners / ZERO Overlays.
+          INSTANT RENDER: 
+          Uses displayProducts which is initialized synchronously from cache.
+          If no products and still loading, show a fast, non-blocking loader.
         */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8 animate-in fade-in duration-500">
-          {displayProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
-
-        {/* Silent Fallback Only - No Spinner */}
-        {displayProducts.length === 0 && (
-          <div className="py-20 opacity-0 animate-in fade-in duration-1000 delay-1000">
-             {/* Invisible spacer to maintain layout height while waiting for silent first-time sync */}
+        {displayProducts.length > 0 ? (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8 animate-in fade-in duration-500">
+            {displayProducts.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        ) : productsLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-4 opacity-50">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Syncing Live Menu...</p>
+          </div>
+        ) : (
+          <div className="py-20 text-center">
+            <p className="text-zinc-500 text-xs font-bold uppercase italic">No items available currently.</p>
           </div>
         )}
       </div>
