@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Product } from '@/types/restaurant';
@@ -9,6 +8,12 @@ import { Flame, Sparkles, Plus } from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 
+/**
+ * ProductCard Component
+ * 1. Optimized Image Rendering: Uses priority/lazy appropriately.
+ * 2. Instant Action: Visual feedback on cart addition.
+ * 3. Responsive Layout: Adapts to grid spacing without shifts.
+ */
 export function ProductCard({ product }: { product: Product }) {
   const { addToCart, formatPrice } = useCart();
   const { toast } = useToast();
@@ -34,6 +39,7 @@ export function ProductCard({ product }: { product: Product }) {
           className="object-cover transition-transform duration-700 group-hover:scale-110"
           sizes="(max-width: 768px) 48vw, 25vw"
           loading="lazy"
+          quality={70}
         />
         <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
           {product.badges?.slice(0, 1).map((badge, idx) => (
@@ -48,7 +54,7 @@ export function ProductCard({ product }: { product: Product }) {
       <div className="flex flex-col flex-grow">
         <div className="mb-2">
           <span className="text-[8px] font-black uppercase tracking-[0.2em] text-amber-500/60 block mb-1">
-            {product.category.replace('-', ' ')}
+            {product.category.replace(/-/g, ' ')}
           </span>
           <h3 className="text-sm md:text-lg font-black text-zinc-100 group-hover:text-amber-500 transition-colors leading-tight italic uppercase tracking-tighter line-clamp-1">
             {product.name}
