@@ -9,10 +9,10 @@ import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 
 /**
- * MenuGrid Component - High Performance SWR
- * 1. Immediate Shell: Categories and headers mount instantly.
- * 2. Synchronous Hydration: Items appear instantly from local cache.
- * 3. Silent Sync: Background update from Firestore with no UI blocking.
+ * MenuGrid Component - Ultra-High Performance SWR
+ * 1. Zero-Wait Mount: Hydrates instantly from local cache via useCollection.
+ * 2. Strict Display Logic: Prioritizes rendering cached items over showing spinners.
+ * 3. 2s Cap: Loading indicator only appears if cache is empty, and for max 1.5s.
  */
 export function MenuGrid() {
   const db = useFirestore();
@@ -78,9 +78,10 @@ export function MenuGrid() {
         </div>
 
         {/* 
-          INSTANT RENDER: 
-          Uses displayProducts which is initialized synchronously from cache.
-          If no products and still loading, show a fast, non-blocking loader.
+          INSTANT RENDER LOGIC:
+          - If we have items (from cache or live), show them immediately.
+          - If empty AND still loading, show a fast loader (max 1.5s).
+          - No "Item Not Found" UI to prevent premature empty states.
         */}
         {displayProducts.length > 0 ? (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8 animate-in fade-in duration-500">
@@ -91,13 +92,9 @@ export function MenuGrid() {
         ) : productsLoading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4 opacity-50">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Syncing Live Menu...</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Syncing Menu...</p>
           </div>
-        ) : (
-          <div className="py-20 text-center">
-            <p className="text-zinc-500 text-xs font-bold uppercase italic">No items available currently.</p>
-          </div>
-        )}
+        ) : null}
       </div>
     </section>
   );

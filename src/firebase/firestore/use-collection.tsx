@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   Query, 
   onSnapshot, 
@@ -14,11 +14,11 @@ import { FirestorePermissionError } from '../errors';
 /**
  * useCollection Hook - Optimized Zero-Wait Architecture
  * 1. Synchronous Hydration: State is initialized directly from localStorage.
- * 2. Background Revalidation: Firestore syncs silently.
- * 3. Quota Safety: Automatically manages localStorage limits.
+ * 2. Immediate Release: If cache exists, loading state is disabled instantly.
+ * 3. Strict Timing: Enforces a 1.5s maximum wait for live synchronization.
  */
 export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey?: string) {
-  // Generate a stable cache key based on the query path
+  // Generate a stable cache key
   const internalCacheKey = cacheKey || (query ? 'fs_cache_' + (query as any)._query?.path?.segments?.join('_') : null);
   
   // Helper to get cached data synchronously
@@ -32,17 +32,25 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
     }
   };
 
-  const [data, setData] = useState<T[]>(getCachedData);
-  const [loading, setLoading] = useState(true);
+  const initialData = getCachedData();
+  const [data, setData] = useState<T[]>(initialData);
+  // If we have cached data, we are technically not "loading" the UI shell
+  const [loading, setLoading] = useState(initialData.length === 0);
   const [error, setError] = useState<Error | null>(null);
+  const isMounted = useRef(true);
 
   useEffect(() => {
+    isMounted.current = true;
     if (!query) {
       setLoading(false);
       return;
     }
 
-    // Start Firestore listener
+    // Safety Timeout: Force release loading state after 1.5 seconds regardless of network
+    const safetyTimer = setTimeout(() => {
+      if (isMounted.current) setLoading(false);
+    }, 1500);
+
     const unsubscribe = onSnapshot(
       query,
       { includeMetadataChanges: true },
@@ -52,16 +60,18 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
           id: doc.id,
         } as T));
         
-        setData(items);
-        setLoading(false);
-
-        // Update persistence silently
-        if (internalCacheKey) {
-          try {
-            localStorage.setItem(internalCacheKey, JSON.stringify(items));
-          } catch (e: any) {
-            if (e.name === 'QuotaExceededError') {
-              localStorage.clear(); // Emergency purge if full
+        if (isMounted.current) {
+          setData(items);
+          setLoading(false);
+          
+          // Update persistence silently
+          if (internalCacheKey) {
+            try {
+              localStorage.setItem(internalCacheKey, JSON.stringify(items));
+            } catch (e: any) {
+              if (e.name === 'QuotaExceededError') {
+                localStorage.clear();
+              }
             }
           }
         }
@@ -73,17 +83,17 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
             operation: 'list',
           }));
         }
-        setError(serverError);
-        setLoading(false);
+        if (isMounted.current) {
+          setError(serverError);
+          setLoading(false);
+        }
       }
     );
 
-    // Safety timeout: If live sync takes > 2s, stop the loading state and show what we have (cache)
-    const timer = setTimeout(() => setLoading(false), 2000);
-
     return () => {
+      isMounted.current = false;
       unsubscribe();
-      clearTimeout(timer);
+      clearTimeout(safetyTimer);
     };
   }, [query, internalCacheKey]);
 
