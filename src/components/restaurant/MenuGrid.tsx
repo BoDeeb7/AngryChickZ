@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -7,13 +6,12 @@ import { collection, query, orderBy } from 'firebase/firestore';
 import { Product, Category } from '@/types/restaurant';
 import { ProductCard } from './ProductCard';
 import { cn } from '@/lib/utils';
-import { Loader2 } from 'lucide-react';
 
 /**
- * MenuGrid Component - Strict Real-Data Instant Hydration
- * 1. ZERO MOCK DATA: Relies exclusively on Firestore data.
- * 2. Instant Render: Hydrates from localStorage cache synchronously (0-sec delay).
- * 3. Silent Revalidation: Updates real data in background without spinners for returning users.
+ * MenuGrid Component - Zero-Wait SWR Architecture
+ * 1. Immediate Mount: Category list and layout shell render instantly.
+ * 2. Instant Hydration: Products populate immediately from localStorage cache.
+ * 3. Background Sync: Silent update from Firestore without spinners or blocking UI.
  */
 export function MenuGrid() {
   const db = useFirestore();
@@ -32,8 +30,8 @@ export function MenuGrid() {
     return query(collection(db, 'categories'), orderBy('name', 'asc'));
   }, [db]);
 
-  // Hydrates instantly from local cache (Synchronous in useCollection)
-  const { data: cloudProducts = [], loading } = useCollection<Product>(productsQuery);
+  // Synchronous initial data from useCollection (Cache-First)
+  const { data: cloudProducts = [] } = useCollection<Product>(productsQuery);
   const { data: cloudCategories = [] } = useCollection<Category>(categoriesQuery);
 
   const displayProducts = useMemo(() => {
@@ -50,6 +48,7 @@ export function MenuGrid() {
   return (
     <section id="menu" className="py-16 md:py-32 relative w-full overflow-hidden bg-zinc-950 min-h-[50vh]">
       <div className="container mx-auto px-4 md:px-6 relative z-10 w-full">
+        {/* Header Shell - Renders Instantly */}
         <div className="flex flex-col items-center text-center mb-12 md:mb-20 gap-8">
           <div className="space-y-3">
             <span className="text-primary font-bold uppercase tracking-[0.4em] text-[10px] block">Premium Selection</span>
@@ -80,26 +79,21 @@ export function MenuGrid() {
         </div>
 
         {/* 
-          STRICT REAL-DATA RENDER:
-          If cache exists, it renders INSTANTLY.
-          If no cache and still loading, show a skeleton-like loader.
+          INSTANT GRID RENDER: 
+          1. Renders cached data immediately if available.
+          2. Renders empty grid shell if no data (silent until background sync).
+          3. ZERO Loading Spinners / ZERO Overlays.
         */}
-        {loading && displayProducts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 animate-pulse">
-            <Loader2 className="h-10 w-10 text-primary animate-spin mb-4" />
-            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Preparing Fresh Menu...</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8 animate-in fade-in duration-500">
-            {displayProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        )}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8 animate-in fade-in duration-500">
+          {displayProducts.map((product) => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+        </div>
 
-        {!loading && displayProducts.length === 0 && (
-          <div className="text-center py-20 bg-zinc-900/50 rounded-[2rem] border border-zinc-800/50">
-            <p className="text-zinc-500 font-bold uppercase italic text-xs">No active items found in database.</p>
+        {/* Silent Fallback Only - No Spinner */}
+        {displayProducts.length === 0 && (
+          <div className="py-20 opacity-0 animate-in fade-in duration-1000 delay-1000">
+             {/* Invisible spacer to maintain layout height while waiting for silent first-time sync */}
           </div>
         )}
       </div>

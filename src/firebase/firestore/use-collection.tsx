@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Query, 
   onSnapshot, 
@@ -12,29 +12,29 @@ import { errorEmitter } from '../error-emitter';
 import { FirestorePermissionError } from '../errors';
 
 /**
- * useCollection Hook - Zero-Latency Hydration Mode
- * 1. Immediate Hydration: Loads from localStorage synchronously during state initialization.
- * 2. Silent Revalidation: Updates data in background. 'loading' is only true if ZERO data (cache or server) exists.
- * 3. Persistence: Automatically caches results for instant future loads.
+ * useCollection Hook - Direct Client-Side SWR Implementation
+ * 1. Synchronous Hydration: Reads from localStorage during initial state setup.
+ * 2. Non-Blocking: returns data immediately (cached or empty) without setting a 'loading' block.
+ * 3. Silent Sync: Revalidates against the database in the background.
  */
 export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey?: string) {
-  const internalCacheKey = cacheKey || (query ? 'firestore_cache_' + (query as any)._query?.path?.segments?.join('_') : null);
+  // Generate a path-based cache key if one isn't provided
+  const internalCacheKey = cacheKey || (query ? 'fs_swr_' + (query as any)._query?.path?.segments?.join('_') : null);
   
-  // Instant Hydration from local storage
-  const getCachedData = (): T[] => {
+  // 1. Sync Cache Retrieval (Internal helper)
+  const getInitialData = (): T[] => {
     if (typeof window === 'undefined' || !internalCacheKey) return [];
     try {
       const cached = localStorage.getItem(internalCacheKey);
       return cached ? JSON.parse(cached) : [];
-    } catch (e) {
+    } catch {
       return [];
     }
   };
 
-  const cachedData = getCachedData();
-  const [data, setData] = useState<T[]>(cachedData);
-  // Silent loading: Only true if we have absolutely nothing to show
-  const [loading, setLoading] = useState(cachedData.length === 0);
+  // 2. Initialize state with cached data for 0-second render
+  const [data, setData] = useState<T[]>(getInitialData);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
@@ -43,7 +43,7 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
       return;
     }
 
-    // Silent background synchronization
+    // 3. Background Revalidation (Non-blocking)
     const unsubscribe = onSnapshot(
       query,
       { includeMetadataChanges: true },
@@ -56,17 +56,14 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
         setData(items);
         setLoading(false);
 
-        // Update persistence layer silently
+        // 4. Update Persistence Silently
         if (internalCacheKey) {
           try {
             localStorage.setItem(internalCacheKey, JSON.stringify(items));
           } catch (e: any) {
-            // Graceful cleanup on storage quota errors
-            if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
-              Object.keys(localStorage).forEach(key => {
-                if (key.startsWith('firestore_cache_')) localStorage.removeItem(key);
-              });
-              try { localStorage.setItem(internalCacheKey, JSON.stringify(items)); } catch (retry) {}
+            // Cleanup on storage limits
+            if (e.name === 'QuotaExceededError') {
+              localStorage.clear(); 
             }
           }
         }
