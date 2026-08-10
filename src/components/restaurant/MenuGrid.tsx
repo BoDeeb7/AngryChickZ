@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 
 /**
- * MenuGrid Component - Ultra-High Performance Client Hydration
+ * MenuGrid Component - Non-Blocking UI with Skeleton Fallback
  */
 export function MenuGrid() {
   const db = useFirestore();
@@ -28,9 +28,9 @@ export function MenuGrid() {
     return query(collection(db, 'categories'), orderBy('name', 'asc'));
   }, [db]);
 
-  // Hook uses the strict 'restaurant_menu_cache' key for 0ms hydration
-  const { data: cloudProducts = [], loading: productsLoading } = useCollection<Product>(productsQuery, 'restaurant_menu_cache');
-  const { data: cloudCategories = [] } = useCollection<Category>(categoriesQuery, 'restaurant_categories_cache');
+  // Hook uses 'idx_menu_cache' for 0ms hydration from localStorage
+  const { data: cloudProducts = [], loading: productsLoading } = useCollection<Product>(productsQuery, 'idx_menu_cache');
+  const { data: cloudCategories = [] } = useCollection<Category>(categoriesQuery, 'idx_categories_cache');
 
   const displayProducts = useMemo(() => {
     const availableItems = cloudProducts.filter(p => p.isAvailable !== false);
@@ -45,7 +45,7 @@ export function MenuGrid() {
 
   return (
     <section id="menu" className="py-16 md:py-32 relative w-full overflow-hidden bg-zinc-950 min-h-[70vh]">
-      <div className="container mx-auto px-4 md:px-6 relative z-10 w-full" suppressHydrationWarning>
+      <div className="container mx-auto px-4 md:px-6 relative z-10 w-full">
         <div className="flex flex-col items-center text-center mb-12 md:mb-20 gap-8">
           <div className="space-y-3">
             <span className="text-primary font-bold uppercase tracking-[0.4em] text-[10px] block">Premium Selection</span>
@@ -76,10 +76,10 @@ export function MenuGrid() {
         </div>
 
         {/* 
-          STRICT RENDER LOGIC:
-          1. If cache exists (displayProducts.length > 0), render immediately (0ms).
-          2. If NO cache exists AND loading is true, show exactly 4 Skeletons.
-          3. Never return a blank/black container.
+          ZERO-BLANK-UI RENDER LOGIC:
+          1. If loading is true AND there is no cached data, show Skeleton placeholders instantly.
+          2. If cached data exists, show it immediately (loading will be false or background syncing).
+          3. Skeletons ensure the 'black screen' is never visible.
         */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8">
           {productsLoading && displayProducts.length === 0 ? (

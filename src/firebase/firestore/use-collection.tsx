@@ -12,16 +12,15 @@ import { errorEmitter } from '../error-emitter';
 import { FirestorePermissionError } from '../errors';
 
 /**
- * useCollection Hook - Optimized for 0ms Hydration
+ * useCollection Hook - Optimized for Instant Hydration (0ms)
  * 
  * Logic:
- * 1. Initialize state synchronously from localStorage (0ms wait).
- * 2. If cache exists, set loading to false immediately.
- * 3. Perform silent background revalidation via onSnapshot.
- * 4. Update cache and UI seamlessly when fresh data arrives.
+ * 1. Synchronous Hydration: Immediately reads from localStorage during state initialization.
+ * 2. Hard Safety Release: A 1.5s timer forces 'loading' to false if the network hangs.
+ * 3. Silent Sync: Database synchronization happens in the background without blocking the UI.
  */
-export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey: string = 'restaurant_menu_cache') {
-  // 1. INSTANT HYDRATION FROM LOCAL STORAGE
+export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey: string = 'idx_menu_cache') {
+  // 1. INSTANT SYNCHRONOUS HYDRATION
   const [data, setData] = useState<T[]>(() => {
     if (typeof window !== 'undefined' && cacheKey) {
       try {
@@ -37,7 +36,7 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
     return [];
   });
 
-  // Loading is only true if we have no cached data at all
+  // Initialize loading based on cache presence
   const [loading, setLoading] = useState(() => data.length === 0);
   const [error, setError] = useState<Error | null>(null);
   const isMounted = useRef(true);
@@ -50,11 +49,20 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
       return;
     }
 
-    // 2. SILENT BACKGROUND REVALIDATION
+    // 2. HARD SAFETY RELEASE (1.5s)
+    // Ensures the UI never stays "black" or "loading" indefinitely
+    const safetyTimer = setTimeout(() => {
+      if (isMounted.current && loading) {
+        setLoading(false);
+      }
+    }, 1500);
+
+    // 3. SILENT BACKGROUND SYNCHRONIZATION
     const unsubscribe = onSnapshot(
       query,
       { includeMetadataChanges: false },
       (snapshot: QuerySnapshot<T>) => {
+        clearTimeout(safetyTimer);
         const items = snapshot.docs.map((doc) => ({
           ...doc.data(),
           id: doc.id,
@@ -64,7 +72,7 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
           setData(items);
           setLoading(false);
 
-          // Update cache silently for next visit
+          // Update cache for next instant load
           if (cacheKey) {
             try {
               localStorage.setItem(cacheKey, JSON.stringify(items));
@@ -75,6 +83,7 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
         }
       },
       async (serverError: FirestoreError) => {
+        clearTimeout(safetyTimer);
         if (serverError.code === 'permission-denied') {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: 'collection',
@@ -90,6 +99,7 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
 
     return () => {
       isMounted.current = false;
+      clearTimeout(safetyTimer);
       unsubscribe();
     };
   }, [query, cacheKey]);
