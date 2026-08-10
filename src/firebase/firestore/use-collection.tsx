@@ -12,16 +12,16 @@ import { errorEmitter } from '../error-emitter';
 import { FirestorePermissionError } from '../errors';
 
 /**
- * useCollection Hook - Optimized Zero-Wait Architecture
- * 1. Synchronous Hydration: State is initialized directly from localStorage.
- * 2. Immediate Release: If cache exists, loading state is disabled instantly.
- * 3. Strict Timing: Enforces a 1.5s maximum wait for live synchronization.
+ * useCollection Hook - Optimized for Instant UI (0s Delay)
+ * 1. Synchronous Hydration: State initializes from localStorage during the first render.
+ * 2. Instant Loading Release: If cache exists, 'loading' is false immediately.
+ * 3. Hard Sync Cap: A 1.5s timeout ensures the UI never hangs waiting for Firestore.
  */
 export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey?: string) {
-  // Generate a stable cache key
+  // Generate a stable cache key based on the query path
   const internalCacheKey = cacheKey || (query ? 'fs_cache_' + (query as any)._query?.path?.segments?.join('_') : null);
   
-  // Helper to get cached data synchronously
+  // Synchronous Cache Reader
   const getCachedData = (): T[] => {
     if (typeof window === 'undefined' || !internalCacheKey) return [];
     try {
@@ -32,11 +32,11 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
     }
   };
 
-  // Synchronous State Initialization (0ms delay)
+  // 1. Initial State from Cache (0ms delay)
   const [data, setData] = useState<T[]>(() => getCachedData());
   const [loading, setLoading] = useState(() => {
     const cached = getCachedData();
-    return cached.length === 0;
+    return cached.length === 0; // Only true if we have zero data locally
   });
   
   const [error, setError] = useState<Error | null>(null);
@@ -44,20 +44,25 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
 
   useEffect(() => {
     isMounted.current = true;
-    
-    // If we already have cached data, ensure loading is false immediately
+
+    // 2. Instant Release
+    // If we have data from cache, we are effectively not "loading" from the user's perspective
     if (data.length > 0) {
       setLoading(false);
     }
 
     if (!query) {
-      if (data.length === 0) setLoading(false);
+      setLoading(false);
       return;
     }
 
-    // Safety Timeout: Force release loading state after 1.5 seconds regardless of network status
+    // 3. The 1.5s Safety Valve
+    // Firestore can sometimes hang for 15s+ on initial connection. 
+    // This timer ensures the UI is released no matter what.
     const safetyTimer = setTimeout(() => {
-      if (isMounted.current) setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+      }
     }, 1500);
 
     const unsubscribe = onSnapshot(
@@ -72,15 +77,15 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
         if (isMounted.current) {
           setData(items);
           setLoading(false);
+          clearTimeout(safetyTimer); // Clear if network was fast
           
-          // Persist to cache for next visit
+          // Persist REAL database items to local storage
           if (internalCacheKey) {
             try {
               localStorage.setItem(internalCacheKey, JSON.stringify(items));
             } catch (e: any) {
-              // Handle quota exceeded by clearing old cache
               if (e.name === 'QuotaExceededError') {
-                localStorage.clear();
+                localStorage.clear(); // Emergency space management
               }
             }
           }
@@ -96,6 +101,7 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
         if (isMounted.current) {
           setError(serverError);
           setLoading(false);
+          clearTimeout(safetyTimer);
         }
       }
     );
