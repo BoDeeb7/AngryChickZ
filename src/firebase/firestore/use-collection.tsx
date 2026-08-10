@@ -33,10 +33,12 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
   };
 
   // 1. Initial State from Cache (0ms delay)
+  // We use the functional initializer to ensure this only runs once and happens synchronously.
   const [data, setData] = useState<T[]>(() => getCachedData());
   const [loading, setLoading] = useState(() => {
+    // If we have cached data, we don't need to show a blocking loader.
     const cached = getCachedData();
-    return cached.length === 0; // Only true if we have zero data locally
+    return cached.length === 0;
   });
   
   const [error, setError] = useState<Error | null>(null);
@@ -56,9 +58,8 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
       return;
     }
 
-    // 3. The 1.5s Safety Valve
-    // Firestore can sometimes hang for 15s+ on initial connection. 
-    // This timer ensures the UI is released no matter what.
+    // 3. The 1.5s Hard Sync Cap
+    // This timer ensures the UI is released no matter how long the Firestore network handshake takes.
     const safetyTimer = setTimeout(() => {
       if (isMounted.current) {
         setLoading(false);
