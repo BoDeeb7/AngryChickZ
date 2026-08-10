@@ -14,11 +14,11 @@ import { FirestorePermissionError } from '../errors';
 /**
  * useCollection Hook - Optimized for Instant UI Response
  * 
- * Performance Architecture:
- * 1. Synchronous Hydration: State initializes directly from localStorage (0ms wait).
+ * Architecture:
+ * 1. Synchronous Hydration: State initializes from localStorage (0ms perceived load).
  * 2. Stale-While-Revalidate: UI shows cached data immediately while fetching updates silently.
- * 3. Non-Resetting 1.5s Safety Cap: Forces loading to false after 1.5s to ensure UI interactivity.
- * 4. Silent Cache Refresh: Updates localStorage and UI only when database changes are detected.
+ * 3. Non-Resetting 1.5s Safety Cap: Forces loading to false after 1.5s to ensure interactivity.
+ * 4. Zero-Blocking Handshake: Does not wait for Firestore network handshake to show initial UI.
  */
 export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey?: string) {
   // 1. SYNCHRONOUS HYDRATION
@@ -38,7 +38,7 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
     return [];
   });
 
-  // Start with loading true ONLY if we have no cached data at all
+  // Loading is only true if we have no cached data at all
   const [loading, setLoading] = useState(() => data.length === 0);
   const [error, setError] = useState<Error | null>(null);
   const isMounted = useRef(true);
@@ -57,7 +57,6 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
     }, 1500);
 
     if (!query) {
-      // If DB is not ready, we still respect the safetyTimer to release empty UI
       return () => {
         isMounted.current = false;
         clearTimeout(safetyTimer);
@@ -79,13 +78,11 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
           setLoading(false);
           clearTimeout(safetyTimer);
 
-          // 4. SILENT CACHE REFRESH
+          // SILENT CACHE REFRESH
           if (cacheKey) {
             try {
               localStorage.setItem(cacheKey, JSON.stringify(items));
             } catch (e) {
-              // Handle full storage by purging old cache
-              console.warn('Storage quota exceeded, clearing cache');
               localStorage.removeItem(cacheKey);
             }
           }

@@ -10,9 +10,9 @@ import { useToast } from '@/hooks/use-toast';
 
 /**
  * ProductCard Component
- * 1. Optimized Image Rendering: Uses priority/lazy appropriately.
- * 2. Instant Action: Visual feedback on cart addition.
- * 3. Responsive Layout: Adapts to grid spacing without shifts.
+ * Optimized for immediate rendering:
+ * 1. Lazy loading for images ensures text/prices appear first.
+ * 2. Responsive sizes to prevent layout shifts.
  */
 export function ProductCard({ product }: { product: Product }) {
   const { addToCart, formatPrice } = useCart();
