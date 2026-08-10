@@ -6,13 +6,13 @@ import { collection, query, orderBy } from 'firebase/firestore';
 import { Product, Category } from '@/types/restaurant';
 import { ProductCard } from './ProductCard';
 import { cn } from '@/lib/utils';
-import { Loader2 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 /**
  * MenuGrid Component - Ultra-High Performance SWR
- * 1. Zero-Wait Mount: Hydrates instantly from local cache via useCollection.
- * 2. Strict Display Logic: Prioritizes rendering cached items over showing spinners.
- * 3. 2s Cap: Loading indicator only appears if cache is empty, and for max 1.5s.
+ * 1. Instant structure render.
+ * 2. 1-second pulse skeleton fallback for smooth perception.
+ * 3. 2s strict database cap.
  */
 export function MenuGrid() {
   const db = useFirestore();
@@ -31,9 +31,8 @@ export function MenuGrid() {
     return query(collection(db, 'categories'), orderBy('name', 'asc'));
   }, [db]);
 
-  // Using a stable cache key to ensure 0ms hydration from localStorage
-  const { data: cloudProducts = [], loading: productsLoading } = useCollection<Product>(productsQuery, 'main_menu_products');
-  const { data: cloudCategories = [] } = useCollection<Category>(categoriesQuery, 'main_menu_categories');
+  const { data: cloudProducts = [], loading: productsLoading } = useCollection<Product>(productsQuery);
+  const { data: cloudCategories = [] } = useCollection<Category>(categoriesQuery);
 
   const displayProducts = useMemo(() => {
     const availableItems = cloudProducts.filter(p => p.isAvailable !== false);
@@ -49,6 +48,7 @@ export function MenuGrid() {
   return (
     <section id="menu" className="py-16 md:py-32 relative w-full overflow-hidden bg-zinc-950 min-h-[50vh]">
       <div className="container mx-auto px-4 md:px-6 relative z-10 w-full">
+        {/* Instant Structural Header */}
         <div className="flex flex-col items-center text-center mb-12 md:mb-20 gap-8">
           <div className="space-y-3">
             <span className="text-primary font-bold uppercase tracking-[0.4em] text-[10px] block">Premium Selection</span>
@@ -79,23 +79,32 @@ export function MenuGrid() {
         </div>
 
         {/* 
-          INSTANT RENDER LOGIC:
-          - If we have items (from cache or live), show them immediately.
-          - If empty AND still loading, show a fast loader (max 1.5s).
-          - No "Item Not Found" UI to prevent premature empty states.
+          ITEM GRID RENDER LOGIC:
+          - If loading and no data, show skeletons.
+          - If data exists, show items immediately.
         */}
-        {displayProducts.length > 0 ? (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8 animate-in fade-in duration-500">
-            {displayProducts.map((product) => (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8 min-h-[400px]">
+          {productsLoading && displayProducts.length === 0 ? (
+            // Subtle Pulse Skeleton Grid
+            Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-3 md:p-4 space-y-4">
+                <Skeleton className="aspect-square w-full rounded-xl bg-zinc-800/50" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-3/4 bg-zinc-800/50" />
+                  <Skeleton className="h-3 w-full bg-zinc-800/50" />
+                  <div className="flex justify-between items-center pt-2">
+                    <Skeleton className="h-4 w-1/4 bg-zinc-800/50" />
+                    <Skeleton className="h-8 w-1/3 rounded-xl bg-zinc-800/50" />
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            displayProducts.map((product) => (
               <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        ) : productsLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-4 opacity-50">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Syncing Menu...</p>
-          </div>
-        ) : null}
+            ))
+          )}
+        </div>
       </div>
     </section>
   );

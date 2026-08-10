@@ -12,54 +12,28 @@ import { errorEmitter } from '../error-emitter';
 import { FirestorePermissionError } from '../errors';
 
 /**
- * useCollection Hook - Optimized for Instant UI (0s Delay)
- * 1. Synchronous Hydration: State initializes from localStorage during the first render.
- * 2. Instant Loading Release: If cache exists, 'loading' is false immediately.
- * 3. Hard Sync Cap: A 1.5s timeout ensures the UI never hangs waiting for Firestore.
+ * useCollection Hook - Optimized for Instant UI Response
+ * 1. Immediate Return: Returns current state instantly.
+ * 2. 1.5s Hard Cap: Forces 'loading' to false if the network is slow.
+ * 3. Non-Blocking: Does not wait for full synchronization to allow UI interaction.
  */
-export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey?: string) {
-  // Generate a stable cache key based on the query path
-  const internalCacheKey = cacheKey || (query ? 'fs_cache_' + (query as any)._query?.path?.segments?.join('_') : null);
-  
-  // Synchronous Cache Reader
-  const getCachedData = (): T[] => {
-    if (typeof window === 'undefined' || !internalCacheKey) return [];
-    try {
-      const cached = localStorage.getItem(internalCacheKey);
-      return cached ? JSON.parse(cached) : [];
-    } catch {
-      return [];
-    }
-  };
-
-  // 1. Initial State from Cache (0ms delay)
-  // We use the functional initializer to ensure this only runs once and happens synchronously.
-  const [data, setData] = useState<T[]>(() => getCachedData());
-  const [loading, setLoading] = useState(() => {
-    // If we have cached data, we don't need to show a blocking loader.
-    const cached = getCachedData();
-    return cached.length === 0;
-  });
-  
+export function useCollection<T = DocumentData>(query: Query<T> | null) {
+  const [data, setData] = useState<T[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const isMounted = useRef(true);
 
   useEffect(() => {
     isMounted.current = true;
 
-    // 2. Instant Release
-    // If we have data from cache, we are effectively not "loading" from the user's perspective
-    if (data.length > 0) {
-      setLoading(false);
-    }
-
     if (!query) {
       setLoading(false);
       return;
     }
 
-    // 3. The 1.5s Hard Sync Cap
-    // This timer ensures the UI is released no matter how long the Firestore network handshake takes.
+    // STRICT 1.5s LOADING CAP
+    // This ensures that even if Firestore is slow to connect/handshake,
+    // the UI is released and the skeletons/empty states are resolved.
     const safetyTimer = setTimeout(() => {
       if (isMounted.current) {
         setLoading(false);
@@ -78,18 +52,7 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
         if (isMounted.current) {
           setData(items);
           setLoading(false);
-          clearTimeout(safetyTimer); // Clear if network was fast
-          
-          // Persist REAL database items to local storage
-          if (internalCacheKey) {
-            try {
-              localStorage.setItem(internalCacheKey, JSON.stringify(items));
-            } catch (e: any) {
-              if (e.name === 'QuotaExceededError') {
-                localStorage.clear(); // Emergency space management
-              }
-            }
-          }
+          clearTimeout(safetyTimer);
         }
       },
       async (serverError: FirestoreError) => {
@@ -112,7 +75,7 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
       unsubscribe();
       clearTimeout(safetyTimer);
     };
-  }, [query, internalCacheKey]);
+  }, [query]);
 
   return { data, loading, error };
 }
