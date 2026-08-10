@@ -9,12 +9,7 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 
 /**
- * MenuGrid Component - Ultra-High Performance Hydration
- * 
- * Render Logic:
- * - Hydrates synchronously from visitor_menu_cache (0ms delay).
- * - If no cache exists, mandatory Skeletons render at Millisecond 0.
- * - Silent background synchronization refreshes UI only when data differs.
+ * MenuGrid Component - Ultra-High Performance Client Hydration
  */
 export function MenuGrid() {
   const db = useFirestore();
@@ -33,9 +28,9 @@ export function MenuGrid() {
     return query(collection(db, 'categories'), orderBy('name', 'asc'));
   }, [db]);
 
-  // Use persistent cache keys for instant load
-  const { data: cloudProducts = [], loading: productsLoading } = useCollection<Product>(productsQuery, 'visitor_menu_cache');
-  const { data: cloudCategories = [] } = useCollection<Category>(categoriesQuery, 'visitor_categories_cache');
+  // Hook uses the strict 'restaurant_menu_cache' key for 0ms hydration
+  const { data: cloudProducts = [], loading: productsLoading } = useCollection<Product>(productsQuery, 'restaurant_menu_cache');
+  const { data: cloudCategories = [] } = useCollection<Category>(categoriesQuery, 'restaurant_categories_cache');
 
   const displayProducts = useMemo(() => {
     const availableItems = cloudProducts.filter(p => p.isAvailable !== false);
@@ -50,8 +45,7 @@ export function MenuGrid() {
 
   return (
     <section id="menu" className="py-16 md:py-32 relative w-full overflow-hidden bg-zinc-950 min-h-[70vh]">
-      <div className="container mx-auto px-4 md:px-6 relative z-10 w-full">
-        {/* Header structure renders in <100ms */}
+      <div className="container mx-auto px-4 md:px-6 relative z-10 w-full" suppressHydrationWarning>
         <div className="flex flex-col items-center text-center mb-12 md:mb-20 gap-8">
           <div className="space-y-3">
             <span className="text-primary font-bold uppercase tracking-[0.4em] text-[10px] block">Premium Selection</span>
@@ -83,13 +77,13 @@ export function MenuGrid() {
 
         {/* 
           STRICT RENDER LOGIC:
-          - If productsLoading is true AND we have no data (even cached), show 8 Skeletons instantly.
-          - If data exists (cached), render cards immediately.
-          - Zero blank containers allowed.
+          1. If cache exists (displayProducts.length > 0), render immediately (0ms).
+          2. If NO cache exists AND loading is true, show exactly 4 Skeletons.
+          3. Never return a blank/black container.
         */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8">
           {productsLoading && displayProducts.length === 0 ? (
-            Array.from({ length: 8 }).map((_, i) => (
+            Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="bg-zinc-900/95 border border-zinc-800/50 rounded-2xl p-3 md:p-4 space-y-4">
                 <Skeleton className="aspect-square w-full rounded-xl bg-zinc-800/50" />
                 <div className="space-y-3">

@@ -12,27 +12,26 @@ import { errorEmitter } from '../error-emitter';
 import { FirestorePermissionError } from '../errors';
 
 /**
- * useCollection Hook - Optimized for Instant UI Response
+ * useCollection Hook - Optimized for 0ms Hydration
  * 
- * Architecture:
- * 1. Synchronous Hydration: State initializes from localStorage (0ms perceived load).
- * 2. Stale-While-Revalidate: UI shows cached data immediately while fetching updates silently.
- * 3. Non-Resetting 1.5s Safety Cap: Forces loading to false after 1.5s to ensure interactivity.
- * 4. Zero-Blocking Handshake: Does not wait for Firestore network handshake to show initial UI.
+ * Logic:
+ * 1. Initialize state synchronously from localStorage (0ms wait).
+ * 2. If cache exists, set loading to false immediately.
+ * 3. Perform silent background revalidation via onSnapshot.
+ * 4. Update cache and UI seamlessly when fresh data arrives.
  */
-export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey?: string) {
-  // 1. SYNCHRONOUS HYDRATION
-  // Initialize state during the very first render cycle from local cache
+export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey: string = 'restaurant_menu_cache') {
+  // 1. INSTANT HYDRATION FROM LOCAL STORAGE
   const [data, setData] = useState<T[]>(() => {
     if (typeof window !== 'undefined' && cacheKey) {
-      const saved = localStorage.getItem(cacheKey);
-      if (saved) {
-        try {
+      try {
+        const saved = localStorage.getItem(cacheKey);
+        if (saved) {
           const parsed = JSON.parse(saved);
           return Array.isArray(parsed) ? parsed : [];
-        } catch (e) {
-          return [];
         }
+      } catch (e) {
+        return [];
       }
     }
     return [];
@@ -42,32 +41,20 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
   const [loading, setLoading] = useState(() => data.length === 0);
   const [error, setError] = useState<Error | null>(null);
   const isMounted = useRef(true);
-  const resolvedRef = useRef(false);
 
   useEffect(() => {
     isMounted.current = true;
-    resolvedRef.current = false;
-
-    // 3. STRICT 1.5s LOADING CAP
-    // Protects against "Black Screens" by releasing the loading state if DB is slow
-    const safetyTimer = setTimeout(() => {
-      if (isMounted.current && !resolvedRef.current) {
-        setLoading(false);
-      }
-    }, 1500);
 
     if (!query) {
-      return () => {
-        isMounted.current = false;
-        clearTimeout(safetyTimer);
-      };
+      setLoading(false);
+      return;
     }
 
+    // 2. SILENT BACKGROUND REVALIDATION
     const unsubscribe = onSnapshot(
       query,
       { includeMetadataChanges: false },
       (snapshot: QuerySnapshot<T>) => {
-        resolvedRef.current = true;
         const items = snapshot.docs.map((doc) => ({
           ...doc.data(),
           id: doc.id,
@@ -76,20 +63,18 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
         if (isMounted.current) {
           setData(items);
           setLoading(false);
-          clearTimeout(safetyTimer);
 
-          // SILENT CACHE REFRESH
+          // Update cache silently for next visit
           if (cacheKey) {
             try {
               localStorage.setItem(cacheKey, JSON.stringify(items));
             } catch (e) {
-              localStorage.removeItem(cacheKey);
+              console.warn("Storage quota exceeded, cache not updated");
             }
           }
         }
       },
       async (serverError: FirestoreError) => {
-        resolvedRef.current = true;
         if (serverError.code === 'permission-denied') {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: 'collection',
@@ -99,7 +84,6 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
         if (isMounted.current) {
           setError(serverError);
           setLoading(false);
-          clearTimeout(safetyTimer);
         }
       }
     );
@@ -107,7 +91,6 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
     return () => {
       isMounted.current = false;
       unsubscribe();
-      clearTimeout(safetyTimer);
     };
   }, [query, cacheKey]);
 
