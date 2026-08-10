@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
@@ -63,10 +62,10 @@ export default function AdminContent() {
   const ordersQuery = useMemo(() => db ? query(collection(db, 'orders'), where('status', '==', 'pending'), orderBy('createdAt', 'desc')) : null, [db]);
   const storeSettingsRef = useMemo(() => db ? doc(db, 'settings', 'store') : null, [db]);
 
-  const { data: products = [] } = useCollection<Product>(productsQuery);
-  const { data: categories = [] } = useCollection<Category>(categoriesQuery);
-  const { data: reviews = [] } = useCollection<Review>(reviewsQuery);
-  const { data: orders = [] } = useCollection<Order>(ordersQuery);
+  const { data: products = [] } = useCollection<Product>(productsQuery, 'admin_products_cache');
+  const { data: categories = [] } = useCollection<Category>(categoriesQuery, 'admin_categories_cache');
+  const { data: reviews = [] } = useCollection<Review>(reviewsQuery, 'admin_reviews_cache');
+  const { data: orders = [] } = useCollection<Order>(ordersQuery, 'admin_orders_cache');
   const { data: storeSettings } = useDoc<StoreSettings>(storeSettingsRef);
 
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);

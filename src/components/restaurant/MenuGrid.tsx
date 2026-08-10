@@ -31,8 +31,9 @@ export function MenuGrid() {
     return query(collection(db, 'categories'), orderBy('name', 'asc'));
   }, [db]);
 
-  const { data: cloudProducts = [], loading: productsLoading } = useCollection<Product>(productsQuery);
-  const { data: cloudCategories = [] } = useCollection<Category>(categoriesQuery);
+  // Using a stable cache key to ensure 0ms hydration from localStorage
+  const { data: cloudProducts = [], loading: productsLoading } = useCollection<Product>(productsQuery, 'main_menu_products');
+  const { data: cloudCategories = [] } = useCollection<Category>(categoriesQuery, 'main_menu_categories');
 
   const displayProducts = useMemo(() => {
     const availableItems = cloudProducts.filter(p => p.isAvailable !== false);

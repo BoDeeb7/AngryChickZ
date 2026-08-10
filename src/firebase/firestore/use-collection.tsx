@@ -32,28 +32,37 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
     }
   };
 
-  const initialData = getCachedData();
-  const [data, setData] = useState<T[]>(initialData);
-  // If we have cached data, we are technically not "loading" the UI shell
-  const [loading, setLoading] = useState(initialData.length === 0);
+  // Synchronous State Initialization (0ms delay)
+  const [data, setData] = useState<T[]>(() => getCachedData());
+  const [loading, setLoading] = useState(() => {
+    const cached = getCachedData();
+    return cached.length === 0;
+  });
+  
   const [error, setError] = useState<Error | null>(null);
   const isMounted = useRef(true);
 
   useEffect(() => {
     isMounted.current = true;
-    if (!query) {
+    
+    // If we already have cached data, ensure loading is false immediately
+    if (data.length > 0) {
       setLoading(false);
+    }
+
+    if (!query) {
+      if (data.length === 0) setLoading(false);
       return;
     }
 
-    // Safety Timeout: Force release loading state after 1.5 seconds regardless of network
+    // Safety Timeout: Force release loading state after 1.5 seconds regardless of network status
     const safetyTimer = setTimeout(() => {
       if (isMounted.current) setLoading(false);
     }, 1500);
 
     const unsubscribe = onSnapshot(
       query,
-      { includeMetadataChanges: true },
+      { includeMetadataChanges: false },
       (snapshot: QuerySnapshot<T>) => {
         const items = snapshot.docs.map((doc) => ({
           ...doc.data(),
@@ -64,11 +73,12 @@ export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey
           setData(items);
           setLoading(false);
           
-          // Update persistence silently
+          // Persist to cache for next visit
           if (internalCacheKey) {
             try {
               localStorage.setItem(internalCacheKey, JSON.stringify(items));
             } catch (e: any) {
+              // Handle quota exceeded by clearing old cache
               if (e.name === 'QuotaExceededError') {
                 localStorage.clear();
               }
