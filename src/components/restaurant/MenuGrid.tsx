@@ -11,8 +11,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 /**
  * MenuGrid Component - Ultra-High Performance SWR
  * 1. Instant structure render.
- * 2. 1-second pulse skeleton fallback for smooth perception.
- * 3. 2s strict database cap.
+ * 2. Immediate cache hydration via useCollection.
+ * 3. Skeleton fallback ONLY if there is zero cached data.
  */
 export function MenuGrid() {
   const db = useFirestore();
@@ -31,8 +31,9 @@ export function MenuGrid() {
     return query(collection(db, 'categories'), orderBy('name', 'asc'));
   }, [db]);
 
-  const { data: cloudProducts = [], loading: productsLoading } = useCollection<Product>(productsQuery);
-  const { data: cloudCategories = [] } = useCollection<Category>(categoriesQuery);
+  // Use persistent cache keys for instant load
+  const { data: cloudProducts = [], loading: productsLoading } = useCollection<Product>(productsQuery, 'visitor_menu_cache');
+  const { data: cloudCategories = [] } = useCollection<Category>(categoriesQuery, 'visitor_categories_cache');
 
   const displayProducts = useMemo(() => {
     const availableItems = cloudProducts.filter(p => p.isAvailable !== false);
@@ -80,12 +81,12 @@ export function MenuGrid() {
 
         {/* 
           ITEM GRID RENDER LOGIC:
-          - If loading and no data, show skeletons.
-          - If data exists, show items immediately.
+          - If loading and no data (not even cached), show skeletons.
+          - If data exists (even if loading live updates), show items immediately.
         */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8 min-h-[400px]">
           {productsLoading && displayProducts.length === 0 ? (
-            // Subtle Pulse Skeleton Grid
+            // Aggressive Skeleton Pulse Grid
             Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-3 md:p-4 space-y-4">
                 <Skeleton className="aspect-square w-full rounded-xl bg-zinc-800/50" />
@@ -101,7 +102,9 @@ export function MenuGrid() {
             ))
           ) : (
             displayProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
+              <div key={product.id} className="animate-in fade-in duration-500">
+                <ProductCard product={product} />
+              </div>
             ))
           )}
         </div>

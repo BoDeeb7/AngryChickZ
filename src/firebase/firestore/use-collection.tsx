@@ -13,13 +13,29 @@ import { FirestorePermissionError } from '../errors';
 
 /**
  * useCollection Hook - Optimized for Instant UI Response
- * 1. Immediate Return: Returns current state instantly.
- * 2. 1.5s Hard Cap: Forces 'loading' to false if the network is slow.
- * 3. Non-Blocking: Does not wait for full synchronization to allow UI interaction.
+ * 1. Synchronous Hydration: Reads from localStorage during initial state setup (0ms).
+ * 2. Stale-While-Revalidate: Renders cached data immediately while fetching live updates in background.
+ * 3. Strict 1.5s Loading Cap: Forces 'loading' to false if the network is slow, releasing the UI.
  */
-export function useCollection<T = DocumentData>(query: Query<T> | null) {
-  const [data, setData] = useState<T[]>([]);
-  const [loading, setLoading] = useState(true);
+export function useCollection<T = DocumentData>(query: Query<T> | null, cacheKey?: string) {
+  // 1. SYNCHRONOUS HYDRATION
+  // Initialize state directly from localStorage if cacheKey is provided
+  const [data, setData] = useState<T[]>(() => {
+    if (typeof window !== 'undefined' && cacheKey) {
+      const saved = localStorage.getItem(cacheKey);
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          return [];
+        }
+      }
+    }
+    return [];
+  });
+
+  // Only show loading if we have NO data at all
+  const [loading, setLoading] = useState(() => data.length === 0);
   const [error, setError] = useState<Error | null>(null);
   const isMounted = useRef(true);
 
@@ -31,9 +47,8 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
       return;
     }
 
-    // STRICT 1.5s LOADING CAP
-    // This ensures that even if Firestore is slow to connect/handshake,
-    // the UI is released and the skeletons/empty states are resolved.
+    // 2. STRICT 1.5s LOADING CAP
+    // Ensures the UI is never stuck on a black screen or spinner
     const safetyTimer = setTimeout(() => {
       if (isMounted.current) {
         setLoading(false);
@@ -53,6 +68,17 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
           setData(items);
           setLoading(false);
           clearTimeout(safetyTimer);
+
+          // Persist REAL data to cache for instant load next time
+          if (cacheKey) {
+            try {
+              localStorage.setItem(cacheKey, JSON.stringify(items));
+            } catch (e) {
+              // Handle QuotaExceededError by clearing old data
+              console.warn('Storage quota exceeded, clearing cache');
+              localStorage.removeItem(cacheKey);
+            }
+          }
         }
       },
       async (serverError: FirestoreError) => {
@@ -75,7 +101,7 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
       unsubscribe();
       clearTimeout(safetyTimer);
     };
-  }, [query]);
+  }, [query, cacheKey]);
 
   return { data, loading, error };
 }
