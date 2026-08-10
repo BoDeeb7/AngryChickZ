@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -6,13 +7,13 @@ import { collection, query, orderBy } from 'firebase/firestore';
 import { Product, Category } from '@/types/restaurant';
 import { ProductCard } from './ProductCard';
 import { cn } from '@/lib/utils';
-import { MOCK_PRODUCTS } from '@/lib/mock-data';
+import { Loader2 } from 'lucide-react';
 
 /**
- * MenuGrid Component - Zero-Latency Hydration
- * 1. Instant Render: Uses bundled mock data fallback for immediate first-paint.
- * 2. Silent Sync: Swaps mocks for live cloud data in the background with no spinners.
- * 3. 0-Second Delay: Returning users see their cached menu instantly via useCollection.
+ * MenuGrid Component - Strict Real-Data Instant Hydration
+ * 1. ZERO MOCK DATA: Relies exclusively on Firestore data.
+ * 2. Instant Render: Hydrates from localStorage cache synchronously (0-sec delay).
+ * 3. Silent Revalidation: Updates real data in background without spinners for returning users.
  */
 export function MenuGrid() {
   const db = useFirestore();
@@ -31,39 +32,19 @@ export function MenuGrid() {
     return query(collection(db, 'categories'), orderBy('name', 'asc'));
   }, [db]);
 
-  // Hydrates instantly from local cache
-  const { data: cloudProducts = [] } = useCollection<Product>(productsQuery);
+  // Hydrates instantly from local cache (Synchronous in useCollection)
+  const { data: cloudProducts = [], loading } = useCollection<Product>(productsQuery);
   const { data: cloudCategories = [] } = useCollection<Category>(categoriesQuery);
 
-  // Static Fallback Hydration: Use Mocks if cache/cloud is not yet ready
   const displayProducts = useMemo(() => {
-    // If we have any cloud or cached data, prioritize it 100%
-    if (cloudProducts.length > 0) {
-      const availableItems = cloudProducts.filter(p => p.isAvailable !== false);
-      if (activeCategory === 'all') return availableItems;
-      return availableItems.filter(p => p.category === activeCategory);
-    }
-
-    // Otherwise, render bundled signature dishes to ensure ZERO loading state
-    const mocks = MOCK_PRODUCTS.map((p, idx) => ({ ...p, id: `mock-${idx}` } as Product));
-    if (activeCategory === 'all') return mocks;
-    return mocks.filter(p => p.category === activeCategory);
+    const availableItems = cloudProducts.filter(p => p.isAvailable !== false);
+    if (activeCategory === 'all') return availableItems;
+    return availableItems.filter(p => p.category === activeCategory);
   }, [cloudProducts, activeCategory]);
 
   const displayCategories = useMemo(() => {
     const base = [{ id: 'all', name: 'All Dishes', slug: 'all' }];
-    
-    if (cloudCategories.length > 0) {
-      return [...base, ...cloudCategories];
-    }
-    
-    // Fallback categories from mock products
-    const uniqueCats = Array.from(new Set(MOCK_PRODUCTS.map(p => p.category)));
-    return [...base, ...uniqueCats.map(cat => ({ 
-      id: cat, 
-      name: cat.charAt(0).toUpperCase() + cat.slice(1), 
-      slug: cat 
-    }))];
+    return [...base, ...cloudCategories];
   }, [cloudCategories]);
 
   return (
@@ -99,15 +80,28 @@ export function MenuGrid() {
         </div>
 
         {/* 
-          ZERO LOADING STATE UI:
-          The grid always renders either Mocks, Cache, or Live Cloud data.
-          Background sync happens silently via useCollection.
+          STRICT REAL-DATA RENDER:
+          If cache exists, it renders INSTANTLY.
+          If no cache and still loading, show a skeleton-like loader.
         */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8 animate-in fade-in duration-500">
-          {displayProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+        {loading && displayProducts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 animate-pulse">
+            <Loader2 className="h-10 w-10 text-primary animate-spin mb-4" />
+            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Preparing Fresh Menu...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8 animate-in fade-in duration-500">
+            {displayProducts.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        )}
+
+        {!loading && displayProducts.length === 0 && (
+          <div className="text-center py-20 bg-zinc-900/50 rounded-[2rem] border border-zinc-800/50">
+            <p className="text-zinc-500 font-bold uppercase italic text-xs">No active items found in database.</p>
+          </div>
+        )}
       </div>
     </section>
   );
