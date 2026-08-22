@@ -47,7 +47,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
 
     setIsLocating(true);
 
-    // Attempt to get GPS Location
+    // Attempt to get GPS Location for delivery
     let gpsLink = '';
     if (typeof window !== 'undefined' && 'geolocation' in navigator) {
       try {
@@ -89,16 +89,17 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
       `• *${item.quantity}x ${item.name}* - *${formatPrice(item.price * item.quantity, item.currency)}*\n`
     )).join('');
 
+    // Building the WhatsApp message with clear Total and GPS Link
     const formattedMessage = 
       `🍗 *NEW ORDER: ANGRY CHICKZ* 🍗\n\n` +
-      `👤 *Name:* ${details.customerName}\n` +
-      `📞 *Phone:* ${details.phoneNumber}\n` +
-      `📍 *Address:* ${details.address}\n` +
-      (gpsLink ? `📍 *الموقع المباشر (GPS):* ${gpsLink}\n` : '') +
+      `👤 *الاسم:* ${details.customerName}\n` +
+      `📞 *رقم الهاتف:* ${details.phoneNumber}\n` +
+      `📍 *العنوان:* ${details.address}\n` +
+      (gpsLink ? `📍 *رابط الموقع المباشر (GPS):* ${gpsLink}\n` : '') +
       `💰 *المجموع النهائي للفاتورة:* *${formatPrice(totalAmount, cart[0]?.currency)}*\n\n` +
-      `*Order Details:*\n${orderItems}\n` +
-      (orderInstructions ? `📝 *Notes:* ${orderInstructions}\n\n` : '') +
-      `🚀 Thank you for ordering from Angry ChickZ!`;
+      `*تفاصيل الطلب:*\n${orderItems}\n` +
+      (orderInstructions ? `📝 *ملاحظات:* ${orderInstructions}\n\n` : '') +
+      `🚀 شكراً لطلبكم من Angry ChickZ!`;
 
     const rawNumber = (storeSettings?.whatsappNumber || '96170105152').replace(/\D/g, '');
     const whatsappUrl = `https://wa.me/${rawNumber}?text=${encodeURIComponent(formattedMessage)}`;
@@ -129,11 +130,11 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
                   <X className="h-5 w-5 text-primary" />
                 </button>
               )}
-              {step === 'review' ? 'My Basket' : 'Delivery Details'}
+              {step === 'review' ? 'سلة الطلبات' : 'تفاصيل التوصيل'}
             </div>
             <div className="flex items-center gap-2">
                <span className="text-[9px] font-black bg-primary text-white px-3 py-1 rounded-full shadow-md">
-                 {itemCount} items
+                 {itemCount} أصناف
                </span>
             </div>
           </SheetTitle>
@@ -143,9 +144,9 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
           {cart.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center opacity-40">
               <ShoppingBag className="h-16 w-16 mb-4 stroke-1 text-primary" />
-              <p className="text-lg font-black uppercase italic">Basket is Empty</p>
+              <p className="text-lg font-black uppercase italic">السلة فارغة</p>
               <Button onClick={onClose} variant="outline" className="mt-4 rounded-xl border-primary/40 text-primary font-black uppercase italic text-xs">
-                Back to Menu
+                العودة للقائمة
               </Button>
             </div>
           ) : (
@@ -153,13 +154,13 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
               {step === 'review' ? (
                 <>
                   <div className="flex justify-between items-center">
-                    <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-foreground/40">Review Items</h3>
+                    <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-foreground/40">مراجعة الأصناف</h3>
                     <div className="flex gap-2">
                       <Button variant="ghost" size="sm" onClick={onClose} className="h-7 text-[9px] font-black uppercase tracking-widest text-zinc-500 hover:bg-zinc-500/5 gap-1.5">
-                        <ArrowLeft className="h-3 w-3" /> Continue Shopping
+                        <ArrowLeft className="h-3 w-3" /> متابعة التسوق
                       </Button>
                       <Button variant="ghost" size="sm" onClick={clearCart} className="h-7 text-[9px] font-black uppercase tracking-widest text-primary hover:bg-primary/5 gap-1.5">
-                        <Eraser className="h-3 w-3" /> Clear All
+                        <Eraser className="h-3 w-3" /> مسح الكل
                       </Button>
                     </div>
                   </div>
@@ -192,10 +193,10 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
 
                   <div className="space-y-2">
                     <Label className="text-[9px] font-black text-foreground/40 uppercase tracking-widest mb-1.5 block">
-                      Extra Notes (Optional)
+                      ملاحظات إضافية (اختياري)
                     </Label>
                     <Textarea 
-                      placeholder="Any special kitchen instructions?" 
+                      placeholder="أي تعليمات خاصة للمطبخ؟" 
                       value={orderInstructions}
                       onChange={(e) => setOrderInstructions(e.target.value)}
                       className="bg-foreground/[0.03] border-amber-500/10 rounded-xl min-h-[80px] text-xs font-bold"
@@ -207,11 +208,11 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
                   <div className="grid gap-4">
                     <div className="space-y-1.5">
                       <Label className="text-[9px] font-black text-foreground/40 uppercase tracking-widest flex items-center gap-1.5">
-                        <User className="h-3 w-3" /> Full Name *
+                        <User className="h-3 w-3" /> الاسم الكامل *
                       </Label>
                       <Input 
                         className="rounded-xl h-12 bg-foreground/[0.03] border-amber-500/10 font-bold text-xs" 
-                        placeholder="Enter your name" 
+                        placeholder="أدخل اسمك" 
                         value={details.customerName} 
                         onChange={e => setDetails(d => ({ ...d, customerName: e.target.value }))} 
                       />
@@ -219,11 +220,11 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
 
                     <div className="space-y-1.5">
                       <Label className="text-[9px] font-black text-foreground/40 uppercase tracking-widest flex items-center gap-1.5">
-                        <Phone className="h-3 w-3" /> Phone Number (WhatsApp) *
+                        <Phone className="h-3 w-3" /> رقم الهاتف (واتساب) *
                       </Label>
                       <Input 
                         className="rounded-xl h-12 bg-foreground/[0.03] border-amber-500/10 font-bold text-xs" 
-                        placeholder="Your phone number" 
+                        placeholder="رقم هاتفك للتواصل" 
                         value={details.phoneNumber} 
                         onChange={e => setDetails(d => ({ ...d, phoneNumber: e.target.value }))} 
                       />
@@ -231,11 +232,11 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
 
                     <div className="space-y-1.5">
                       <Label className="text-[9px] font-black text-foreground/40 uppercase tracking-widest flex items-center gap-1.5">
-                        <MapPin className="h-3 w-3" /> Detailed Delivery Address *
+                        <MapPin className="h-3 w-3" /> عنوان التوصيل بالتفصيل *
                       </Label>
                       <Textarea 
                         className="rounded-xl bg-foreground/[0.03] border-amber-500/10 font-bold text-xs min-h-[100px]" 
-                        placeholder="Region, Street, Building, Floor..." 
+                        placeholder="المنطقة، الشارع، البناية، الطابق..." 
                         value={details.address} 
                         onChange={e => setDetails(d => ({ ...d, address: e.target.value }))} 
                       />
@@ -254,7 +255,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
                 onClick={handleNextStep}
                 className="w-full h-14 bg-primary hover:bg-primary/90 text-white rounded-xl text-base font-black uppercase italic shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
               >
-                Continue to Address <ArrowRight className="h-5 w-5" />
+                المتابعة للعنوان <ArrowRight className="h-5 w-5" />
               </Button>
             ) : (
               <Button 
@@ -264,11 +265,11 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
               >
                 {isLocating ? (
                   <span className="flex items-center gap-2">
-                    <Loader2 className="h-5 w-5 animate-spin" /> Fetching GPS...
+                    <Loader2 className="h-5 w-5 animate-spin" /> جاري تحديد موقعك...
                   </span>
                 ) : (
                   <>
-                    <MessageCircle className="h-5 w-5" /> Order via WhatsApp
+                    <MessageCircle className="h-5 w-5" /> إرسال الطلب عبر الواتساب
                   </>
                 )}
               </Button>
