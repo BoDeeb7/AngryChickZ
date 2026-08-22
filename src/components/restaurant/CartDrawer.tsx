@@ -64,12 +64,14 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
       }
     }
 
+    const totalAmount = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
     const orderData = {
       customerName: details.customerName,
       phoneNumber: details.phoneNumber,
       address: details.address,
       items: cart,
-      totalAmount: cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
+      totalAmount: totalAmount,
       status: 'pending',
       createdAt: serverTimestamp(),
       notes: orderInstructions,
@@ -90,10 +92,11 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
 
     const formattedMessage = 
       `🍗 *NEW ORDER: ANGRY CHICKZ* 🍗\n\n` +
-      `👤 Name: ${details.customerName}\n` +
-      `📞 Phone: ${details.phoneNumber}\n` +
-      `📍 Address: ${details.address}\n` +
-      (gpsLink ? `📍 GPS Location: ${gpsLink}\n\n` : `\n`) +
+      `👤 *Name:* ${details.customerName}\n` +
+      `📞 *Phone:* ${details.phoneNumber}\n` +
+      `📍 *Address:* ${details.address}\n` +
+      (gpsLink ? `📍 *GPS Location:* ${gpsLink}\n` : '') +
+      `💰 *Total Amount:* *${formatPrice(totalAmount, cart[0]?.currency)}*\n\n` +
       `*Order Details:*\n${orderItems}\n` +
       (orderInstructions ? `📝 *Notes:* ${orderInstructions}\n\n` : '') +
       `🚀 Thank you for ordering from Angry ChickZ!`;
