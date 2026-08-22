@@ -94,8 +94,8 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
       `👤 *Name:* ${details.customerName}\n` +
       `📞 *Phone:* ${details.phoneNumber}\n` +
       `📍 *Address:* ${details.address}\n` +
-      (gpsLink ? `📍 *GPS Location:* ${gpsLink}\n` : '') +
-      `💰 *Total / المجموع الكلي:* *${formatPrice(totalAmount, cart[0]?.currency)}*\n\n` +
+      (gpsLink ? `📍 *الموقع المباشر (GPS):* ${gpsLink}\n` : '') +
+      `💰 *المجموع النهائي للفاتورة:* *${formatPrice(totalAmount, cart[0]?.currency)}*\n\n` +
       `*Order Details:*\n${orderItems}\n` +
       (orderInstructions ? `📝 *Notes:* ${orderInstructions}\n\n` : '') +
       `🚀 Thank you for ordering from Angry ChickZ!`;
