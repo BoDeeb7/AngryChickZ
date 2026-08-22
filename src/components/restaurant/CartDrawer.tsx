@@ -1,8 +1,7 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Minus, Plus, ShoppingBag, Trash2, MapPin, User, Phone, Eraser, MessageCircle, ArrowRight, ArrowLeft, X } from 'lucide-react';
+import { Minus, Plus, ShoppingBag, Trash2, MapPin, User, Phone, Eraser, MessageCircle, ArrowRight, ArrowLeft, X, Loader2 } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -96,7 +95,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
       `📞 *Phone:* ${details.phoneNumber}\n` +
       `📍 *Address:* ${details.address}\n` +
       (gpsLink ? `📍 *GPS Location:* ${gpsLink}\n` : '') +
-      `💰 *Total Amount:* *${formatPrice(totalAmount, cart[0]?.currency)}*\n\n` +
+      `💰 *Total / المجموع الكلي:* *${formatPrice(totalAmount, cart[0]?.currency)}*\n\n` +
       `*Order Details:*\n${orderItems}\n` +
       (orderInstructions ? `📝 *Notes:* ${orderInstructions}\n\n` : '') +
       `🚀 Thank you for ordering from Angry ChickZ!`;
@@ -265,7 +264,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () =
               >
                 {isLocating ? (
                   <span className="flex items-center gap-2">
-                    <X className="h-5 w-5 animate-spin" /> Fetching GPS...
+                    <Loader2 className="h-5 w-5 animate-spin" /> Fetching GPS...
                   </span>
                 ) : (
                   <>
